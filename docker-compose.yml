@@ -1,0 +1,31 @@
+services:
+  mysql:
+    image: mysql:8.0
+
+    # 컨테이너 이름 고정 (같은 이름 있으면 충돌)
+    container_name: homefinmate-mysql
+
+    environment:
+      # 비밀번호는 .env에서만 가져올 수 있도록 처리 (기본값 없음)
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD를 .env에 설정하세요}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-homefinmate}
+      MYSQL_USER: ${MYSQL_USER:-hfmuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD를 .env에 설정하세요}
+
+    # 호스트 3310 => 컨테이너 3306 (포트 충돌 방지)
+    ports:
+      - "3310:3306"
+
+    # DB 데이터 영구 저장
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    # MySQL 준비 상태 확인 (10초마다 확인, 5번 실패하면 unhealthy)
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql_data:
