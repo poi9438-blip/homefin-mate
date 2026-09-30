@@ -22,7 +22,7 @@ spring:
     # 현재는 기존 Docker Compose 설정과의 호환을 위해 둘 다 지원
     password: ${DB_PASSWORD:${MYSQL_PASSWORD}}
 
-    driver-class-name: com.mysql.cj.jdbc.driver
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
     hikari:
       connection-timeout: 10000
