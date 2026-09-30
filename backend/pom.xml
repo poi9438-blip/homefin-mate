@@ -35,6 +35,23 @@
         </dependency>
 
         <!--
+        JPA(Hibernate)와 Spring Data JPA
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!--
+        MySQL 드라이버 (runtime: 실행 시에만 필요, JPA가 알아서 드라이버를 부름)
+        -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
         반복 코드 자동 생성
         -->
         <dependency>
