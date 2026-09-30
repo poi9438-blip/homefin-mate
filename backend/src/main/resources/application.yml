@@ -43,3 +43,24 @@ spring:
 server:
   # 기본 서버 포트 8100
   port: ${SERVER_PORT:8100}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 웹으로는 health만 공개 (env, beans 등 내부 정보 노출 방지)
+        include: health
+  endpoint:
+    health:
+      # 상태 세부 정보 숨김
+      show-details: never
+
+logging:
+  level:
+    # com.homefinmate만 DEBUG, 나머지는 INFO(기본)
+    com.homefinmate: DEBUG
+    # 이후 사용 예정 (Spring Security 로그 레벨)
+    org.springframework.security: INFO
+  pattern:
+    # 로그 형식: 시간 [스레드] [traceId] 레벨 클래스 - 메시지
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [traceId=%X{traceId}] %-5level %logger{36} - %msg%n"

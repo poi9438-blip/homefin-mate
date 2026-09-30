@@ -43,6 +43,14 @@
         </dependency>
 
         <!--
+        헬스체크 등 운영 모니터링 엔드포인트
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!--
         MySQL 드라이버 (runtime: 실행 시에만 필요, JPA가 알아서 드라이버를 부름)
         -->
         <dependency>
