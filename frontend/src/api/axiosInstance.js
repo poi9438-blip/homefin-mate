@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getToken } from "../utils/auth";
+import { getToken, removeToken } from "../utils/auth";
 import { generateTraceId } from "../utils/traceId";
 
 // 공통 axios 설정
@@ -27,10 +27,9 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      import("../utils/auth").then(({ removeToken }) => {
-        removeToken();
-        window.location.href = "/login";
-      });
+      removeToken();
+      // 컴포넌트 밖이라 useNavigate 대신 페이지 이동 (상태 초기화 효과)
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   },
