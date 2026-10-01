@@ -1,0 +1,76 @@
+# 백엔드 설정 (비밀값은 환경변수/.env에서 주입)
+
+spring:
+  application:
+    name: homefinmate-backend
+
+  # 로컬 실행 시 저장소 루트의 .env를 설정으로 불러옴 (없으면 무시)
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  datasource:
+    # TODO: alpha / production으로 환경 분리할 것
+    # Docker 안에서는 DB_URL로 덮어씀, DB 시간 기준을 UTC로
+    url: ${DB_URL:jdbc:mysql://localhost:3310/homefinmate?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+
+    # DB 사용자 (기본값을 docker-compose의 MYSQL_USER와 동일하게)
+    username: ${DB_USERNAME:hfmuser}
+
+    # TODO: DB_PASSWORD, MYSQL_PASSWORD 환경변수명을 하나로 통일할 것
+    # 현재는 기존 Docker Compose 설정과의 호환을 위해 둘 다 지원
+    password: ${DB_PASSWORD:${MYSQL_PASSWORD}}
+
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+    hikari:
+      connection-timeout: 10000
+      socket-timeout: 10000
+
+  jpa:
+    hibernate:
+      # TODO: 프로덕션에서는 validate/none로 수정할 것
+      # update: 엔티티 기준으로 테이블 자동 생성/추가
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        # TODO: 최신 Hibernate에서는 자동 감지 가능하다고 함 - 이후 삭제 예정
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+server:
+  # 기본 서버 포트 8100
+  port: ${SERVER_PORT:8100}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # 웹으로는 health만 공개 (env, beans 등 내부 정보 노출 방지)
+        include: health
+  endpoint:
+    health:
+      # 상태 세부 정보 숨김
+      show-details: never
+
+springdoc:
+  api-docs:
+    # API 명세 JSON 주소
+    path: /api-docs
+  swagger-ui:
+    # Swagger UI 주소
+    path: /swagger-ui.html
+    # HTTP 메서드 순으로 정렬
+    operationsSorter: method
+
+logging:
+  level:
+    # com.homefinmate만 DEBUG, 나머지는 INFO(기본)
+    com.homefinmate: DEBUG
+    # 이후 사용 예정 (Spring Security 로그 레벨)
+    org.springframework.security: INFO
+  pattern:
+    # 로그 형식: 시간 [스레드] [traceId] 레벨 클래스 - 메시지
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [traceId=%X{traceId}] %-5level %logger{36} - %msg%n"
