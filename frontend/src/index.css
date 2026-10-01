@@ -1,0 +1,13 @@
+/*
+Tailwind 기본 스타일, 컴포넌트, 유틸리티 클래스 불러오기
+*/
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+큰 글씨 모드: html 기준 글자 크기를 120%로 (rem 단위 전체가 함께 커짐)
+*/
+html.large-text {
+  font-size: 120%;
+}
