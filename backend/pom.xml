@@ -43,6 +43,15 @@
         </dependency>
 
         <!--
+        API 문서 자동 생성 (Swagger UI)
+        -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.3.0</version>
+        </dependency>
+
+        <!--
         헬스체크 등 운영 모니터링 엔드포인트
         -->
         <dependency>

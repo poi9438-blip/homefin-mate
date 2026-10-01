@@ -55,6 +55,16 @@ management:
       # 상태 세부 정보 숨김
       show-details: never
 
+springdoc:
+  api-docs:
+    # API 명세 JSON 주소
+    path: /api-docs
+  swagger-ui:
+    # Swagger UI 주소
+    path: /swagger-ui.html
+    # HTTP 메서드 순으로 정렬
+    operationsSorter: method
+
 logging:
   level:
     # com.homefinmate만 DEBUG, 나머지는 INFO(기본)
