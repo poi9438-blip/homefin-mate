@@ -3,14 +3,17 @@ package com.homefinmate.config;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.io.IOException;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,6 +35,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/checked")
         String checked() throws IOException {
             throw new IOException("disk read failed");
+        }
+
+        @GetMapping("/test/no-resource")
+        String noResource() throws NoResourceFoundException {
+            throw new NoResourceFoundException(HttpMethod.GET, "nothing");
         }
     }
 
@@ -61,6 +69,22 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/test/sql-like"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("insert into loan_simulations")));
+    }
+
+    @Test
+    @DisplayName("없는 주소(NoResourceFoundException)")
+    void noResource_returns404() throws Exception {
+        mockMvc.perform(get("/test/no-resource"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().json("{\"status\":\"ERROR\",\"message\":\"Not Found\"}", true));
+    }
+
+    @Test
+    @DisplayName("지원하지 않는 메서드(HttpRequestMethodNotSupportedException)")
+    void wrongMethod_returns405() throws Exception {
+        mockMvc.perform(post("/test/runtime"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(content().json("{\"status\":\"ERROR\",\"message\":\"Method Not Allowed\"}", true));
     }
 
     @Test
