@@ -1,10 +1,29 @@
 import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Layout from './components/Layout'
+import LoginPage from './pages/LoginPage'
+import SignupPage from './pages/SignupPage'
+import DashboardPage from './pages/DashboardPage'
+import LoanPage from './pages/LoanPage'
+import PolicyPage from './pages/PolicyPage'
+import ReportPage from './pages/ReportPage'
+import AdminPage from './pages/AdminPage'
 
 export default function App() {
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold text-primary-600">HomeFin Mate</h1>
-      <p className="mt-2 text-gray-500">프론트엔드</p>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="loan" element={<LoanPage />} />
+          <Route path="policy" element={<PolicyPage />} />
+          <Route path="report" element={<ReportPage />} />
+          <Route path="admin" element={<AdminPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }
