@@ -51,6 +51,14 @@
         </dependency>
 
         <!--
+        입력값 검증 (@Valid, @NotBlank 등)
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
         API 문서 자동 생성 (Swagger UI)
         -->
         <dependency>
