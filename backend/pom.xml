@@ -43,6 +43,14 @@
         </dependency>
 
         <!--
+        인증/인가
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!--
         API 문서 자동 생성 (Swagger UI)
         -->
         <dependency>
