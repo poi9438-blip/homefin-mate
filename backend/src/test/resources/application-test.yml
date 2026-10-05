@@ -1,0 +1,23 @@
+# 테스트 설정: MySQL 대신 H2 메모리 DB 사용
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:hfmtest;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    # application.yml의 MySQLDialect를 H2Dialect로 덮어쓰기 (같은 키여야 덮어써짐)
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+    hibernate:
+      # create-drop : 시작할 때 테이블 만들고 끝날 때 지움
+      ddl-auto: create-drop
+    show-sql: false
+
+# 테스트용 암호화 키
+app:
+  encryption:
+    key: HomeFin-AES-256-Key-Test-Padded!

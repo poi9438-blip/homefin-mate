@@ -44,6 +44,11 @@ server:
   # 기본 서버 포트 8100
   port: ${SERVER_PORT:8100}
 
+app:
+  encryption:
+    # 소득 암호화 키 (.env의 ENCRYPTION_KEY)
+    key: ${ENCRYPTION_KEY}
+
 management:
   endpoints:
     web:
