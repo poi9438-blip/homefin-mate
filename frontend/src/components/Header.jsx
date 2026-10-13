@@ -1,4 +1,6 @@
 import React from 'react'
+import ThemeToggle from './ThemeToggle'
+import LargeTextToggle from './LargeTextToggle'
 import { removeToken } from '../utils/auth'
 import { useNavigate } from 'react-router-dom'
 
@@ -18,6 +20,9 @@ export default function Header() {
         <span className="text-xl font-bold text-primary-600 dark:text-primary-400">HomeFin Mate</span>
       </div>
       <div className="flex items-center gap-4">
+        {/* 큰 글씨, 테마 전환 버튼 */}
+        <LargeTextToggle />
+        <ThemeToggle />
         <button
           onClick={handleLogout}
           className="text-sm text-gray-600 dark:text-gray-300 hover:text-red-500 transition-colors"
