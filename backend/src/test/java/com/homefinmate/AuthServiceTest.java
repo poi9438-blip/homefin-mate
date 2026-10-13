@@ -10,6 +10,7 @@ import com.homefinmate.repository.LoginFailureLogRepository;
 import com.homefinmate.repository.UserRepository;
 import com.homefinmate.security.JwtUtil;
 import com.homefinmate.security.Role;
+import com.homefinmate.service.AuditService;
 import com.homefinmate.service.AuthService;
 import com.homefinmate.util.EncryptionUtil;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,9 @@ class AuthServiceTest {
     JwtUtil jwtUtil;
     @Mock
     EncryptionUtil encryptionUtil;
+    // 감사 기록 서비스 (가짜)
+    @Mock
+    AuditService auditService;
     @InjectMocks
     AuthService authService;
 
@@ -102,9 +106,9 @@ class AuthServiceTest {
         verify(encryptionUtil, never()).encrypt(anyString());
     }
 
-    // 로그인 성공: 토큰/이메일/역할 반환, 실패 기록 없음
+    // 로그인 성공: 토큰/이메일/역할 반환, 감사 기록 저장, 실패 기록 없음
     @Test
-    void login_validCredentials_returnsToken() {
+    void login_validCredentials_returnsTokenAndLogsAudit() {
         LoginRequest req = new LoginRequest();
         req.setEmail("user@test.com");
         req.setPassword("password123");
@@ -121,6 +125,7 @@ class AuthServiceTest {
         assertThat(response.getToken()).isEqualTo("jwt-token");
         assertThat(response.getEmail()).isEqualTo("user@test.com");
         assertThat(response.getRole()).isEqualTo("USER");
+        verify(auditService).logAudit("USER", "user@test.com", "LOGIN_SUCCESS", "trace-002");
         verify(loginFailureLogRepository, never()).save(any());
     }
 
@@ -146,6 +151,8 @@ class AuthServiceTest {
         assertThat(captor.getValue().getReason()).isEqualTo("Incorrect password");
         assertThat(captor.getValue().getTraceId()).isEqualTo("trace-003");
         verify(jwtUtil, never()).generateToken(anyString(), anyString());
+        // 실패하면 성공 감사 기록은 남지 않음
+        verifyNoInteractions(auditService);
     }
 
     // 없는 이메일: 실패 기록 저장 + 비밀번호 틀림과 같은 메시지

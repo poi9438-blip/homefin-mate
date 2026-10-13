@@ -25,6 +25,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EncryptionUtil encryptionUtil;
+    private final AuditService auditService;
 
     // 회원가입: 이메일 중복 확인 => 비밀번호 해시 => 저장
     public SignupResponse signup(SignupRequest request) {
@@ -82,6 +83,9 @@ public class AuthService {
 
         // 토큰 발급 (subject=email, roles=[role])
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+
+        // 로그인 성공 감사 기록
+        auditService.logAudit("USER", user.getEmail(), "LOGIN_SUCCESS", request.getTraceId());
 
         return LoginResponse.builder()
                 .token(token)
