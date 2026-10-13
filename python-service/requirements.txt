@@ -1,0 +1,11 @@
+# Keep this file ASCII-only: pip on Korean Windows (Python 3.10) reads it as cp949,
+# so UTF-8 Korean comments here break `pip install -r requirements.txt`.
+# NOTE (fix list #12): pandas is not used anywhere. httpx is listed twice (TestClient uses httpx).
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pandas==2.1.4
+httpx==0.26.0
+python-dotenv==1.0.0
+pydantic==2.5.3
+pytest==7.4.4
+httpx==0.26.0
