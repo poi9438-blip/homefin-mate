@@ -1,0 +1,53 @@
+package com.homefinmate.repository;
+
+import com.homefinmate.entity.LoanSimulation;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+// LoanSimulationRepository 조회 순서와 interest_rate 컬럼 범위 검증
+@DataJpaTest
+@ActiveProfiles("test")
+class LoanSimulationRepositoryTest {
+    @Autowired
+    private LoanSimulationRepository loanSimulationRepository;
+
+    private LoanSimulation newSimulation(Long userId, String loanAmount, String interestRate) {
+        return LoanSimulation.builder()
+                .userId(userId)
+                .loanAmount(new BigDecimal(loanAmount))
+                .interestRate(new BigDecimal(interestRate))
+                .termMonths(360)
+                .build();
+    }
+
+    // 다른 사용자 것은 안 섞임
+    @Test
+    @DisplayName("사용자별 이력은 최신순, findTop은 가장 최근 1건")
+    void history_isNewestFirst_andTopIsLatest() throws InterruptedException {
+        loanSimulationRepository.save(newSimulation(1L, "100000000", "4.5"));
+        Thread.sleep(10);
+        loanSimulationRepository.save(newSimulation(1L, "200000000", "4.5"));
+        Thread.sleep(10);
+        loanSimulationRepository.save(newSimulation(2L, "999000000", "4.5"));
+
+        List<LoanSimulation> history = loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(1L);
+
+        assertThat(history).extracting(s -> s.getLoanAmount().intValue())
+                .containsExactly(200_000_000, 100_000_000);
+        assertThat(loanSimulationRepository.findTopByUserIdOrderByCreatedAtDesc(1L))
+                .isPresent()
+                .get()
+                .extracting(s -> s.getLoanAmount().intValue())
+                .isEqualTo(200_000_000);
+        assertThat(loanSimulationRepository.findTopByUserIdOrderByCreatedAtDesc(99L)).isEmpty();
+    }
+
+}
