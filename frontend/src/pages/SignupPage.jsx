@@ -13,7 +13,7 @@ function validate(form) {
     errors.password = '비밀번호는 8자 이상이어야 합니다.'
   if (form.income && Number(form.income) < 0)
     errors.income = '소득은 0 이상이어야 합니다.'
-  return errorsㅉ
+  return errors
 }
 
 export default function SignupPage() {
