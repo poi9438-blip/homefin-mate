@@ -32,4 +32,10 @@ public class AuthController {
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success(response, request.getTraceId()));
     }
+
+    // 로그아웃
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader("Authorization") String token) {
+        return ResponseEntity.ok(ApiResponse.success(null, null));
+    }
 }

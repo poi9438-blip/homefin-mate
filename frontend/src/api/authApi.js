@@ -18,4 +18,7 @@ export const authApi = {
       traceId: generateTraceId(),
       eventVersion: DEFAULT_EVENT_VERSION,
     }),
+
+  // 로그아웃 요청
+  logout: () => axiosInstance.post("/auth/logout"),
 };
