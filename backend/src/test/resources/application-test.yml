@@ -19,5 +19,8 @@ spring:
 
 # 테스트용 암호화 키
 app:
+  jwt:
+    secret: HomeFin-Test-Secret-Key-Must-Be-At-Least-256-Bits-Long
+    expiration-ms: 3600000
   encryption:
     key: HomeFin-AES-256-Key-Test-Padded!
