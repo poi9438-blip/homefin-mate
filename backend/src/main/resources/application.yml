@@ -55,7 +55,7 @@ app:
     key: ${ENCRYPTION_KEY}
   riskwatch:
     # RiskWatch 서버 주소 (없으면 fallback)
-    base-url: ${RISKWATCH_BASE_URL:http://localhost:8120}\
+    base-url: ${RISKWATCH_BASE_URL:http://localhost:8120}
     # 타임아웃 (밀리초)
     timeout-ms: ${RISKWATCH_TIMEOUT_MS:5000}
     # 재시도 횟수 (총 시도 = 값 + 1)
