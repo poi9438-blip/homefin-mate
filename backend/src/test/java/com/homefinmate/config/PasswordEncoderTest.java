@@ -9,7 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 // BCrypt 비밀번호 해시 특성 검증
 class PasswordEncoderTest {
 
-    private final PasswordEncoder encoder = new SecurityConfig().passwordEncoder();
+    // passwordEncoder()는 필터를 쓰지 않아 null 전달
+    private final PasswordEncoder encoder = new SecurityConfig(null).passwordEncoder();
 
     @Test
     @DisplayName("같은 비밀번호라도 해시할 때마다 결과가 다름 (salt)")
