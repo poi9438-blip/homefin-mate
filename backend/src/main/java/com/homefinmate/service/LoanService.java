@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 
 // 대출 계산 (원리금균등 월 상환액, 총이자, DSR) 후 결과 저장
 @Service
@@ -20,6 +21,7 @@ public class LoanService {
 
         private final LoanSimulationRepository loanSimulationRepository;
         private final UserRepository userRepository;
+        private final AuditService auditService;
 
         // 대출 계산: 월 상환액/총이자/DSR 계산 => 저장 => 응답
         public LoanCalculationResponse calculate(LoanCalculationRequest request, String email) {
@@ -72,6 +74,9 @@ public class LoanService {
                                 .traceId(request.getTraceId())
                                 .build());
 
+                // 대출 계산 이용 기록
+                auditService.logActivity(userId, "LOAN_CALCULATION", request.getTraceId());
+
                 log.info("[{}] Loan calculated: loanAmount={} monthlyPayment={} dsr={}",
                                 request.getTraceId(), request.getLoanAmount(), monthlyPayment, dsr);
 
@@ -87,5 +92,31 @@ public class LoanService {
                                 .region(request.getRegion())
                                 .traceId(request.getTraceId())
                                 .build();
+        }
+
+        // 내 계산 이력 (최신순, 사용자를 못 찾으면 빈 목록)
+        public List<LoanCalculationResponse> getHistory(String email) {
+                Long userId = userRepository.findByEmail(email).map(u -> u.getId()).orElse(null);
+                if (userId == null)
+                        return List.of();
+                return loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                                .map(s -> LoanCalculationResponse.builder()
+                                                .simulationId(s.getId())
+                                                .loanAmount(s.getLoanAmount())
+                                                .monthlyPayment(s.getMonthlyPayment())
+                                                .totalInterest(s.getTotalInterest())
+                                                .totalPayment(s.getMonthlyPayment() != null && s.getTermMonths() != null
+                                                                ? s.getMonthlyPayment().multiply(
+                                                                                BigDecimal.valueOf(s.getTermMonths()))
+                                                                : BigDecimal.ZERO)
+                                                .dsr(s.getDsr())
+                                                .dsrStatus(s.getDsr() != null
+                                                                && s.getDsr().compareTo(BigDecimal.valueOf(0.43)) <= 0
+                                                                                ? "ACCEPTABLE"
+                                                                                : "HIGH")
+                                                .region(s.getRegion())
+                                                .traceId(s.getTraceId())
+                                                .build())
+                                .toList();
         }
 }

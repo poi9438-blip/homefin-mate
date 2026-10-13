@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +35,8 @@ class LoanServiceTest {
     LoanSimulationRepository loanSimulationRepository;
     @Mock
     UserRepository userRepository;
+    @Mock
+    AuditService auditService;
     @InjectMocks
     LoanService loanService;
 
@@ -112,5 +115,39 @@ class LoanServiceTest {
         assertThat(saved.getDsr()).isEqualByComparingTo("0.3800");
         assertThat(saved.getTermMonths()).isEqualTo(360);
         assertThat(saved.getTraceId()).isEqualTo("trace-loan");
+        // 이용 기록도 남김
+        verify(auditService).logActivity(7L, "LOAN_CALCULATION", "trace-loan");
+    }
+
+    // 이력: 저장된 값 + 총상환액/판정 재계산
+    @Test
+    @DisplayName("이력 조회는 총상환액과 판정을 다시 계산해서 돌려줌")
+    void getHistory_recalculatesTotalPaymentAndStatus() {
+        LoanSimulation high = LoanSimulation.builder()
+                .id(2L).userId(7L).loanAmount(new BigDecimal("300000000"))
+                .monthlyPayment(new BigDecimal("1520055.93")).termMonths(360)
+                .dsr(new BigDecimal("0.5067")).build();
+        LoanSimulation ok = LoanSimulation.builder()
+                .id(1L).userId(7L).loanAmount(new BigDecimal("120000000"))
+                .monthlyPayment(new BigDecimal("1158728.94")).termMonths(120)
+                .dsr(new BigDecimal("0.2317")).build();
+        when(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(high, ok));
+
+        List<LoanCalculationResponse> history = loanService.getHistory("user@test.com");
+
+        assertThat(history).extracting(LoanCalculationResponse::getSimulationId).containsExactly(2L, 1L);
+        assertThat(history.get(0).getTotalPayment()).isEqualByComparingTo("547220134.80");
+        assertThat(history.get(0).getDsrStatus()).isEqualTo("HIGH");
+        assertThat(history.get(1).getDsrStatus()).isEqualTo("ACCEPTABLE");
+    }
+
+    // 없는 사용자: 빈 목록 (DB 조회 안 함)
+    @Test
+    @DisplayName("사용자를 못 찾으면 빈 목록")
+    void getHistory_unknownEmail_emptyList() {
+        when(userRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
+
+        assertThat(loanService.getHistory("ghost@test.com")).isEmpty();
+        verify(loanSimulationRepository, org.mockito.Mockito.never()).findByUserIdOrderByCreatedAtDesc(any());
     }
 }
