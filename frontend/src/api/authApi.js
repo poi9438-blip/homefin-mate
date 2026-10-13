@@ -10,4 +10,12 @@ export const authApi = {
       traceId: generateTraceId(),
       eventVersion: DEFAULT_EVENT_VERSION,
     }),
+
+  // 로그인 요청 (성공 시 토큰 발급)
+  login: (data) =>
+    axiosInstance.post("/auth/login", {
+      ...data,
+      traceId: generateTraceId(),
+      eventVersion: DEFAULT_EVENT_VERSION,
+    }),
 };

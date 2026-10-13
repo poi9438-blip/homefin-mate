@@ -8,6 +8,7 @@ import LoanPage from './pages/LoanPage'
 import PolicyPage from './pages/PolicyPage'
 import ReportPage from './pages/ReportPage'
 import AdminPage from './pages/AdminPage'
+import ProtectedRoute from './components/ProtectedRoute'
 
 export default function App() {
   return (
@@ -15,7 +16,15 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/" element={<Layout />}>
+        {/* 로그인이 필요한 화면 (Layout 아래 전체) */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="loan" element={<LoanPage />} />
