@@ -44,6 +44,8 @@ public class SecurityConfig {
                 // 주소별 규칙 (순서대로 적용)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        // 정책 API는 로그인 없이 허용
+                        .requestMatchers("/api/policy/**").permitAll()
                         // DSR 단독 계산은 로그인 없이 허용
                         .requestMatchers("/api/loan/dsr").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
