@@ -50,6 +50,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/analysis/**").permitAll()
                         // DSR 단독 계산은 로그인 없이 허용
                         .requestMatchers("/api/loan/dsr").permitAll()
+                        // 관리자 API는 ADMIN만
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**", "/swagger-ui.html",
