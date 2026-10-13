@@ -46,6 +46,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         // 정책 API는 로그인 없이 허용
                         .requestMatchers("/api/policy/**").permitAll()
+                        // 지역 분석 API는 로그인 없이 허용
+                        .requestMatchers("/api/analysis/**").permitAll()
                         // DSR 단독 계산은 로그인 없이 허용
                         .requestMatchers("/api/loan/dsr").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
