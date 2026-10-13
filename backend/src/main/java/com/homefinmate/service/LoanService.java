@@ -1,5 +1,7 @@
 package com.homefinmate.service;
 
+import com.homefinmate.dto.loan.DsrRequest;
+import com.homefinmate.dto.loan.DsrResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.entity.LoanSimulation;
@@ -118,5 +120,24 @@ public class LoanService {
                                                 .traceId(s.getTraceId())
                                                 .build())
                                 .toList();
+        }
+
+        // DSR 단독 계산 (저장 안 함, 소득 없으면 0)
+        public DsrResponse calculateDsr(DsrRequest request) {
+                BigDecimal dsr = BigDecimal.ZERO;
+                if (request.getGrossMonthlyIncome() != null &&
+                                request.getGrossMonthlyIncome().compareTo(BigDecimal.ZERO) > 0) {
+                        dsr = request.getMonthlyDebt()
+                                        .divide(request.getGrossMonthlyIncome(), 4, RoundingMode.HALF_UP);
+                }
+
+                // 0.43 이하면 ACCEPTABLE
+                String status = dsr.compareTo(BigDecimal.valueOf(0.43)) <= 0 ? "ACCEPTABLE" : "HIGH";
+
+                return DsrResponse.builder()
+                                .dsr(dsr)
+                                .dsrStatus(status)
+                                .traceId(request.getTraceId())
+                                .build();
         }
 }

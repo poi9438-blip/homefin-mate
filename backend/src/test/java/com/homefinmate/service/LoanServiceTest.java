@@ -1,5 +1,7 @@
 package com.homefinmate.service;
 
+import com.homefinmate.dto.loan.DsrRequest;
+import com.homefinmate.dto.loan.DsrResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.entity.LoanSimulation;
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -149,5 +152,42 @@ class LoanServiceTest {
 
         assertThat(loanService.getHistory("ghost@test.com")).isEmpty();
         verify(loanSimulationRepository, org.mockito.Mockito.never()).findByUserIdOrderByCreatedAtDesc(any());
+    }
+
+    private DsrRequest dsrRequest(String debt, String income) {
+        DsrRequest req = new DsrRequest();
+        req.setMonthlyDebt(debt == null ? null : new BigDecimal(debt));
+        req.setGrossMonthlyIncome(income == null ? null : new BigDecimal(income));
+        req.setTraceId("trace-dsr");
+        return req;
+    }
+
+    // 월 상환 152만 / 소득 400만 => DSR 0.3800, ACCEPTABLE (저장 안 함)
+    @Test
+    @DisplayName("DSR 단독 계산: 0.43 이하면 ACCEPTABLE, 저장하지 않음")
+    void calculateDsr_belowThreshold() {
+        DsrResponse res = loanService.calculateDsr(dsrRequest("1520000", "4000000"));
+
+        assertThat(res.getDsr()).isEqualByComparingTo("0.3800");
+        assertThat(res.getDsrStatus()).isEqualTo("ACCEPTABLE");
+        assertThat(res.getTraceId()).isEqualTo("trace-dsr");
+        verify(loanSimulationRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    // 경계값 0.43 => ACCEPTABLE, 0.4301 => HIGH
+    @Test
+    @DisplayName("DSR 경계값 0.43은 ACCEPTABLE, 넘으면 HIGH")
+    void calculateDsr_boundary() {
+        assertThat(loanService.calculateDsr(dsrRequest("430000", "1000000")).getDsrStatus()).isEqualTo("ACCEPTABLE");
+        assertThat(loanService.calculateDsr(dsrRequest("430100", "1000000")).getDsrStatus()).isEqualTo("HIGH");
+    }
+
+    // 소득 0 => DSR 0
+    @Test
+    @DisplayName("소득이 0이면 DSR 0")
+    void calculateDsr_zeroIncome() {
+        DsrResponse res = loanService.calculateDsr(dsrRequest("1000000", "0"));
+
+        assertThat(res.getDsr()).isEqualByComparingTo("0");
     }
 }
