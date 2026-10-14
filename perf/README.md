@@ -12,6 +12,8 @@
 | `k6/s1-riskwatch-down.js` | S1: RiskWatch가 응답하지 않을 때 통합 분석 응답 시간                                                      |
 | `k6/s2-connection-hold.js` | S2a: 느린 분석 20건이 도는 동안 리포트·로그인 응답 시간·오류율, Hikari 사용·대기 수 |
 | `k6/s2-inconsistency.js` | S2b: 분석이 실패했는데 계산이 저장된 건수 (가짜 RiskWatch `MODE=html502`) |
+| `k6/s3-data-volume.js` | S3: 데이터가 쌓였을 때 리포트·계산 이력·관리자 조회 응답 시간 (`ENDPOINT`) |
+| `seed/s3-seed.sh`, `seed/*.sql` | S3용 데이터 생성(계산 10만 건, 감사 기록 100만 건)과 정리 |
 | `results/`                | k6 원본 결과(JSON). 커밋하지 않음                                                                         |
 
 k6는 PC에 설치하지 않고 Docker 이미지(`grafana/k6:0.54.0`)로 실행합니다.
@@ -59,6 +61,25 @@ $K -e N=20 -e RUN=base1 /scripts/s2-inconsistency.js
 
 # 끝나면 가짜 RiskWatch를 기본값(지연 60초, ok)으로 되돌림
 docker compose -f docker-compose.yml -f perf/docker-compose.perf.yml up -d fake-riskwatch
+```
+
+### S3 실행
+
+```bash
+# 데이터 생성 (백엔드·MySQL이 떠 있어야 함, 약 15초)
+bash perf/seed/s3-seed.sh
+
+# 리포트·계산 이력: 30번 × 3회
+for ep in report history; do for r in 1 2 3; do $K -e ENDPOINT=$ep -e ITER=30 -e RUN=base$r /scripts/s3-data-volume.js; done; done
+
+# 관리자 조회: 메모리 부족이 날 수 있어 매번 백엔드를 재시작한 뒤 1번씩
+for ep in audit integration; do for r in 1 2 3; do
+  docker restart homefinmate-backend; until curl -s http://localhost:8100/actuator/health | grep -q UP; do sleep 2; done
+  $K -e ENDPOINT=$ep -e ITER=1 -e RUN=base$r /scripts/s3-data-volume.js
+done; done
+
+# 측정이 끝나면 생성한 데이터 정리
+bash perf/seed/s3-seed.sh clean
 ```
 
 ## 3. Hikari 커넥션 지표 보기
