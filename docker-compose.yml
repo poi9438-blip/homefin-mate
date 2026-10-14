@@ -26,6 +26,52 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+       
+  # Spring Boot 백엔드 (8100)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: homefinmate-backend
+    ports:
+      - "8100:8100"
+    environment:
+      SERVER_PORT: 8100
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-homefinmate}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: ${MYSQL_USER:-hfmuser}
+      # 비밀값 (.env 필수, 기본값 없음)
+      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD를 .env에 설정하세요}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET을 .env에 설정하세요}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY를 .env에 설정하세요}
+      RISKWATCH_BASE_URL: ${RISKWATCH_BASE_URL:-http://host.docker.internal:8120}
+      PYTHON_SERVICE_URL: http://homefinmate-python:8200
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Python 지역 분석 서비스 (8200)
+  python-service:
+    build:
+      context: ./python-service
+      dockerfile: Dockerfile
+    container_name: homefinmate-python
+    ports:
+      - "8200:8200"
+    environment:
+      ENV: ${ENV:-development}
+
+  # 프론트 nginx (호스트 3100 => 80)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: homefinmate-frontend
+    ports:
+      - "3100:80"
+    depends_on:
+      - backend
+      - python-service
 
 volumes:
   mysql_data:
