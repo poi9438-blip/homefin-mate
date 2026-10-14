@@ -1,0 +1,43 @@
+# 성능 측정용 compose 덮어쓰기 파일 (애플리케이션 코드는 바꾸지 않음)
+# 저장소 루트에서: docker compose -f docker-compose.yml -f perf/docker-compose.perf.yml up -d --build
+# - 백엔드가 실제 RiskWatch 대신 가짜 RiskWatch를 부르게 함
+# - 측정 조건을 고정하기 위해 컨테이너 CPU·메모리를 제한함
+# - Hikari 커넥션 지표를 보기 위해 actuator metrics를 공개함 (측정할 때만)
+
+services:
+  fake-riskwatch:
+    image: python:3.11-slim
+    container_name: homefinmate-fake-riskwatch
+    command: ["python", "-u", "/app/app.py"]
+    volumes:
+      - ./perf/fake-riskwatch:/app:ro
+    environment:
+      DELAY_SECONDS: ${FAKE_RISKWATCH_DELAY:-60}
+      MODE: ${FAKE_RISKWATCH_MODE:-ok}
+
+  backend:
+    environment:
+      RISKWATCH_BASE_URL: http://fake-riskwatch:8120
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,metrics
+    depends_on:
+      fake-riskwatch:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+
+  mysql:
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+
+  python-service:
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512m
