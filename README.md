@@ -195,3 +195,4 @@ python -m pytest -q
 다시 구현하면서 테스트와 실제 요청으로 확인한 문제를 번호로 정리했습니다. 수정할 때마다 해당 PR을 기록합니다.
 
 - [docs/known-issues.md](docs/known-issues.md)
+- 성능 측정 계획과 결과: [docs/performance.md](docs/performance.md)
