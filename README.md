@@ -5,7 +5,8 @@
 사용자가 대출 조건을 입력하면 월 상환액과 DSR(총부채원리금상환비율)을 계산하고
 받을 수 있는 정책을 추천하며 계산 이력을 저장해 대시보드와 리포트로 보여줍니다.
 
-> 이 저장소는 기존 프로젝트(finsight-system의 HomeFin Mate)를 **작은 단계로 다시 만들며 학습한 기록**입니다.
+> 이 저장소는 직접 만든 HomeFin Mate를 **처음부터 다시 구현하며 문제를 찾아 개선한 기록**입니다.
+> 기존 동작을 단계별로 다시 구현하면서 테스트와 실제 요청으로 문제를 확인했고, 찾은 문제는 [알려진 문제 목록](docs/known-issues.md)에 정리해 순서대로 고치고 있습니다.
 > 단계마다 PR을 나누어 merge 했고 PR 본문에 구현 내용, 확인 결과, 발견한 문제를 남겼습니다.
 
 ---
@@ -101,36 +102,60 @@ docker compose up -d --build
 
 ### 2. 로컬 개발 실행
 
-MySQL만 Docker로 띄우고 나머지는 각각 실행합니다.
+코드를 고치면서 확인할 때 씁니다. MySQL만 Docker로 띄우고, 나머지 세 개는 **각각 다른 터미널에서 저장소 루트 기준으로** 실행합니다.
+1번으로 띄운 컨테이너가 켜져 있으면 포트(8100, 8200, 3100)가 겹치므로 먼저 끕니다.
 
 ```bash
+# 1번 컨테이너가 켜져 있다면 (MySQL은 그대로 둠)
+docker compose stop backend python-service frontend
+
 # MySQL (호스트 3310)
 docker compose up -d mysql
+```
 
-# 백엔드 (저장소 루트의 .env를 자동으로 읽음, mvnw가 없어 Maven 설치 필요)
+**백엔드** (8100) — 저장소 루트의 `.env`를 자동으로 읽습니다. `mvnw`가 없어 Maven 설치가 필요합니다.
+
+```bash
 cd backend
 mvn spring-boot:run
+```
 
-# Python 서비스
+**Python 서비스** (8200) — 처음 한 번만 가상환경을 만들고 설치합니다.
+
+```powershell
 cd python-service
 python -m venv .venv
-.venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
+.venv\Scripts\Activate.ps1          # cmd: .venv\Scripts\activate.bat / Git Bash: source .venv/Scripts/activate / macOS·Linux: source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --port 8200
+```
 
-# 프론트 (Vite가 /api를 localhost:8100으로 프록시)
+> PowerShell에서 `Activate.ps1`이 "스크립트를 실행할 수 없습니다"로 막히면, 현재 창에서만 허용합니다: `Set-ExecutionPolicy -Scope Process RemoteSigned`
+
+**프론트** (3100) — 포트와 `/api` 프록시(→ localhost:8100)는 `vite.config.js`에 설정되어 있습니다.
+
+```bash
 cd frontend
 npm install
-npm run dev -- --port 3100
+npm run dev
 ```
 
 > `python-service/requirements.txt`에는 한글을 넣지 않습니다. 한국어 Windows의 pip(Python 3.10)가 이 파일을 cp949로 읽어서 한글이 있으면 설치에 실패합니다.
 
 ### 3. 테스트
 
+외부 서버 없이 실행됩니다. 각각 저장소 루트 기준입니다.
+
 ```bash
-cd backend && mvn test                         # 백엔드 (H2 메모리 DB, 외부 서버 불필요)
-cd python-service && python -m pytest -q       # Python
+# 백엔드 (H2 메모리 DB 사용, MySQL·RiskWatch·Python 서비스 불필요)
+cd backend
+mvn test
+```
+
+```bash
+# Python (가상환경을 활성화한 상태에서)
+cd python-service
+python -m pytest -q
 ```
 
 ---
@@ -162,3 +187,11 @@ cd python-service && python -m pytest -q       # Python
 - 관리자 API는 주소 규칙(`hasRole("ADMIN")`)과 메서드 권한(`@PreAuthorize`) 두 겹으로 검사
 - 비밀값(DB 비밀번호, 암호화 키, JWT 키)은 기본값 없이 `.env`에서만 주입
 - 로그인 실패 시 이메일·비밀번호 중 무엇이 틀렸는지 알려주지 않음 (계정 존재 여부 노출 방지)
+
+---
+
+## 문제
+
+다시 구현하면서 테스트와 실제 요청으로 확인한 문제를 번호로 정리했습니다. 수정할 때마다 해당 PR을 기록합니다.
+
+- [docs/known-issues.md](docs/known-issues.md)
