@@ -8,8 +8,10 @@
 | 파일                      | 역할                                                                                                      |
 | ------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `docker-compose.perf.yml` | 가짜 RiskWatch 추가, 백엔드가 가짜 RiskWatch를 부르게 함, 컨테이너 CPU·메모리 제한, actuator metrics 공개 |
-| `fake-riskwatch/app.py`   | 응답 지연·실패를 조절할 수 있는 가짜 RiskWatch (`DELAY_SECONDS`, `MODE`)                                  |
+| `fake-riskwatch/app.py`   | 응답 지연·실패를 조절할 수 있는 가짜 RiskWatch (`DELAY_SECONDS`, `MODE`: ok / error / html502)                                |
 | `k6/s1-riskwatch-down.js` | S1: RiskWatch가 응답하지 않을 때 통합 분석 응답 시간                                                      |
+| `k6/s2-connection-hold.js` | S2a: 느린 분석 20건이 도는 동안 리포트·로그인 응답 시간·오류율, Hikari 사용·대기 수 |
+| `k6/s2-inconsistency.js` | S2b: 분석이 실패했는데 계산이 저장된 건수 (가짜 RiskWatch `MODE=html502`) |
 | `results/`                | k6 원본 결과(JSON). 커밋하지 않음                                                                         |
 
 k6는 PC에 설치하지 않고 Docker 이미지(`grafana/k6:0.54.0`)로 실행합니다.
@@ -44,6 +46,20 @@ for r in 1 2 3; do $K -e VUS=5 -e DURATION=3m -e RUN=base$r /scripts/s1-riskwatc
 - 네트워크 이름 `homefin-local_default`는 `.env`의 `COMPOSE_PROJECT_NAME` + `_default`입니다. 다르면 `docker network ls`로 확인합니다.
 - k6는 같은 Docker 네트워크 안에서 `http://backend:8100`을 직접 부릅니다.
 - 결과 한 줄 요약이 출력되고, 원본은 `perf/results/s1-<RUN>.json`에 저장됩니다.
+
+### S2 실행
+
+```bash
+# S2a: 가짜 RiskWatch 지연 60초 상태에서
+$K -e DURATION=2m -e RUN=base1 /scripts/s2-connection-hold.js
+
+# S2b: 가짜 RiskWatch를 "지연 없이 502 + 긴 HTML" 모드로 바꾼 뒤
+FAKE_RISKWATCH_MODE=html502 FAKE_RISKWATCH_DELAY=0 docker compose -f docker-compose.yml -f perf/docker-compose.perf.yml up -d fake-riskwatch
+$K -e N=20 -e RUN=base1 /scripts/s2-inconsistency.js
+
+# 끝나면 가짜 RiskWatch를 기본값(지연 60초, ok)으로 되돌림
+docker compose -f docker-compose.yml -f perf/docker-compose.perf.yml up -d fake-riskwatch
+```
 
 ## 3. Hikari 커넥션 지표 보기
 
