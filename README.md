@@ -16,7 +16,7 @@
 - [x] 회원가입 / 로그인 (JWT 인증, 소득 AES-256-GCM 암호화 저장)
 - [x] 대출 계산 (원리금 균등상환, DSR)
 - [x] 정책 추천 (점수 기반 상위 3개)
-- [x] 외부 시스템 연동 (RiskWatch 위험 평가, 재시도 + fallback)
+- [x] 외부 시스템 연동 (RiskWatch 위험 평가, 타임아웃·재시도 + 서킷 브레이커 + fallback)
 - [x] 지역 부동산 분석 (Python 서비스)
 - [x] 통합 분석 (대출 + 정책 + 리스크 + 지역을 한 번에)
 - [x] 대시보드 / 리포트
@@ -28,15 +28,15 @@
 
 ## 기술 스택
 
-| 구분     | 기술                                                                       |
-| -------- | -------------------------------------------------------------------------- |
-| Backend  | Java 17, Spring Boot 3.2, Spring Data JPA, Spring Security, JWT(jjwt 0.12) |
-| Frontend | React 18, Vite 5, Tailwind CSS 3, React Router 6, axios, Chart.js          |
-| Python   | FastAPI, Pydantic, Uvicorn                                                 |
-| Database | MySQL 8 (테스트는 H2 메모리 DB)                                            |
-| Test     | JUnit 5, Mockito, AssertJ, MockRestServiceServer, JaCoCo, pytest, Vitest   |
-| CI       | GitHub Actions (테스트만, 배포 없음)                                       |
-| Infra    | Docker, Docker Compose, nginx                                              |
+| 구분     | 기술                                                                                     |
+| -------- | ---------------------------------------------------------------------------------------- |
+| Backend  | Java 17, Spring Boot 3.2, Spring Data JPA, Spring Security, JWT(jjwt 0.12), Resilience4j |
+| Frontend | React 18, Vite 5, Tailwind CSS 3, React Router 6, axios, Chart.js                        |
+| Python   | FastAPI, Pydantic, Uvicorn                                                               |
+| Database | MySQL 8 (테스트는 H2 메모리 DB)                                                          |
+| Test     | JUnit 5, Mockito, AssertJ, MockRestServiceServer, JaCoCo, pytest, Vitest                 |
+| CI       | GitHub Actions (테스트만, 배포 없음)                                                     |
+| Infra    | Docker, Docker Compose, nginx                                                            |
 
 ---
 
@@ -201,6 +201,18 @@ PR과 main push마다 GitHub Actions([`.github/workflows/ci.yml`](.github/workfl
 - 관리자 API는 주소 규칙(`hasRole("ADMIN")`)과 메서드 권한(`@PreAuthorize`) 두 겹으로 검사
 - 비밀값(DB 비밀번호, 암호화 키, JWT 키)은 기본값 없이 `.env`에서만 주입
 - 로그인 실패 시 이메일·비밀번호 중 무엇이 틀렸는지 알려주지 않음 (계정 존재 여부 노출 방지)
+
+---
+
+## 성능 개선 (측정 기반)
+
+로컬 Docker에서 외부 시스템 장애와 데이터 누적을 재현하고 k6로 측정한 뒤, 같은 조건으로 다시 측정했습니다 (3회 중앙값). 자세한 조건은 [docs/performance.md](docs/performance.md)에 있습니다.
+
+| 상황                                                    | 개선 전                       | 개선 후                                                       | 한 일                                     |
+| ------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------- | ----------------------------------------- |
+| 외부 시스템(RiskWatch)이 멈춘 동안 무관한 로그인·리포트 | 64% 실패 (DB 커넥션 고갈)     | 실패 0%, p95 약 0.1초                                         | 타임아웃, OSIV 끄기, 저장만 짧은 트랜잭션 |
+| 감사 기록 100만 건에서 관리자 조회                      | 메모리 부족으로 3번 모두 실패 | 3번 모두 0.2초 안팎 성공                                      | DB에서 100건만 조회 + 인덱스              |
+| RiskWatch 장애가 이어질 때                              | 분석마다 타임아웃까지 대기    | 서킷 브레이커로 바로 대체 응답, RiskWatch 호출 445 → 30건/3분 | Resilience4j                              |
 
 ---
 
