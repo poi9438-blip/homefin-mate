@@ -107,6 +107,15 @@
         </dependency>
 
         <!--
+        외부 호출 서킷 브레이커
+        -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-circuitbreaker</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+
+        <!--
         반복 코드 자동 생성
         -->
         <dependency>

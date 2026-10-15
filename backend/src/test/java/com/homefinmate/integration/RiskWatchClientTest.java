@@ -3,6 +3,7 @@ package com.homefinmate.integration;
 import com.homefinmate.dto.risk.RiskEvaluationRequest;
 import com.homefinmate.dto.risk.RiskEvaluationResponse;
 import com.homefinmate.service.AuditService;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,7 @@ class RiskWatchClientTest {
         void setUp() {
                 RestTemplate restTemplate = new RestTemplate();
                 server = MockRestServiceServer.bindTo(restTemplate).build();
-                client = new RiskWatchClient(restTemplate, auditService);
+                client = new RiskWatchClient(restTemplate, auditService, CircuitBreaker.ofDefaults("test"));
                 ReflectionTestUtils.setField(client, "riskWatchBaseUrl", "http://riskwatch.test");
                 ReflectionTestUtils.setField(client, "riskWatchRetryCount", 2);
                 ReflectionTestUtils.setField(client, "backoffMs", 0L);

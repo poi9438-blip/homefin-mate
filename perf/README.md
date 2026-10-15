@@ -5,16 +5,16 @@
 
 ## 구성
 
-| 파일                      | 역할                                                                                                      |
-| ------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `docker-compose.perf.yml` | 가짜 RiskWatch 추가, 백엔드가 가짜 RiskWatch를 부르게 함, 컨테이너 CPU·메모리 제한, actuator metrics 공개 |
-| `fake-riskwatch/app.py`   | 응답 지연·실패를 조절할 수 있는 가짜 RiskWatch (`DELAY_SECONDS`, `MODE`: ok / error / html502)                                |
-| `k6/s1-riskwatch-down.js` | S1: RiskWatch가 응답하지 않을 때 통합 분석 응답 시간                                                      |
-| `k6/s2-connection-hold.js` | S2a: 느린 분석 20건이 도는 동안 리포트·로그인 응답 시간·오류율, Hikari 사용·대기 수 |
-| `k6/s2-inconsistency.js` | S2b: 분석이 실패했는데 계산이 저장된 건수 (가짜 RiskWatch `MODE=html502`) |
-| `k6/s3-data-volume.js` | S3: 데이터가 쌓였을 때 리포트·계산 이력·관리자 조회 응답 시간 (`ENDPOINT`) |
-| `seed/s3-seed.sh`, `seed/*.sql` | S3용 데이터 생성(계산 10만 건, 감사 기록 100만 건)과 정리 |
-| `results/`                | k6 원본 결과(JSON). 커밋하지 않음                                                                         |
+| 파일                            | 역할                                                                                                                                                |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docker-compose.perf.yml`       | 가짜 RiskWatch 추가, 백엔드가 가짜 RiskWatch를 부르게 함, 컨테이너 CPU·메모리 제한, actuator metrics 공개                                           |
+| `fake-riskwatch/app.py`         | 응답 지연·실패를 조절할 수 있는 가짜 RiskWatch (`DELAY_SECONDS`, `MODE`: ok / error / html502). 받은 요청 수: `GET /stats`, 초기화: `DELETE /stats` |
+| `k6/s1-riskwatch-down.js`       | S1: RiskWatch가 응답하지 않을 때 통합 분석 응답 시간                                                                                                |
+| `k6/s2-connection-hold.js`      | S2a: 느린 분석 20건이 도는 동안 리포트·로그인 응답 시간·오류율, Hikari 사용·대기 수                                                                 |
+| `k6/s2-inconsistency.js`        | S2b: 분석이 실패했는데 계산이 저장된 건수 (가짜 RiskWatch `MODE=html502`)                                                                           |
+| `k6/s3-data-volume.js`          | S3: 데이터가 쌓였을 때 리포트·계산 이력·관리자 조회 응답 시간 (`ENDPOINT`)                                                                          |
+| `seed/s3-seed.sh`, `seed/*.sql` | S3용 데이터 생성(계산 10만 건, 감사 기록 100만 건)과 정리                                                                                           |
+| `results/`                      | k6 원본 결과(JSON). 커밋하지 않음                                                                                                                   |
 
 k6는 PC에 설치하지 않고 Docker 이미지(`grafana/k6:0.54.0`)로 실행합니다.
 
@@ -95,4 +95,13 @@ curl -H "Authorization: Bearer <토큰>" http://localhost:8100/actuator/metrics/
 ```bash
 docker compose up -d --build   # 덮어쓰기 파일 없이 다시 띄우면 원래 설정
 docker compose stop fake-riskwatch
+```
+
+## 4. 가짜 RiskWatch가 받은 요청 수 보기
+
+서킷 브레이커가 RiskWatch 호출을 얼마나 줄였는지 셀 때 씁니다. 포트를 호스트에 열지 않았으므로 컨테이너 안에서 부릅니다.
+
+```bash
+docker exec homefinmate-fake-riskwatch python -c "import urllib.request as u;print(u.urlopen(u.Request('http://localhost:8120/stats',method='DELETE')).read().decode())"   # 0으로 초기화
+docker exec homefinmate-fake-riskwatch python -c "import urllib.request as u;print(u.urlopen('http://localhost:8120/stats').read().decode())"                          # {"requests": N}
 ```

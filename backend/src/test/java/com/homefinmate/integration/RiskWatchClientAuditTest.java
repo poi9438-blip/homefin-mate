@@ -3,6 +3,7 @@ package com.homefinmate.integration;
 import com.homefinmate.dto.risk.RiskEvaluationRequest;
 import com.homefinmate.repository.AuditLogRepository;
 import com.homefinmate.service.AuditService;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +40,7 @@ class RiskWatchClientAuditTest {
     private RiskWatchClient clientWith(MockRestServiceServer[] holder) {
         RestTemplate restTemplate = new RestTemplate();
         holder[0] = MockRestServiceServer.bindTo(restTemplate).build();
-        RiskWatchClient client = new RiskWatchClient(restTemplate, auditService);
+        RiskWatchClient client = new RiskWatchClient(restTemplate, auditService, CircuitBreaker.ofDefaults("test"));
         ReflectionTestUtils.setField(client, "riskWatchBaseUrl", "http://riskwatch.test");
         ReflectionTestUtils.setField(client, "riskWatchRetryCount", 2);
         ReflectionTestUtils.setField(client, "backoffMs", 0L);
