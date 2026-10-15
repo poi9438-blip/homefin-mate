@@ -97,4 +97,7 @@ jobs:
         with:
           name: frontend-test-results
           path: frontend/test-results
-      - run: python3 scripts/tc_status.py --markdown --strict >> "$GITHUB_STEP_SUMMARY"
+      # 명세 대조 (로그 + Summary, 불일치·실패·미실행이면 실패)
+      - name: Compare test cases with results
+        shell: bash
+        run: python3 scripts/tc_status.py --markdown --strict | tee -a "$GITHUB_STEP_SUMMARY"
