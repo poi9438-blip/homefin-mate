@@ -9,7 +9,8 @@ import java.time.LocalDateTime;
 
 // 대출 계산 결과 (loan_simulations 테이블)
 @Entity
-@Table(name = "loan_simulations")
+// 사용자별 최신순 조회용 인덱스
+@Table(name = "loan_simulations", indexes = @Index(name = "idx_loan_sim_user_created", columnList = "user_id, created_at"))
 @Getter
 @Setter
 @NoArgsConstructor

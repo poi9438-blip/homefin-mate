@@ -8,7 +8,8 @@ import java.time.LocalDateTime;
 
 // 감사 기록 (audit_logs 테이블, 누가/무엇을/언제)
 @Entity
-@Table(name = "audit_logs")
+// 최신순 조회용 인덱스
+@Table(name = "audit_logs", indexes = @Index(name = "idx_audit_created", columnList = "created_at"))
 @Getter
 @Setter
 @NoArgsConstructor

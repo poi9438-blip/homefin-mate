@@ -36,14 +36,14 @@ public class ReportService {
             return buildResponse(1L, email, data, traceId);
         }
 
-        // 내 계산 기록 전체 (최신순)
-        List<LoanSimulation> simulations = loanSimulationRepository
-                .findByUserIdOrderByCreatedAtDesc(userId);
+        // 계산 수(COUNT)와 최근 5건(최신순)만 조회
+        long total = loanSimulationRepository.countByUserId(userId);
+        List<LoanSimulation> recent = loanSimulationRepository.findTop5ByUserIdOrderByCreatedAtDesc(userId);
 
-        data.put("totalSimulations", simulations.size());
+        data.put("totalSimulations", Math.toIntExact(total));
 
-        if (!simulations.isEmpty()) {
-            LoanSimulation latest = simulations.get(0);
+        if (!recent.isEmpty()) {
+            LoanSimulation latest = recent.get(0);
 
             // 가장 최근 계산
             Map<String, Object> lastSim = new LinkedHashMap<>();
@@ -57,8 +57,7 @@ public class ReportService {
             lastSim.put("createdAt", latest.getCreatedAt());
             data.put("lastSimulation", lastSim);
             // 최근 5건 DSR 추이 (최신순)
-            List<Map<String, Object>> trend = simulations.stream()
-                    .limit(5)
+            List<Map<String, Object>> trend = recent.stream()
                     .map(s -> {
                         Map<String, Object> entry = new LinkedHashMap<>();
                         entry.put("simulationId", s.getId());
@@ -86,7 +85,7 @@ public class ReportService {
         }
 
         log.info("[{}] Report summary generated for userId={} simCount={}",
-                traceId, userId, simulations.size());
+                traceId, userId, total);
 
         return buildResponse(userId, email, data, traceId);
     }

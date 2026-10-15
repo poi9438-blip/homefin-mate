@@ -8,7 +8,8 @@ import java.time.LocalDateTime;
 
 // 사용자 기능 이용 기록 (user_activity_logs 테이블)
 @Entity
-@Table(name = "user_activity_logs")
+// 최신순 조회용 인덱스 (관리자 화면)
+@Table(name = "user_activity_logs", indexes = @Index(name = "idx_activity_created", columnList = "created_at"))
 @Getter
 @Setter
 @NoArgsConstructor

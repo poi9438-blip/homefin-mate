@@ -20,6 +20,9 @@ import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 // ReportService 요약 리포트 검증 (최근 계산, DSR 추이 5건, 안내 문구, 0건)
 @ExtendWith(MockitoExtension.class)
@@ -43,7 +46,9 @@ class ReportServiceTest {
     private void givenUserWith(List<LoanSimulation> sims) {
         when(userRepository.findByEmail("user@test.com"))
                 .thenReturn(Optional.of(User.builder().id(7L).email("user@test.com").build()));
-        when(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(sims);
+        when(loanSimulationRepository.countByUserId(7L)).thenReturn((long) sims.size());
+        when(loanSimulationRepository.findTop5ByUserIdOrderByCreatedAtDesc(7L))
+                .thenReturn(sims.stream().limit(5).toList());
     }
 
     // 7건: 총 개수, 최근 계산, 추이 5건, 적정 안내
@@ -91,6 +96,23 @@ class ReportServiceTest {
 
         assertThat(data.get("totalSimulations")).isEqualTo(0);
         assertThat(data).containsKey("message").doesNotContainKeys("lastSimulation", "dsrTrend");
+    }
+
+    // 계산이 많아도 전체 조회 없이 COUNT + 최근 5건만 사용
+    @Test
+    @DisplayName("[TC-RPT-302] 계산 10만 건이어도 전체 목록을 조회하지 않고 COUNT·최근 5건만 사용")
+    void summary_largeHistory_usesCountAndTop5Only() {
+        when(userRepository.findByEmail("user@test.com"))
+                .thenReturn(Optional.of(User.builder().id(7L).email("user@test.com").build()));
+        when(loanSimulationRepository.countByUserId(7L)).thenReturn(100_000L);
+        when(loanSimulationRepository.findTop5ByUserIdOrderByCreatedAtDesc(7L))
+                .thenReturn(List.of(sim(5, "0.3800"), sim(4, "0.3800"), sim(3, "0.3800"), sim(2, "0.3800"),
+                        sim(1, "0.3800")));
+
+        Map<String, Object> data = reportService.generateSummary("user@test.com", null).getReportData();
+
+        assertThat(data.get("totalSimulations")).isEqualTo(100_000);
+        verify(loanSimulationRepository, never()).findByUserIdOrderByCreatedAtDesc(any());
     }
 
 }

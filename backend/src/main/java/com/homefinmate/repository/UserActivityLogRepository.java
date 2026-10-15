@@ -11,4 +11,7 @@ import java.util.List;
 public interface UserActivityLogRepository extends JpaRepository<UserActivityLog, Long> {
     // 사용자별 이용 기록 (최신순)
     List<UserActivityLog> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    // 최신 100건 (DB에서 100건만 조회)
+    List<UserActivityLog> findTop100ByOrderByCreatedAtDesc();
 }
