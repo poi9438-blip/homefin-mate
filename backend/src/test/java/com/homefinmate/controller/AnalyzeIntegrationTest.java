@@ -118,15 +118,11 @@ class AnalyzeIntegrationTest {
         }
 
         @Test
-        @D me("[TC-ANLZ-104] 저장 중 이용 기록 저장이 실패하면 계산 기록도 함께 취소 (#5)")
-        vo  failureDuringSave_rollsBackSimulationAndActivity() throws Exception {
+        @DisplayName("[TC-ANLZ-104] 저장 중 이용 기록 저장이 실패하면 계산 기록도 함께 취소 (#5)")
+        void failureDuringSave_rollsBackSimulationAndActivity() throws Exception {
                 doThrow(new IllegalStateException("activity save failure for test"))
-                                .when(auditService).logActivity(any(
+                                .when(auditService).logActivity(any(), eq("UNIFIED_ANALYSIS"), any());
 
-         
-         
-         
-         
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
                                 .andExpect(status().isBadRequest());
