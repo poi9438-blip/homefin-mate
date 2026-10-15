@@ -50,7 +50,7 @@ class AnalyzeServiceTest {
     @Mock
     UserRepository userRepository;
     @Mock
-    AuditService auditService;
+    AnalyzeResultSaver analyzeResultSaver;
     @InjectMocks
     AnalyzeService analyzeService;
 
@@ -58,8 +58,9 @@ class AnalyzeServiceTest {
     void setUp() {
         when(userRepository.findByEmail("user@test.com"))
                 .thenReturn(Optional.of(User.builder().id(7L).email("user@test.com").build()));
-        when(loanService.calculate(any(), anyString())).thenReturn(LoanCalculationResponse.builder()
-                .simulationId(100L).dsr(new BigDecimal("0.3800")).dsrStatus("ACCEPTABLE").build());
+        when(loanService.compute(any())).thenReturn(LoanCalculationResponse.builder()
+                .dsr(new BigDecimal("0.3800")).dsrStatus("ACCEPTABLE").build());
+        when(analyzeResultSaver.save(any(), any(), any())).thenReturn(100L);
         when(policyService.recommend(any())).thenReturn(PolicyRecommendationResponse.builder().score(4).build());
         when(riskWatchClient.evaluateRisk(any())).thenReturn(RiskEvaluationResponse.builder()
                 .riskLevel("UNKNOWN").riskScore(0).available(false).build());
@@ -80,18 +81,18 @@ class AnalyzeServiceTest {
         return r;
     }
 
-    // ① → ② → ③ → ④ → 이용 기록 순서, 결과 4개를 묶어 반환
+    // ① 계산 → ② → ③ → ④ → ⑤ 저장 순서, 결과 4개와 저장된 id를 묶어 반환
     @Test
-    @DisplayName("[TC-ANLZ-001] 대출 → 정책 → 위험 → 지역 순서로 호출하고 결과를 묶음")
+    @DisplayName("[TC-ANLZ-001] 대출 계산 → 정책 → 위험 → 지역 → 저장 순서로 호출하고 결과를 묶음")
     void analyze_callsInOrder_andCombines() {
         AnalyzeResponse res = analyzeService.analyze(request("부산"), "user@test.com");
 
-        InOrder order = inOrder(loanService, policyService, riskWatchClient, analysisService, auditService);
-        order.verify(loanService).calculate(any(), eq("user@test.com"));
+        InOrder order = inOrder(loanService, policyService, riskWatchClient, analysisService, analyzeResultSaver);
+        order.verify(loanService).compute(any());
         order.verify(policyService).recommend(any());
         order.verify(riskWatchClient).evaluateRisk(any());
         order.verify(analysisService).getRegionAnalysis("부산", "hfm-analyze-1");
-        order.verify(auditService).logActivity(7L, "UNIFIED_ANALYSIS", "hfm-analyze-1");
+        order.verify(analyzeResultSaver).save(eq(7L), any(), any());
 
         assertThat(res.getLoan().getSimulationId()).isEqualTo(100L);
         assertThat(res.getPolicy().getScore()).isEqualTo(4);
@@ -110,7 +111,7 @@ class AnalyzeServiceTest {
         ArgumentCaptor<PolicyRecommendationRequest> policyReq = ArgumentCaptor
                 .forClass(PolicyRecommendationRequest.class);
         ArgumentCaptor<RiskEvaluationRequest> riskReq = ArgumentCaptor.forClass(RiskEvaluationRequest.class);
-        verify(loanService).calculate(loanReq.capture(), anyString());
+        verify(loanService).compute(loanReq.capture());
         verify(policyService).recommend(policyReq.capture());
         verify(riskWatchClient).evaluateRisk(riskReq.capture());
 
@@ -133,17 +134,15 @@ class AnalyzeServiceTest {
         assertThat(res.getRegion()).isNull();
     }
 
-    // TODO: 수정 목록 - ③에서 예외가 나면 ①은 이미 실행됐는데 분석 전체가 실패
+    // ③에서 예외가 나면 저장하지 않고 실패
     @Test
-    @DisplayName("[TC-ANLZ-004] ⚠️#5 위험 평가에서 예외가 나면 대출 계산은 이미 실행된 채 전체 실패")
-    void analyze_riskThrows_loanAlreadyCalculated() {
+    @DisplayName("[TC-ANLZ-004] 위험 평가에서 예외가 나면 아무것도 저장하지 않고 실패 (#5)")
+    void analyze_riskThrows_nothingSaved() {
         when(riskWatchClient.evaluateRisk(any())).thenThrow(new RuntimeException("audit save failed"));
 
         assertThatThrownBy(() -> analyzeService.analyze(request("부산"), "user@test.com"))
                 .hasMessage("audit save failed");
 
-        verify(loanService).calculate(any(), anyString());
-        verifyNoInteractions(analysisService);
-        verify(auditService, never()).logActivity(any(), eq("UNIFIED_ANALYSIS"), any());
+        verifyNoInteractions(analysisService, analyzeResultSaver);
     }
 }

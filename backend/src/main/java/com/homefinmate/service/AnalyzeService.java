@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-// 통합 분석: 대출 계산 => 정책 추천 => 위험 평가 => 지역 분석 (같은 traceId)
+// 통합 분석: 대출 계산 => 정책 추천 => 위험 평가 => 지역 분석 => 결과 저장 (같은 traceId, 저장만 트랜잭션)
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -26,14 +26,17 @@ public class AnalyzeService {
         private final RiskWatchClient riskWatchClient;
         private final AnalysisService analysisService;
         private final UserRepository userRepository;
-        private final AuditService auditService;
+        private final AnalyzeResultSaver analyzeResultSaver;
 
         public AnalyzeResponse analyze(AnalyzeRequest request, String email) {
                 String traceId = request.getTraceId();
                 log.info("[{}] Starting unified analysis for email={} region={} loanAmount={}",
                                 traceId, email, request.getRegion(), request.getLoanAmount());
 
-                // ① 대출 계산 (결과 저장)
+                // 토큰 이메일 => 사용자 id (위험 평가 요청과 저장에 사용)
+                Long userId = userRepository.findByEmail(email).map(u -> u.getId()).orElse(null);
+
+                // ① 대출 계산 (저장은 ⑤에서)
                 LoanCalculationRequest loanReq = new LoanCalculationRequest();
                 loanReq.setLoanAmount(request.getLoanAmount());
                 loanReq.setAnnualInterestRate(request.getAnnualInterestRate());
@@ -41,7 +44,7 @@ public class AnalyzeService {
                 loanReq.setMonthlyIncome(request.getMonthlyIncome());
                 loanReq.setRegion(request.getRegion());
                 loanReq.setTraceId(traceId);
-                LoanCalculationResponse loanResult = loanService.calculate(loanReq, email);
+                LoanCalculationResponse loanResult = loanService.compute(loanReq);
 
                 // ② 정책 추천 (①의 DSR 사용)
                 PolicyRecommendationRequest policyReq = new PolicyRecommendationRequest();
@@ -56,7 +59,6 @@ public class AnalyzeService {
                 PolicyRecommendationResponse policyResult = policyService.recommend(policyReq);
 
                 // ③ RiskWatch 위험 평가 (실패해도 fallback으로 계속 진행)
-                Long userId = userRepository.findByEmail(email).map(u -> u.getId()).orElse(null);
                 String userIdStr = userId != null ? String.valueOf(userId) : null;
                 RiskEvaluationRequest riskReq = RiskEvaluationRequest.builder()
                                 .userId(userIdStr)
@@ -77,8 +79,8 @@ public class AnalyzeService {
                         regionResult = analysisService.getRegionAnalysis(request.getRegion(), traceId);
                 }
 
-                // 통합 분석 이용 기록
-                auditService.logActivity(userId, "UNIFIED_ANALYSIS", traceId);
+                // ⑤ 저장: 계산 기록 + 이용 기록을 한 트랜잭션으로 (외부 호출이 모두 끝난 뒤)
+                loanResult.setSimulationId(analyzeResultSaver.save(userId, loanReq, loanResult));
                 log.info("[{}] Analysis complete: dsr={} riskLevel={} riskAvailable={}",
                                 traceId, loanResult.getDsr(), riskResult.getRiskLevel(), riskResult.isAvailable());
 
