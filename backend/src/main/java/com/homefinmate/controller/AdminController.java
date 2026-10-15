@@ -8,7 +8,6 @@ import com.homefinmate.repository.AuditLogRepository;
 import com.homefinmate.repository.LoginFailureLogRepository;
 import com.homefinmate.repository.UserActivityLogRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -30,9 +29,9 @@ public class AdminController {
         @GetMapping("/audit-logs")
         public ResponseEntity<ApiResponse<List<AuditLog>>> getAuditLogs(
                         @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-                List<AuditLog> logs = auditLogRepository
-                                .findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
-                                .stream().limit(100).toList();
+
+                // DB에서 최신 100건만 조회
+                List<AuditLog> logs = auditLogRepository.findTop100ByOrderByCreatedAtDesc();
                 return ResponseEntity.ok(ApiResponse.success(logs, traceId));
         }
 
@@ -40,9 +39,7 @@ public class AdminController {
         @GetMapping("/login-failures")
         public ResponseEntity<ApiResponse<List<LoginFailureLog>>> getLoginFailures(
                         @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-                List<LoginFailureLog> logs = loginFailureLogRepository
-                                .findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
-                                .stream().limit(100).toList();
+                List<LoginFailureLog> logs = loginFailureLogRepository.findTop100ByOrderByCreatedAtDesc();
                 return ResponseEntity.ok(ApiResponse.success(logs, traceId));
         }
 
@@ -50,9 +47,7 @@ public class AdminController {
         @GetMapping("/user-activity")
         public ResponseEntity<ApiResponse<List<UserActivityLog>>> getUserActivity(
                         @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-                List<UserActivityLog> logs = userActivityLogRepository
-                                .findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
-                                .stream().limit(100).toList();
+                List<UserActivityLog> logs = userActivityLogRepository.findTop100ByOrderByCreatedAtDesc();
                 return ResponseEntity.ok(ApiResponse.success(logs, traceId));
         }
 
@@ -60,13 +55,9 @@ public class AdminController {
         @GetMapping("/integration-failures")
         public ResponseEntity<ApiResponse<List<AuditLog>>> getIntegrationFailures(
                         @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+                // 연동 실패만 DB에서 최신 100건 조회
                 List<AuditLog> logs = auditLogRepository
-                                .findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
-                                .stream()
-                                .filter(a -> a.getAction() != null
-                                                && a.getAction().startsWith("RISKWATCH_INTEGRATION_FAILURE"))
-                                .limit(100)
-                                .toList();
+                                .findTop100ByActionStartingWithOrderByCreatedAtDesc("RISKWATCH_INTEGRATION_FAILURE");
                 return ResponseEntity.ok(ApiResponse.success(logs, traceId));
         }
 }
