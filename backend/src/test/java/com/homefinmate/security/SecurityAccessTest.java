@@ -72,6 +72,7 @@ class SecurityAccessTest {
                                 .andExpect(jsonPath("$.message").value("Unauthorized"));
         }
 
+        @Test
         @DisplayName("[TC-AUTH-102] 공개 API(DSR, 정책 추천, health)는 토큰 없이 200")
         void publicApis_withoutToken_areAllowed() throws Exception {
                 mockMvc.perform(post("/api/loan/dsr").contentType(MediaType.APPLICATION_JSON)
