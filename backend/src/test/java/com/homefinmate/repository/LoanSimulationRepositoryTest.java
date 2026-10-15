@@ -50,4 +50,20 @@ class LoanSimulationRepositoryTest {
         assertThat(loanSimulationRepository.findTopByUserIdOrderByCreatedAtDesc(99L)).isEmpty();
     }
 
+    // 사용자별 계산 수와 최근 5건(최신순)
+    @Test
+    @DisplayName("[TC-DATA-006] 사용자별 계산 수(COUNT)와 최근 5건(최신순)")
+    void countAndTop5_perUser() throws InterruptedException {
+        for (int i = 1; i <= 7; i++) {
+            loanSimulationRepository.save(newSimulation(1L, String.valueOf(i * 1_000_000), "4.5"));
+            Thread.sleep(5);
+        }
+        loanSimulationRepository.save(newSimulation(2L, "999000000", "4.5"));
+
+        assertThat(loanSimulationRepository.countByUserId(1L)).isEqualTo(7);
+        assertThat(loanSimulationRepository.findTop5ByUserIdOrderByCreatedAtDesc(1L))
+                .extracting(sim -> sim.getLoanAmount().intValue())
+                .containsExactly(7_000_000, 6_000_000, 5_000_000, 4_000_000, 3_000_000);
+        assertThat(loanSimulationRepository.countByUserId(99L)).isZero();
+    }
 }

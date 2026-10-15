@@ -8,7 +8,8 @@ import java.time.LocalDateTime;
 
 // 로그인 실패 기록
 @Entity
-@Table(name = "login_failure_logs")
+// 최신순 조회용 인덱스 (관리자 화면)
+@Table(name = "login_failure_logs", indexes = @Index(name = "idx_login_failure_created", columnList = "created_at"))
 @Getter
 @Setter
 @NoArgsConstructor

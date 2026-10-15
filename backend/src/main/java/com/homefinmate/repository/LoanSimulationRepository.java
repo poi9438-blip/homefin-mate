@@ -14,6 +14,12 @@ public interface LoanSimulationRepository extends JpaRepository<LoanSimulation, 
     // 사용자의 계산 이력 (최신순)
     List<LoanSimulation> findByUserIdOrderByCreatedAtDesc(Long userId);
 
+    // 사용자의 계산 수 (SELECT COUNT)
+    long countByUserId(Long userId);
+
+    // 사용자의 최근 계산 5건 (최신순, LIMIT 5)
+    List<LoanSimulation> findTop5ByUserIdOrderByCreatedAtDesc(Long userId);
+
     // 사용자의 가장 최근 계산 (1건)
     Optional<LoanSimulation> findTopByUserIdOrderByCreatedAtDesc(Long userId);
 }
