@@ -10,6 +10,7 @@ import com.homefinmate.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -25,8 +26,24 @@ public class LoanService {
         private final UserRepository userRepository;
         private final AuditService auditService;
 
-        // 대출 계산: 월 상환액/총이자/DSR 계산 => 저장 => 응답
+        // 대출 계산 API: 계산 => 저장(계산 기록 + 이용 기록을 한 트랜잭션으로) => 응답
+        @Transactional
         public LoanCalculationResponse calculate(LoanCalculationRequest request, String email) {
+                LoanCalculationResponse result = compute(request);
+
+                // 토큰 이메일 => 사용자 id
+                Long userId = userRepository.findByEmail(email)
+                                .map(u -> u.getId())
+                                .orElse(null);
+
+                result.setSimulationId(saveSimulation(userId, request, result));
+                // 대출 계산 이용 기록
+                auditService.logActivity(userId, "LOAN_CALCULATION", request.getTraceId());
+                return result;
+        }
+
+        // 계산만 (월 상환액/총이자/DSR, 저장 안 함, simulationId 없음)
+        public LoanCalculationResponse compute(LoanCalculationRequest request) {
                 // 월 이율 = 연이율(%) / 1200 (소수 10자리)
                 BigDecimal monthlyRate = request.getAnnualInterestRate()
                                 .divide(BigDecimal.valueOf(1200), 10, RoundingMode.HALF_UP);
@@ -58,33 +75,11 @@ public class LoanService {
                         dsr = monthlyPayment.divide(request.getMonthlyIncome(), 4, RoundingMode.HALF_UP);
                 }
 
-                // 토큰 이메일 => 사용자 id
-                Long userId = userRepository.findByEmail(email)
-                                .map(u -> u.getId())
-                                .orElse(null);
-
-                // 계산 결과 저장 (총상환액, 판정은 저장하지 않음)
-                LoanSimulation simulation = loanSimulationRepository.save(LoanSimulation.builder()
-                                .userId(userId)
-                                .loanAmount(request.getLoanAmount())
-                                .interestRate(request.getAnnualInterestRate())
-                                .monthlyPayment(monthlyPayment)
-                                .totalInterest(totalInterest)
-                                .dsr(dsr)
-                                .termMonths(request.getTermMonths())
-                                .region(request.getRegion())
-                                .traceId(request.getTraceId())
-                                .build());
-
-                // 대출 계산 이용 기록
-                auditService.logActivity(userId, "LOAN_CALCULATION", request.getTraceId());
-
                 log.info("[{}] Loan calculated: loanAmount={} monthlyPayment={} dsr={}",
                                 request.getTraceId(), request.getLoanAmount(), monthlyPayment, dsr);
 
                 // 응답 (총상환액 = 월 상환액 * 개월 수, DSR 0.43 이하면 ACCEPTABLE)
                 return LoanCalculationResponse.builder()
-                                .simulationId(simulation.getId())
                                 .loanAmount(request.getLoanAmount())
                                 .monthlyPayment(monthlyPayment)
                                 .totalInterest(totalInterest)
@@ -94,6 +89,22 @@ public class LoanService {
                                 .region(request.getRegion())
                                 .traceId(request.getTraceId())
                                 .build();
+        }
+
+        // 계산 결과 저장 (총상환액, 판정은 저장하지 않음), 저장된 id 반환
+        public Long saveSimulation(Long userId, LoanCalculationRequest request, LoanCalculationResponse result) {
+                LoanSimulation simulation = loanSimulationRepository.save(LoanSimulation.builder()
+                                .userId(userId)
+                                .loanAmount(request.getLoanAmount())
+                                .interestRate(request.getAnnualInterestRate())
+                                .monthlyPayment(result.getMonthlyPayment())
+                                .totalInterest(result.getTotalInterest())
+                                .dsr(result.getDsr())
+                                .termMonths(request.getTermMonths())
+                                .region(request.getRegion())
+                                .traceId(request.getTraceId())
+                                .build());
+                return simulation.getId();
         }
 
         // 내 계산 이력 (최신순, 사용자를 못 찾으면 빈 목록)
