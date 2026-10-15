@@ -17,7 +17,8 @@ import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,6 +48,7 @@ class RiskWatchClientTest {
                 client = new RiskWatchClient(restTemplate, auditService);
                 ReflectionTestUtils.setField(client, "riskWatchBaseUrl", "http://riskwatch.test");
                 ReflectionTestUtils.setField(client, "riskWatchRetryCount", 2);
+                ReflectionTestUtils.setField(client, "backoffMs", 0L);
         }
 
         private RiskEvaluationRequest request() {
@@ -112,7 +114,7 @@ class RiskWatchClientTest {
         @DisplayName("3번 모두 연결 실패하면 fallback과 감사 기록")
         void allFail_returnsFallbackAndAudits() {
                 server.expect(ExpectedCount.times(3), requestTo(URL))
-                                .andRespond(withException(new IOException("Connection refused")));
+                                .andRespond(withException(new ConnectException("Connection refused")));
 
                 RiskEvaluationResponse res = client.evaluateRisk(request());
 
@@ -125,11 +127,11 @@ class RiskWatchClientTest {
                                 startsWith("RISKWATCH_INTEGRATION_FAILURE: "), eq("hfm-risk-1"));
         }
 
-        // 200이지만 ERROR 응답: 3번 시도 후 fallback
+        // 200이지만 ERROR 응답: RiskWatch가 처리할 수 없다고 답한 것이라 재시도 없이 fallback
         @Test
-        @DisplayName("200이라도 SUCCESS가 아니면 재시도 후 fallback")
-        void nonSuccessBody_retriesThenFallback() {
-                server.expect(ExpectedCount.times(3), requestTo(URL))
+        @DisplayName("200이라도 SUCCESS가 아니면 재시도 없이 fallback")
+        void nonSuccessBody_noRetry() {
+                server.expect(ExpectedCount.once(), requestTo(URL))
                                 .andRespond(withSuccess("{\"status\":\"ERROR\",\"message\":\"rule engine down\"}",
                                                 MediaType.APPLICATION_JSON));
 
@@ -139,11 +141,11 @@ class RiskWatchClientTest {
                 server.verify();
         }
 
-        // TODO: 수정 필요
+        // 400 요청 오류: 다시 보내도 같으므로 1번만 보내고 fallback
         @Test
-        @DisplayName("400 요청 오류도 3번 재시도함")
-        void badRequest_isRetriedThreeTimes() {
-                server.expect(ExpectedCount.times(3), requestTo(URL))
+        @DisplayName("400 요청 오류는 재시도하지 않음")
+        void badRequest_noRetry() {
+                server.expect(ExpectedCount.once(), requestTo(URL))
                                 .andRespond(withBadRequest());
 
                 RiskEvaluationResponse res = client.evaluateRisk(request());
@@ -151,4 +153,36 @@ class RiskWatchClientTest {
                 assertThat(res.isAvailable()).isFalse();
                 server.verify();
         }
+
+        // 응답 타임아웃: 상대가 멈춘 상태라 재시도하면 대기만 늘어남 => 1번만
+        @Test
+        @DisplayName("응답 타임아웃은 재시도하지 않음")
+        void readTimeout_noRetry() {
+                server.expect(ExpectedCount.once(), requestTo(URL))
+                                .andRespond(withException(new SocketTimeoutException("Read timed out")));
+
+                RiskEvaluationResponse res = client.evaluateRisk(request());
+
+                assertThat(res.isAvailable()).isFalse();
+                server.verify();
+        }
+
+        // RestClientException이 아닌 예외(설정 오류 등)도 fallback
+        @Test
+        @DisplayName("예상하지 못한 예외도 분석을 멈추지 않고 fallback (#42)")
+        void unexpectedException_returnsFallback() {
+                server.expect(ExpectedCount.once(), requestTo(URL))
+                                .andRespond(req -> {
+                                        throw new IllegalArgumentException("The port must be an integer");
+                                });
+
+                RiskEvaluationResponse res = client.evaluateRisk(request());
+
+                assertThat(res.isAvailable()).isFalse();
+                server.verify();
+                verify(auditService).logAudit(eq("SYSTEM"), eq("HOMEFIT_MATE"),
+                                startsWith("RISKWATCH_INTEGRATION_FAILURE: IllegalArgumentException"),
+                                eq("hfm-risk-1"));
+        }
+
 }
