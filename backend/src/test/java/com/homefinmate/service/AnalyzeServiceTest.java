@@ -82,7 +82,7 @@ class AnalyzeServiceTest {
 
     // ① → ② → ③ → ④ → 이용 기록 순서, 결과 4개를 묶어 반환
     @Test
-    @DisplayName("대출 → 정책 → 위험 → 지역 순서로 호출하고 결과를 묶음")
+    @DisplayName("[TC-ANLZ-001] 대출 → 정책 → 위험 → 지역 순서로 호출하고 결과를 묶음")
     void analyze_callsInOrder_andCombines() {
         AnalyzeResponse res = analyzeService.analyze(request("부산"), "user@test.com");
 
@@ -101,7 +101,8 @@ class AnalyzeServiceTest {
     }
 
     // ①의 DSR을 ②③에 전달, 기존 부채는 정책에만
-    @DisplayName("대출 결과 DSR을 정책·위험 평가에 전달, 기존 부채는 정책에만")
+    @Test
+    @DisplayName("[TC-ANLZ-002] 대출 결과 DSR을 정책·위험 평가에 전달, 기존 부채는 정책에만")
     void analyze_passesDsrAndTraceId() {
         analyzeService.analyze(request("부산"), "user@test.com");
 
@@ -124,7 +125,7 @@ class AnalyzeServiceTest {
 
     // 지역이 비어 있으면 ④ 지역 분석을 부르지 않고 region은 null
     @Test
-    @DisplayName("지역이 비어 있으면 지역 분석을 건너뜀")
+    @DisplayName("[TC-ANLZ-003] 지역이 비어 있으면 지역 분석을 건너뜀")
     void analyze_blankRegion_skipsRegionAnalysis() {
         AnalyzeResponse res = analyzeService.analyze(request("  "), "user@test.com");
 
@@ -134,7 +135,7 @@ class AnalyzeServiceTest {
 
     // TODO: 수정 목록 - ③에서 예외가 나면 ①은 이미 실행됐는데 분석 전체가 실패
     @Test
-    @DisplayName("위험 평가에서 예외가 나면 대출 계산은 이미 실행된 채 전체 실패")
+    @DisplayName("[TC-ANLZ-004] ⚠️#5 위험 평가에서 예외가 나면 대출 계산은 이미 실행된 채 전체 실패")
     void analyze_riskThrows_loanAlreadyCalculated() {
         when(riskWatchClient.evaluateRisk(any())).thenThrow(new RuntimeException("audit save failed"));
 

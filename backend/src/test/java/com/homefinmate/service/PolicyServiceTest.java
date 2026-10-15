@@ -36,7 +36,7 @@ class PolicyServiceTest {
 
         // 달러 기준 저소득 무주택자: 점수 4, 4, 3 순서, 합계 11
         @Test
-        @DisplayName("달러 기준 저소득 무주택자: 보조금,저소득 지원이 4점으로 상위")
+        @DisplayName("[TC-POL-001] 달러 기준 저소득 무주택자: 보조금,저소득 지원이 4점으로 상위")
         void recommend_lowIncomeFirstHomeBuyer() {
                 PolicyRecommendationResponse res = policyService.recommend(
                                 request("2000", "0", "200000", "0.15", "NONE", "부산"));
@@ -55,7 +55,7 @@ class PolicyServiceTest {
         }
 
         @Test
-        @DisplayName("빈 요청도 무주택으로 간주하고 3개를 추천함")
+        @DisplayName("[TC-POL-002] ⚠️#60 빈 요청도 무주택으로 간주하고 3개를 추천함")
         void recommend_emptyRequest_treatedAsNoHouse() {
                 PolicyRecommendationResponse res = policyService.recommend(
                                 request(null, null, null, null, null, null));
@@ -70,7 +70,7 @@ class PolicyServiceTest {
 
         // 주택 보유자: 부채 대환 3점이 1위, 지역은 대소문자 무시, DSR 없으면 "높음"으로 판정
         @Test
-        @DisplayName("주택 보유·고부채: 부채 대환 1위, 무주택 점수 없음")
+        @DisplayName("[TC-POL-003] 주택 보유·고부채: 부채 대환 1위, 무주택 점수 없음")
         void recommend_ownerWithDebt() {
                 PolicyRecommendationResponse res = policyService.recommend(
                                 request("3000", "150000", null, null, "OWN", "Perth"));

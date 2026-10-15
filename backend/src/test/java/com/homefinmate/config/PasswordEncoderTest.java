@@ -13,7 +13,7 @@ class PasswordEncoderTest {
     private final PasswordEncoder encoder = new SecurityConfig(null).passwordEncoder();
 
     @Test
-    @DisplayName("같은 비밀번호라도 해시할 때마다 결과가 다름 (salt)")
+    @DisplayName("[TC-AUTH-007] 같은 비밀번호라도 해시할 때마다 결과가 다름 (salt)")
     void sameRawPassword_differentHash() {
         String hash1 = encoder.encode("demo1234");
         String hash2 = encoder.encode("demo1234");
@@ -26,7 +26,7 @@ class PasswordEncoderTest {
     }
 
     @Test
-    @DisplayName("matches()로 비교")
+    @DisplayName("[TC-AUTH-008] matches()로 비밀번호 비교")
     void matches() {
         String hash = encoder.encode("demo1234");
 

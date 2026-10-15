@@ -48,7 +48,7 @@ class ReportServiceTest {
 
     // 7건: 총 개수, 최근 계산, 추이 5건, 적정 안내
     @Test
-    @DisplayName("계산 기록 요약: 총 개수, 최근 계산, DSR 추이 5건")
+    @DisplayName("[TC-RPT-001] 계산 기록 요약: 총 개수, 최근 계산, DSR 추이 5건")
     @SuppressWarnings("unchecked")
     void summary_withSimulations() {
         List<LoanSimulation> sims = LongStream.rangeClosed(1, 7).map(i -> 8 - i)
@@ -70,7 +70,7 @@ class ReportServiceTest {
 
     // 최근 DSR 0.5067: HIGH, 경고 안내
     @Test
-    @DisplayName("최근 DSR이 0.43을 넘으면 경고 안내")
+    @DisplayName("[TC-RPT-002] 최근 DSR이 0.43을 넘으면 경고 안내")
     @SuppressWarnings("unchecked")
     void summary_highDsr_warns() {
         givenUserWith(List.of(sim(2, "0.5067"), sim(1, "0.2000")));
@@ -83,7 +83,7 @@ class ReportServiceTest {
 
     // 기록 0건: 개수 0, 안내 메시지, 추이 없음
     @Test
-    @DisplayName("기록이 없으면 0건과 안내 메시지")
+    @DisplayName("[TC-RPT-003] 기록이 없으면 0건과 안내 메시지")
     void summary_noSimulations() {
         givenUserWith(List.of());
 

@@ -71,7 +71,7 @@ class RiskWatchClientTest {
 
         // 성공: 주소, 헤더, 본문 확인, RiskWatch 응답을 결과로 변환 (reason => recommendation)
         @Test
-        @DisplayName("성공 응답을 결과로 변환하고, 헤더와 본문을 올바르게 보냄")
+        @DisplayName("[TC-RISK-001] 성공 응답을 결과로 변환하고, 헤더와 본문을 올바르게 보냄")
         void success_mapsResponse() {
                 server.expect(requestTo(URL))
                                 .andExpect(method(HttpMethod.POST))
@@ -94,7 +94,7 @@ class RiskWatchClientTest {
 
         // 두 번 실패 후 세 번째 성공: 결과 정상, 감사 기록 없음
         @Test
-        @DisplayName("두 번 실패해도 세 번째에 성공하면 정상 결과")
+        @DisplayName("[TC-RISK-002] 두 번 실패해도 세 번째에 성공하면 정상 결과")
         void retry_thenSuccess() {
                 server.expect(ExpectedCount.twice(), requestTo(URL))
                                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
@@ -111,7 +111,7 @@ class RiskWatchClientTest {
 
         // 3번 모두 연결 실패: fallback(UNKNOWN, 0점, available=false) + SYSTEM 감사 기록
         @Test
-        @DisplayName("3번 모두 연결 실패하면 fallback과 감사 기록")
+        @DisplayName("[TC-RISK-003] 3번 모두 연결 실패하면 fallback과 감사 기록")
         void allFail_returnsFallbackAndAudits() {
                 server.expect(ExpectedCount.times(3), requestTo(URL))
                                 .andRespond(withException(new ConnectException("Connection refused")));
@@ -129,7 +129,7 @@ class RiskWatchClientTest {
 
         // 200이지만 ERROR 응답: RiskWatch가 처리할 수 없다고 답한 것이라 재시도 없이 fallback
         @Test
-        @DisplayName("200이라도 SUCCESS가 아니면 재시도 없이 fallback")
+        @DisplayName("[TC-RISK-004] 200이라도 SUCCESS가 아니면 재시도 없이 fallback")
         void nonSuccessBody_noRetry() {
                 server.expect(ExpectedCount.once(), requestTo(URL))
                                 .andRespond(withSuccess("{\"status\":\"ERROR\",\"message\":\"rule engine down\"}",
@@ -143,7 +143,7 @@ class RiskWatchClientTest {
 
         // 400 요청 오류: 다시 보내도 같으므로 1번만 보내고 fallback
         @Test
-        @DisplayName("400 요청 오류는 재시도하지 않음")
+        @DisplayName("[TC-RISK-005] 400 요청 오류는 재시도하지 않음")
         void badRequest_noRetry() {
                 server.expect(ExpectedCount.once(), requestTo(URL))
                                 .andRespond(withBadRequest());
@@ -156,7 +156,7 @@ class RiskWatchClientTest {
 
         // 응답 타임아웃: 상대가 멈춘 상태라 재시도하면 대기만 늘어남 => 1번만
         @Test
-        @DisplayName("응답 타임아웃은 재시도하지 않음")
+        @DisplayName("[TC-RISK-006] 응답 타임아웃은 재시도하지 않음")
         void readTimeout_noRetry() {
                 server.expect(ExpectedCount.once(), requestTo(URL))
                                 .andRespond(withException(new SocketTimeoutException("Read timed out")));
@@ -169,7 +169,7 @@ class RiskWatchClientTest {
 
         // RestClientException이 아닌 예외(설정 오류 등)도 fallback
         @Test
-        @DisplayName("예상하지 못한 예외도 분석을 멈추지 않고 fallback (#42)")
+        @DisplayName("[TC-RISK-007] 예상하지 못한 예외도 분석을 멈추지 않고 fallback (#42)")
         void unexpectedException_returnsFallback() {
                 server.expect(ExpectedCount.once(), requestTo(URL))
                                 .andRespond(req -> {

@@ -12,6 +12,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -25,6 +27,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,7 +69,7 @@ class LoanServiceTest {
 
     // 3억, 4.5%, 30년, 월 소득 400만 => 월 1,520,055.93원, DSR 0.38
     @Test
-    @DisplayName("원리금균등 월 상환액, 총이자, 총상환액, DSR")
+    @DisplayName("[TC-LOAN-001] 원리금균등 월 상환액, 총이자, 총상환액, DSR")
     void calculate_standardAmortization() {
         LoanCalculationResponse res = loanService.calculate(
                 request("300000000", "4.5", 360, "4000000"), "user@test.com");
@@ -80,9 +83,44 @@ class LoanServiceTest {
         assertThat(res.getTraceId()).isEqualTo("trace-loan");
     }
 
+    // 경계값: 기간 1개월
+    @Test
+    @DisplayName("[TC-LOAN-201] 기간 1개월이면 원금 + 한 달 이자")
+    void calculate_singleMonth() {
+        LoanCalculationResponse res = loanService.calculate(
+                request("1000000", "12", 1, null), "user@test.com");
+
+        assertThat(res.getMonthlyPayment()).isEqualByComparingTo("1010000.00");
+        assertThat(res.getTotalInterest()).isEqualByComparingTo("10000.00");
+    }
+
+    // 표준 공식(독립 계산)과 1원 이내 일치 + 총상환액·총이자 관계
+    @ParameterizedTest(name = "{0}원, {1}%, {2}개월")
+    @CsvSource({
+            "300000000, 4.5, 360",
+            "120000000, 3.0, 120",
+            "50000000, 3.7, 600",
+            "1000000, 0.1, 12",
+            "999999999, 7.9, 240"
+    })
+    @DisplayName("[TC-LOAN-202] 월 상환액이 표준 공식과 1원 이내, 총상환액·총이자 관계 일치")
+    void calculate_matchesIndependentFormula(String amount, String rate, int months) {
+        LoanCalculationResponse res = loanService.calculate(request(amount, rate, months, null), "user@test.com");
+
+        double p = Double.parseDouble(amount);
+        double r = Double.parseDouble(rate) / 1200;
+        double expected = p * r / (1 - Math.pow(1 + r, -months));
+
+        assertThat(res.getMonthlyPayment().doubleValue()).isCloseTo(expected, within(1.0));
+        assertThat(res.getTotalPayment())
+                .isEqualByComparingTo(res.getMonthlyPayment().multiply(BigDecimal.valueOf(months)));
+        assertThat(res.getTotalInterest())
+                .isEqualByComparingTo(res.getTotalPayment().subtract(new BigDecimal(amount)));
+    }
+
     // 같은 대출, 월 소득 300만 => DSR 0.5067 > 0.43 => HIGH
     @Test
-    @DisplayName("DSR이 0.43을 넘으면 HIGH")
+    @DisplayName("[TC-LOAN-002] DSR이 0.43을 넘으면 HIGH")
     void calculate_dsrAboveThreshold_isHigh() {
         LoanCalculationResponse res = loanService.calculate(
                 request("300000000", "4.5", 360, "3000000"), "user@test.com");
@@ -93,7 +131,7 @@ class LoanServiceTest {
 
     // 1.2억, 3%, 10년 => 월 1,158,728.94원 (다른 조건에서도 공식이 맞는지)
     @Test
-    @DisplayName("다른 조건(1.2억, 3%, 120개월)도 공식과 일치")
+    @DisplayName("[TC-LOAN-003] 다른 조건(1.2억, 3%, 120개월)도 공식과 일치")
     void calculate_anotherCase() {
         LoanCalculationResponse res = loanService.calculate(
                 request("120000000", "3.0", 120, "5000000"), "user@test.com");
@@ -104,7 +142,7 @@ class LoanServiceTest {
 
     // 저장 내용: 토큰 이메일의 사용자 id, 입력값, 계산값
     @Test
-    @DisplayName("토큰 이메일의 사용자 id와 계산값으로 저장")
+    @DisplayName("[TC-LOAN-004] 토큰 이메일의 사용자 id와 계산값으로 저장")
     void calculate_savesSimulation() {
         loanService.calculate(request("300000000", "4.5", 360, "4000000"), "user@test.com");
 
@@ -124,7 +162,7 @@ class LoanServiceTest {
 
     // 이력: 저장된 값 + 총상환액/판정 재계산
     @Test
-    @DisplayName("이력 조회는 총상환액과 판정을 다시 계산해서 돌려줌")
+    @DisplayName("[TC-LOAN-005] 이력 조회는 총상환액과 판정을 다시 계산해서 돌려줌")
     void getHistory_recalculatesTotalPaymentAndStatus() {
         LoanSimulation high = LoanSimulation.builder()
                 .id(2L).userId(7L).loanAmount(new BigDecimal("300000000"))
@@ -146,7 +184,7 @@ class LoanServiceTest {
 
     // 없는 사용자: 빈 목록 (DB 조회 안 함)
     @Test
-    @DisplayName("사용자를 못 찾으면 빈 목록")
+    @DisplayName("[TC-LOAN-006] 사용자를 못 찾으면 빈 목록")
     void getHistory_unknownEmail_emptyList() {
         when(userRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
 
@@ -164,7 +202,7 @@ class LoanServiceTest {
 
     // 월 상환 152만 / 소득 400만 => DSR 0.3800, ACCEPTABLE (저장 안 함)
     @Test
-    @DisplayName("DSR 단독 계산: 0.43 이하면 ACCEPTABLE, 저장하지 않음")
+    @DisplayName("[TC-LOAN-007] DSR 단독 계산: 0.43 이하면 ACCEPTABLE, 저장하지 않음")
     void calculateDsr_belowThreshold() {
         DsrResponse res = loanService.calculateDsr(dsrRequest("1520000", "4000000"));
 
@@ -176,7 +214,7 @@ class LoanServiceTest {
 
     // 경계값 0.43 => ACCEPTABLE, 0.4301 => HIGH
     @Test
-    @DisplayName("DSR 경계값 0.43은 ACCEPTABLE, 넘으면 HIGH")
+    @DisplayName("[TC-LOAN-008] DSR 경계값 0.43은 ACCEPTABLE, 넘으면 HIGH")
     void calculateDsr_boundary() {
         assertThat(loanService.calculateDsr(dsrRequest("430000", "1000000")).getDsrStatus()).isEqualTo("ACCEPTABLE");
         assertThat(loanService.calculateDsr(dsrRequest("430100", "1000000")).getDsrStatus()).isEqualTo("HIGH");
@@ -184,7 +222,7 @@ class LoanServiceTest {
 
     // 소득 0 => DSR 0
     @Test
-    @DisplayName("소득이 0이면 DSR 0")
+    @DisplayName("[TC-LOAN-009] ⚠️#64 소득이 0이면 DSR 0 (판단 불가인데 적정)")
     void calculateDsr_zeroIncome() {
         DsrResponse res = loanService.calculateDsr(dsrRequest("1000000", "0"));
 

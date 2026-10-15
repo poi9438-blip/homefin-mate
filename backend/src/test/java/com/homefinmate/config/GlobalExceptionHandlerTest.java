@@ -54,7 +54,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("RuntimeException")
+    @DisplayName("[TC-ERR-003] RuntimeException은 400 + 공통 오류 형식")
     void runtimeException_returns400() throws Exception {
         mockMvc.perform(get("/test/runtime"))
                 .andExpect(status().isBadRequest())
@@ -64,7 +64,7 @@ class GlobalExceptionHandlerTest {
 
     // TODO: 상세 내용 제거 예정
     @Test
-    @DisplayName("RuntimeException")
+    @DisplayName("[TC-ERR-004] ⚠️#4 예외 메시지(SQL문 등)가 응답에 그대로 노출")
     void runtimeException_exposesMessage() throws Exception {
         mockMvc.perform(get("/test/sql-like"))
                 .andExpect(status().isBadRequest())
@@ -72,7 +72,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("없는 주소(NoResourceFoundException)")
+    @DisplayName("[TC-ERR-005] 없는 주소는 404")
     void noResource_returns404() throws Exception {
         mockMvc.perform(get("/test/no-resource"))
                 .andExpect(status().isNotFound())
@@ -80,7 +80,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("지원하지 않는 메서드(HttpRequestMethodNotSupportedException)")
+    @DisplayName("[TC-ERR-006] 지원하지 않는 메서드는 405")
     void wrongMethod_returns405() throws Exception {
         mockMvc.perform(post("/test/runtime"))
                 .andExpect(status().isMethodNotAllowed())
@@ -88,7 +88,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("체크 예외(IOException)")
+    @DisplayName("[TC-ERR-007] 체크 예외는 500 + 내부 메시지 숨김")
     void checkedException_returns500() throws Exception {
         mockMvc.perform(get("/test/checked"))
                 .andExpect(status().isInternalServerError())

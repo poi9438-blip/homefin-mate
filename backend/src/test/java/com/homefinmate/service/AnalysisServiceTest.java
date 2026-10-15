@@ -28,7 +28,7 @@ class AnalysisServiceTest {
     // TODO: 수정 필요
     // 한글 지역명이 URL 인코딩 없이 나감
     @Test
-    @DisplayName("한글 지역명이 URL 인코딩 없이 요청 주소에 들어감 (#2)")
+    @DisplayName("[TC-REGION-001] ⚠️#2 한글 지역명이 URL 인코딩 없이 요청 주소에 들어감")
     void koreanRegion_isNotUrlEncoded() {
         server.expect(request -> assertThat(request.getURI().toString())
                 .isEqualTo("http://python.test/analysis/region?region=부산"))

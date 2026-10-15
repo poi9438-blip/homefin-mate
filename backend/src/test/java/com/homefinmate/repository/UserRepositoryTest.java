@@ -28,7 +28,7 @@ class UserRepositoryTest {
     }
 
     @Test
-    @DisplayName("save() 하면 DB가 id를 붙여줌 + findByEmail 테스트")
+    @DisplayName("[TC-DATA-001] 저장하면 id·가입 시각이 붙고 이메일로 조회됨")
     void save_and_findByEmail() {
         User saved = userRepository.save(newUser("demo@test.com"));
 
@@ -43,14 +43,14 @@ class UserRepositoryTest {
     }
 
     @Test
-    @DisplayName("없는 이메일이면 findByEmail은 빈 Optional, existsByEmail은 false")
+    @DisplayName("[TC-DATA-002] 없는 이메일이면 빈 Optional, existsByEmail false")
     void notFound() {
         assertThat(userRepository.findByEmail("nobody@test.com")).isEmpty();
         assertThat(userRepository.existsByEmail("nobody@test.com")).isFalse();
     }
 
     @Test
-    @DisplayName("existsByEmail은 가입된 이메일이면 true")
+    @DisplayName("[TC-DATA-003] 가입된 이메일이면 existsByEmail true")
     void existsByEmail() {
         userRepository.save(newUser("demo@test.com"));
 
@@ -58,7 +58,7 @@ class UserRepositoryTest {
     }
 
     @Test
-    @DisplayName("같은 이메일로 두 번 저장하면 DB의 unique 제약")
+    @DisplayName("[TC-DATA-004] 같은 이메일 두 번 저장은 DB unique 제약 위반")
     void duplicateEmail_violatesUniqueConstraint() {
         userRepository.save(newUser("demo@test.com"));
 
