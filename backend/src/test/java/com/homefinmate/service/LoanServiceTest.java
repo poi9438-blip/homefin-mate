@@ -118,6 +118,18 @@ class LoanServiceTest {
                 .isEqualByComparingTo(res.getTotalPayment().subtract(new BigDecimal(amount)));
     }
 
+    // compute()는 계산만 하고 저장·이용 기록을 남기지 않음
+    @Test
+    @DisplayName("[TC-LOAN-203] 계산만 하는 compute()는 저장·이용 기록 없이 같은 계산값 반환")
+    void compute_doesNotSave() {
+        LoanCalculationResponse res = loanService.compute(request("300000000", "4.5", 360, "4000000"));
+
+        assertThat(res.getMonthlyPayment()).isEqualByComparingTo("1520055.93");
+        assertThat(res.getDsr()).isEqualByComparingTo("0.3800");
+        assertThat(res.getSimulationId()).isNull();
+        org.mockito.Mockito.verifyNoInteractions(loanSimulationRepository, auditService);
+    }
+
     // 같은 대출, 월 소득 300만 => DSR 0.5067 > 0.43 => HIGH
     @Test
     @DisplayName("[TC-LOAN-002] DSR이 0.43을 넘으면 HIGH")
