@@ -34,7 +34,8 @@
 | Frontend | React 18, Vite 5, Tailwind CSS 3, React Router 6, axios, Chart.js          |
 | Python   | FastAPI, Pydantic, Uvicorn                                                 |
 | Database | MySQL 8 (테스트는 H2 메모리 DB)                                            |
-| Test     | JUnit 5, Mockito, AssertJ, MockRestServiceServer, pytest                   |
+| Test     | JUnit 5, Mockito, AssertJ, MockRestServiceServer, JaCoCo, pytest, Vitest   |
+| CI       | GitHub Actions (테스트만, 배포 없음)                                       |
 | Infra    | Docker, Docker Compose, nginx                                              |
 
 ---
@@ -144,10 +145,10 @@ npm run dev
 
 ### 3. 테스트
 
-외부 서버 없이 실행됩니다. 각각 저장소 루트 기준입니다.
+외부 서버 없이 실행됩니다. 각각 저장소 루트 기준입니다. 기준과 절차는 [테스트 기준](docs/TESTING.md)에 있습니다.
 
 ```bash
-# 백엔드 (H2 메모리 DB 사용, MySQL·RiskWatch·Python 서비스 불필요)
+# 백엔드 (H2 메모리 DB 사용, MySQL·RiskWatch·Python 서비스 불필요). 커버리지: backend/target/site/jacoco/index.html
 cd backend
 mvn test
 ```
@@ -155,8 +156,21 @@ mvn test
 ```bash
 # Python (가상환경을 활성화한 상태에서)
 cd python-service
-python -m pytest -q
+python -m pytest -q --junitxml=test-results/pytest.xml
 ```
+
+```bash
+# 프론트 (Vitest + jsdom)
+cd frontend
+npm test
+```
+
+```bash
+# 세 모듈을 실행한 뒤, 테스트 명세(docs/test-cases)와 실행 결과 대조
+python scripts/tc_status.py
+```
+
+PR과 main push마다 GitHub Actions([`.github/workflows/ci.yml`](.github/workflows/ci.yml))가 위 네 단계를 실행합니다.
 
 ---
 
@@ -196,3 +210,4 @@ python -m pytest -q
 
 - [docs/known-issues.md](docs/known-issues.md)
 - 성능 측정 계획과 결과: [docs/performance.md](docs/performance.md)
+- 테스트 기준·명세·결과: [docs/TESTING.md](docs/TESTING.md), [docs/test-cases/](docs/test-cases/README.md), [docs/TEST_REPORT.md](docs/TEST_REPORT.md)

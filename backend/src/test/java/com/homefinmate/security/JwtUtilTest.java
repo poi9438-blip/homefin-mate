@@ -26,7 +26,7 @@ class JwtUtilTest {
     private final JwtUtil jwtUtil = jwtUtil(SECRET, 3_600_000);
 
     @Test
-    @DisplayName("발급한 토큰에서 이메일과 role 다시 꺼내기")
+    @DisplayName("[TC-AUTH-009] 발급한 토큰에서 이메일과 role 다시 꺼내기")
     void generate_then_extract() {
         String token = jwtUtil.generateToken("demo@test.com", "USER");
 
@@ -37,7 +37,7 @@ class JwtUtilTest {
     }
 
     @Test
-    @DisplayName("페이로드는 암호화가 아니라 Base64 - 키 없이도 읽을 수 있음")
+    @DisplayName("[TC-AUTH-010] 페이로드는 암호화가 아니라 Base64 - 키 없이도 읽을 수 있음")
     void payload_isReadableWithoutKey() {
         String token = jwtUtil.generateToken("demo@test.com", "USER");
         String payload = new String(Base64.getUrlDecoder().decode(token.split("\\.")[1]), StandardCharsets.UTF_8);
@@ -47,7 +47,7 @@ class JwtUtilTest {
     }
 
     @Test
-    @DisplayName("페이로드를 ADMIN으로 고치면 서명이 맞지 않아 무효")
+    @DisplayName("[TC-AUTH-011] 페이로드를 ADMIN으로 고치면 서명이 맞지 않아 무효")
     void tamperedPayload_isInvalid() {
         String[] parts = jwtUtil.generateToken("demo@test.com", "USER").split("\\.");
         String adminPayload = Base64.getUrlEncoder().withoutPadding().encodeToString(
@@ -59,7 +59,7 @@ class JwtUtilTest {
     }
 
     @Test
-    @DisplayName("다른 비밀키로 만든 토큰은 무효")
+    @DisplayName("[TC-AUTH-012] 다른 비밀키로 만든 토큰은 무효")
     void otherSecret_isInvalid() {
         String token = jwtUtil("Another-Secret-Key-That-Is-Also-Long-Enough-123456", 3_600_000)
                 .generateToken("demo@test.com", "ADMIN");
@@ -68,7 +68,7 @@ class JwtUtilTest {
     }
 
     @Test
-    @DisplayName("만료된 토큰은 무효")
+    @DisplayName("[TC-AUTH-013] 만료된 토큰은 무효")
     void expiredToken_isInvalid() {
         String token = jwtUtil(SECRET, -1_000).generateToken("demo@test.com", "USER");
 
@@ -76,7 +76,7 @@ class JwtUtilTest {
     }
 
     @Test
-    @DisplayName("32바이트보다 짧은 비밀키로는 토큰을 만들 수 없음")
+    @DisplayName("[TC-AUTH-014] 32바이트보다 짧은 비밀키로는 토큰을 만들 수 없음")
     void shortSecret_isRejected() {
         assertThatThrownBy(() -> jwtUtil("too-short-secret", 3_600_000).generateToken("demo@test.com", "USER"))
                 .isInstanceOf(WeakKeyException.class);

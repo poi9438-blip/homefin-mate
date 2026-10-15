@@ -13,7 +13,7 @@ class ApiResponseTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    @DisplayName("success() test")
+    @DisplayName("[TC-ERR-001] 성공 응답 형식 (status, message, data, traceId)")
     void success_containsDataAndTraceId() throws Exception {
         // given(준비)
         Map<String, Integer> data = Map.of("monthlyPayment", 838723);
@@ -27,7 +27,7 @@ class ApiResponseTest {
     }
 
     @Test
-    @DisplayName("error() not null test")
+    @DisplayName("[TC-ERR-002] 오류 응답은 null 필드(data, traceId)를 빼고 보냄")
     void error_omitsNullFields() throws Exception {
         String json = objectMapper.writeValueAsString(ApiResponse.error("Loan amount is required", null));
 

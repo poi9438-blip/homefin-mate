@@ -1,0 +1,98 @@
+package com.homefinmate.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.homefinmate.support.ApiTestSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+
+import static com.homefinmate.support.ApiTestSupport.bearer;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+// 대출 계산·DSR API 입력 경계 통합 테스트
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+class LoanApiValidationTest {
+
+    @Autowired
+    MockMvc mockMvc;
+    @Autowired
+    ObjectMapper objectMapper;
+
+    private String token;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        token = new ApiTestSupport(mockMvc, objectMapper).signupAndLogin(ApiTestSupport.uniqueEmail("loan-input"));
+    }
+
+    private ResultActions postJson(String path, String body) throws Exception {
+        return mockMvc.perform(post(path).header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON).content(body));
+    }
+
+    @Test
+    @DisplayName("[TC-LOAN-101] 필수값(대출 원금)이 없으면 400과 필드 이름")
+    void missingRequiredField_returns400WithFieldName() throws Exception {
+        postJson("/api/loan/calculate", "{\"annualInterestRate\":4.5,\"termMonths\":360}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("loanAmount")));
+    }
+
+    @Test
+    @DisplayName("[TC-LOAN-102] ⚠️#82 기간 601개월·음수 원금도 200으로 계산·저장됨 (통합 분석은 400)")
+    void noUpperBoundOrSignValidation_currentlyAccepted() throws Exception {
+        postJson("/api/loan/calculate", "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":601}")
+                .andExpect(status().isOk());
+        postJson("/api/loan/calculate", "{\"loanAmount\":-1000000,\"annualInterestRate\":4.5,\"termMonths\":12}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.monthlyPayment").value(-85378.52));
+
+        postJson("/api/analyze", "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":601}")
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("[TC-LOAN-103] ⚠️#6 기간 0개월이면 400 \"/ by zero\" (검증 대신 계산 예외)")
+    void zeroTerm_currentlyDivisionByZero() throws Exception {
+        postJson("/api/loan/calculate", "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":0}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("/ by zero"));
+    }
+
+    @Test
+    @DisplayName("[TC-LOAN-104] ⚠️#1#4 연이율 10%는 저장 실패, 응답에 SQL문 노출")
+    void interestRateTenPercent_saveFails_andLeaksSql() throws Exception {
+        postJson("/api/loan/calculate", "{\"loanAmount\":300000000,\"annualInterestRate\":10,\"termMonths\":360}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("insert into loan_simulations")));
+    }
+
+    @Test
+    @DisplayName("[TC-LOAN-105] ⚠️#74#4 DSR 999% 초과는 저장 실패, 응답에 SQL문 노출")
+    void dsrOverflow_saveFails_andLeaksSql() throws Exception {
+        postJson("/api/loan/calculate",
+                "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":360,\"monthlyIncome\":100000}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("DSR")));
+    }
+
+    @Test
+    @DisplayName("[TC-LOAN-106] ⚠️#6#4 DSR API에 부채가 없으면 400 + 내부 클래스 이름 노출")
+    void dsrMissingDebt_leaksInternalMessage() throws Exception {
+        postJson("/api/loan/dsr", "{\"grossMonthlyIncome\":1000000}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("DsrRequest.getMonthlyDebt()")));
+    }
+}

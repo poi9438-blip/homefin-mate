@@ -14,4 +14,10 @@ export default defineConfig({
       },
     },
   },
+  // 테스트 설정 (jsdom, 결과 XML은 test-results/)
+  test: {
+    environment: "jsdom",
+    reporters: ["default", "junit"],
+    outputFile: { junit: "test-results/junit.xml" },
+  },
 });

@@ -52,7 +52,7 @@ class RiskWatchClientAuditTest {
 
     // 짧은 실패 사유(연결 거부): 감사 기록 저장, fallback 정상
     @Test
-    @DisplayName("짧은 실패 사유는 감사 기록에 저장되고 fallback 반환")
+    @DisplayName("[TC-RISK-008] 짧은 실패 사유는 감사 기록에 저장되고 fallback 반환")
     void shortReason_savedAndFallback() {
         MockRestServiceServer[] server = new MockRestServiceServer[1];
         RiskWatchClient client = clientWith(server);
@@ -72,7 +72,7 @@ class RiskWatchClientAuditTest {
 
     // 긴 실패 사유도 255자로 잘라 저장하고 fallback 반환
     @Test
-    @DisplayName("긴 실패 사유도 255자로 잘라 저장하고 fallback 반환 (#37)")
+    @DisplayName("[TC-RISK-009] 긴 실패 사유도 255자로 잘라 저장하고 fallback 반환 (#37)")
     void longReason_truncatedAndFallback() {
         String html = "<html><body><h1>502 Bad Gateway</h1><p>" + "upstream connect() failed. ".repeat(20)
                 + "</p></body></html>";

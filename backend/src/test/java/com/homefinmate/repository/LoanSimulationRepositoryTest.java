@@ -30,7 +30,7 @@ class LoanSimulationRepositoryTest {
 
     // 다른 사용자 것은 안 섞임
     @Test
-    @DisplayName("사용자별 이력은 최신순, findTop은 가장 최근 1건")
+    @DisplayName("[TC-DATA-005] 사용자별 이력은 최신순, findTop은 가장 최근 1건")
     void history_isNewestFirst_andTopIsLatest() throws InterruptedException {
         loanSimulationRepository.save(newSimulation(1L, "100000000", "4.5"));
         Thread.sleep(10);

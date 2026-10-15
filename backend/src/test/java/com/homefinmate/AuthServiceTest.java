@@ -13,6 +13,7 @@ import com.homefinmate.security.Role;
 import com.homefinmate.service.AuditService;
 import com.homefinmate.service.AuthService;
 import com.homefinmate.util.EncryptionUtil;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -49,6 +50,7 @@ class AuthServiceTest {
     AuthService authService;
 
     @Test
+    @DisplayName("[TC-AUTH-001] 회원가입: 이메일·USER 역할 반환, 소득은 암호화")
     void signup_newUser_savesAndReturnsResponse() {
         SignupRequest req = new SignupRequest();
         req.setEmail("user@test.com");
@@ -72,6 +74,7 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("[TC-AUTH-002] 이미 가입된 이메일이면 예외")
     void signup_duplicateEmail_throwsException() {
         SignupRequest req = new SignupRequest();
         req.setEmail("existing@test.com");
@@ -85,6 +88,7 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("[TC-AUTH-003] 비밀번호는 해시로 저장, 역할 USER, 소득 없으면 암호화 안 함")
     void signup_savedUser_hasHashedPasswordAndUserRole() {
         SignupRequest req = new SignupRequest();
         req.setEmail("user@test.com");
@@ -108,6 +112,7 @@ class AuthServiceTest {
 
     // 로그인 성공: 토큰/이메일/역할 반환, 감사 기록 저장, 실패 기록 없음
     @Test
+    @DisplayName("[TC-AUTH-004] 로그인 성공: 토큰 발급, 감사 기록, 실패 기록 없음")
     void login_validCredentials_returnsTokenAndLogsAudit() {
         LoginRequest req = new LoginRequest();
         req.setEmail("user@test.com");
@@ -131,6 +136,7 @@ class AuthServiceTest {
 
     // 비밀번호 틀림: 실패 기록 저장 + 예외, 토큰 발급 안 함
     @Test
+    @DisplayName("[TC-AUTH-005] 비밀번호 틀림: 실패 기록 + 예외, 토큰 발급 안 함")
     void login_wrongPassword_logsFailureAndThrows() {
         LoginRequest req = new LoginRequest();
         req.setEmail("user@test.com");
@@ -157,6 +163,7 @@ class AuthServiceTest {
 
     // 없는 이메일: 실패 기록 저장 + 비밀번호 틀림과 같은 메시지
     @Test
+    @DisplayName("[TC-AUTH-006] 없는 이메일: 비밀번호 틀림과 같은 메시지 (계정 존재 여부 숨김)")
     void login_unknownEmail_logsFailureWithSameMessage() {
         LoginRequest req = new LoginRequest();
         req.setEmail("nobody@test.com");

@@ -24,3 +24,10 @@ app:
     expiration-ms: 3600000
   encryption:
     key: HomeFin-AES-256-Key-Test-Padded!
+  # 외부 서비스는 항상 연결 실패 (테스트 결과가 PC 상태에 따라 바뀌지 않게)
+  riskwatch:
+    base-url: http://127.0.0.1:9
+    retry-count: 0
+    backoff-ms: 0
+  python-service:
+    base-url: http://127.0.0.1:9
