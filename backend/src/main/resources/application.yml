@@ -56,10 +56,13 @@ app:
   riskwatch:
     # RiskWatch 서버 주소 (없으면 fallback)
     base-url: ${RISKWATCH_BASE_URL:http://localhost:8120}
-    # 타임아웃 (밀리초)
-    timeout-ms: ${RISKWATCH_TIMEOUT_MS:5000}
-    # 재시도 횟수 (총 시도 = 값 + 1)
+    # 연결 타임아웃, 응답 타임아웃 (밀리초). RiskWatchClient 전용 RestTemplate이 실제로 읽음
+    connect-timeout-ms: ${RISKWATCH_CONNECT_TIMEOUT_MS:1000}
+    timeout-ms: ${RISKWATCH_TIMEOUT_MS:2000}
+    # 재시도 횟수 (총 시도 = 값 + 1). 5xx·연결 실패만 재시도
     retry-count: ${RISKWATCH_RETRY_COUNT:2}
+    # 재시도 대기 시작값 (밀리초, 시도마다 2배)
+    backoff-ms: ${RISKWATCH_BACKOFF_MS:200}
   python-service:
     # Python 지역 분석 서비스 주소
     base-url: ${PYTHON_SERVICE_URL:http://localhost:8200}
