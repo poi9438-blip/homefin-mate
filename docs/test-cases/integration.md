@@ -1,11 +1,11 @@
 # 외부 연동 · 통합 분석 (TC-RISK, TC-REGION, TC-ANLZ)
 
-| 대상                    | 내용                                                                                                                 |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `RiskWatchClient`       | 위험 평가 호출. 연결 1초·응답 2초 타임아웃, 5xx·연결 실패만 재시도, 실패하면 감사 기록 + fallback(`available=false`) |
-| `AnalysisService`       | Python 지역 분석 호출. `RestClientException`이면 Java 쪽 예시 데이터로 fallback                                      |
-| Python `python-service` | `GET /analysis/region`. 출처 없는 예시 시세 (#39)                                                                    |
-| `AnalyzeService`        | 대출 계산 → 정책 → 위험 → 지역 순서로 실행. **트랜잭션 없음** (#5)                                                   |
+| 대상                    | 내용                                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `RiskWatchClient`       | 위험 평가 호출. 연결 1초·응답 2초 타임아웃, 5xx·연결 실패만 재시도, 실패하면 감사 기록 + fallback(`available=false`)         |
+| `AnalysisService`       | Python 지역 분석 호출. `RestClientException`이면 Java 쪽 예시 데이터로 fallback                                              |
+| Python `python-service` | `GET /analysis/region`. 출처 없는 예시 시세 (#39)                                                                            |
+| `AnalyzeService`        | 계산·정책·위험·지역을 저장 없이 실행한 뒤 `AnalyzeResultSaver`가 **한 트랜잭션으로** 저장 (#5 수정, 외부 호출은 트랜잭션 밖) |
 
 - **실제 RiskWatch 서버가 없습니다.** 정상 응답은 MockRestServiceServer로만 확인합니다.
 - **통합 테스트는 외부 주소를 닫힌 포트(`127.0.0.1:9`)로 바꿔서 실행합니다**(`application-test.yml`). PC에 Docker 서비스가 떠 있는지와 관계없이 결과가 같게 하기 위해서입니다.
@@ -28,13 +28,14 @@
 | TC-REGION-005 | 정상 | X-Trace-Id 헤더                            | 응답 trace_id로 전달                                                                            | P3   | test_analysis.py                             |                |
 | TC-REGION-006 | 예외 | region 누락                                | 422                                                                                             | P3   | test_analysis.py                             |                |
 | TC-REGION-007 | 예외 | 없는 지역(오타)                            | ⚠️ 현재 기본값으로 200, 대체 표시 없음. 기대: 대체 여부 표시 또는 404                           | P2   | test_analysis.py                             | #40, 확인 필요 |
-| TC-ANLZ-001   | 정상 | 통합 분석 호출 순서 (Mock)                 | 대출 → 정책 → 위험 → 지역 → 이용 기록                                                           | P2   | AnalyzeServiceTest                           |                |
+| TC-ANLZ-001   | 정상 | 통합 분석 호출 순서 (Mock)                 | 대출 계산(저장 없음) → 정책 → 위험 → 지역 → 저장                                                | P2   | AnalyzeServiceTest                           | #5             |
 | TC-ANLZ-002   | 정상 | 값 전달 (Mock)                             | 대출 DSR을 정책·위험에 전달, 기존 부채는 정책에만                                               | P2   | AnalyzeServiceTest                           | #8             |
 | TC-ANLZ-003   | 경계 | 지역 빈 값                                 | 지역 분석 건너뜀                                                                                | P3   | AnalyzeServiceTest                           |                |
-| TC-ANLZ-004   | 예외 | 위험 평가 예외 (Mock)                      | ⚠️ 현재 대출 계산 실행 후 전체 실패                                                             | P1   | AnalyzeServiceTest                           | #5             |
+| TC-ANLZ-004   | 예외 | 위험 평가 예외 (Mock)                      | 아무것도 저장하지 않고 실패                                                                     | P1   | AnalyzeServiceTest                           | #5             |
 | TC-ANLZ-101   | 정상 | 실제 HTTP + H2, 외부 서비스 모두 연결 실패 | 200, risk.available=false, 지역 fallback, 계산 1건 저장, 연동 실패 감사 기록 1건 (같은 traceId) | P1   | AnalyzeIntegrationTest                       |                |
-| TC-ANLZ-102   | 예외 | 정책 추천에서 예외 (실제 DB)               | ⚠️ 현재 실패 응답인데 계산 기록 1건 남음. 기대: 0건                                             | P1   | AnalyzeIntegrationTest                       | #5             |
+| TC-ANLZ-102   | 예외 | 정책 추천에서 예외 (실제 DB)               | 실패 응답, 계산 기록 0건                                                                        | P1   | AnalyzeIntegrationTest                       | #5             |
 | TC-ANLZ-103   | 보안 | 분석 후 서버 로그                          | ⚠️ 현재 이메일·대출 금액·월 상환액·DSR이 평문. 기대: 마스킹 또는 미기록                         | P2   | AnalyzeIntegrationTest                       | #83            |
+| TC-ANLZ-104   | 예외 | 저장 중 이용 기록 저장 실패 (실제 DB)      | 계산 기록·이용 기록 모두 취소 (한 트랜잭션)                                                     | P1   | AnalyzeIntegrationTest                       | #5             |
 | TC-ANLZ-301   | 정상 | 영어 지역으로 Python 정상 응답             | 값이 Java 응답에 채워짐 (현재 필드 이름 불일치로 null)                                          | P1   | 자동화 안 함: 우선 처리 J4에서 정상 테스트로 | #2             |
 | TC-ANLZ-302   | 정상 | 통합 분석 1번의 이용 기록                  | 1줄 (현재 2줄)                                                                                  | P3   | 자동화 안 함: 집계 기준 결정 후              | #57, 확인 필요 |
 | TC-ANLZ-303   | 예외 | 지역 분석 fallback 표시                    | 대체 데이터임을 응답에 표시                                                                     | P2   | 자동화 안 함: 응답 필드 추가 시 함께         | #56            |
