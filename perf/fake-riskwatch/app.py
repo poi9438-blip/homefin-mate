@@ -7,15 +7,47 @@
 """
 import json
 import os
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DELAY_SECONDS = float(os.environ.get("DELAY_SECONDS", "60"))
 MODE = os.environ.get("MODE", "ok")
 
+# 받은 평가 요청 수 (서킷 브레이커가 호출을 얼마나 줄였는지 세기 위함)
+# GET /stats → {"requests": N}, DELETE /stats → 0으로 초기화
+_count = 0
+_lock = threading.Lock()
+
 
 class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/stats":
+            self._send_json(200, {"requests": _count})
+        else:
+            self._send_json(404, {})
+
+    def do_DELETE(self):
+        global _count
+        if self.path == "/stats":
+            with _lock:
+                _count = 0
+            self._send_json(200, {"requests": 0})
+        else:
+            self._send_json(404, {})
+
+    def _send_json(self, status, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self):
+        global _count
+        with _lock:
+            _count += 1
         length = int(self.headers.get("Content-Length", 0))
         self.rfile.read(length)
         time.sleep(DELAY_SECONDS)
