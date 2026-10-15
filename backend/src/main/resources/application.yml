@@ -29,6 +29,8 @@ spring:
       socket-timeout: 10000
 
   jpa:
+    # 요청 끝까지 DB 커넥션을 잡지 않도록 OSIV 끔
+    open-in-view: false
     hibernate:
       # TODO: 프로덕션에서는 validate/none로 수정할 것
       # update -엔티티 기준으로 테이블 자동 생성/추가
