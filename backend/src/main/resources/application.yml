@@ -65,6 +65,13 @@ app:
     retry-count: ${RISKWATCH_RETRY_COUNT:2}
     # 재시도 대기 시작값 (밀리초, 시도마다 2배)
     backoff-ms: ${RISKWATCH_BACKOFF_MS:200}
+    # 서킷 브레이커 (실패율 기준, 집계 시도 수, 최소 시도 수, 차단 시간, 시험 호출 수)
+    circuit-breaker:
+      failure-rate-threshold: ${RISKWATCH_CB_FAILURE_RATE:50}
+      sliding-window-size: ${RISKWATCH_CB_WINDOW:10}
+      minimum-calls: ${RISKWATCH_CB_MIN_CALLS:5}
+      open-wait-ms: ${RISKWATCH_CB_OPEN_WAIT_MS:10000}
+      half-open-calls: ${RISKWATCH_CB_HALF_OPEN_CALLS:2}
   python-service:
     # Python 지역 분석 서비스 주소
     base-url: ${PYTHON_SERVICE_URL:http://localhost:8200}

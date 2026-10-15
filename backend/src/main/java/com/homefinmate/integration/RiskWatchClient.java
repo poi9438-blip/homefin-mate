@@ -3,7 +3,11 @@ package com.homefinmate.integration;
 import com.homefinmate.dto.risk.RiskEvaluationRequest;
 import com.homefinmate.dto.risk.RiskEvaluationResponse;
 import com.homefinmate.service.AuditService;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.event.CircuitBreakerOnStateTransitionEvent;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -26,6 +30,7 @@ public class RiskWatchClient {
     // 감사 기록 action 최대 길이
     private static final int AUDIT_ACTION_MAX = 255;
     private static final String FAILURE_PREFIX = "RISKWATCH_INTEGRATION_FAILURE: ";
+    private static final String CIRCUIT_PREFIX = "RISKWATCH_CIRCUIT_";
 
     @Value("${app.riskwatch.base-url:http://localhost:8120}")
     private String riskWatchBaseUrl;
@@ -39,12 +44,16 @@ public class RiskWatchClient {
 
     private final RestTemplate restTemplate;
     private final AuditService auditService;
+    private final CircuitBreaker circuitBreaker;
 
-    // RiskWatch 전용 RestTemplate 주입
+    // RiskWatch 전용 RestTemplate, 서킷 브레이커 주입
     public RiskWatchClient(@Qualifier("riskWatchRestTemplate") RestTemplate restTemplate,
-            AuditService auditService) {
+            AuditService auditService, CircuitBreaker riskWatchCircuitBreaker) {
         this.restTemplate = restTemplate;
         this.auditService = auditService;
+        this.circuitBreaker = riskWatchCircuitBreaker;
+        // 서킷 상태 변경(CLOSED_TO_OPEN 등)을 감사 기록에 한 번씩 남김
+        this.circuitBreaker.getEventPublisher().onStateTransition(this::recordStateTransition);
     }
 
     // 위험 평가 요청 (항상 결과를 돌려줌: 성공이면 available=true, 실패면 fallback)
@@ -60,6 +69,7 @@ public class RiskWatchClient {
 
         HttpEntity<RiskEvaluationRequest> entity = new HttpEntity<>(request, headers);
         String reason = "unknown";
+        boolean shortCircuited = false;
         int maxAttempts = riskWatchRetryCount + 1;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -67,9 +77,11 @@ public class RiskWatchClient {
                 log.info("[{}] RiskWatch evaluate attempt {}/{} userId={}",
                         request.getTraceId(), attempt, maxAttempts, request.getUserId());
 
+                // 서킷 브레이커를 거쳐 요청 전송 (차단 중이면 보내지 않음)
                 @SuppressWarnings("unchecked")
-                ResponseEntity<Map<String, Object>> response = restTemplate.postForEntity(url, entity,
-                        (Class<Map<String, Object>>) (Class<?>) Map.class);
+                ResponseEntity<Map<String, Object>> response = circuitBreaker.executeSupplier(
+                        () -> restTemplate.postForEntity(url, entity,
+                                (Class<Map<String, Object>>) (Class<?>) Map.class));
 
                 RiskEvaluationResponse result = toResult(response.getBody());
                 if (result != null) {
@@ -84,6 +96,7 @@ public class RiskWatchClient {
             } catch (Exception e) {
                 // 어떤 예외든 기록 후 재시도 여부 판단 (재시도 안 하면 fallback)
                 reason = e.getClass().getSimpleName() + ": " + e.getMessage();
+                shortCircuited = e instanceof CallNotPermittedException;
                 log.warn("[{}] RiskWatch attempt {} failed: {}", request.getTraceId(), attempt, reason);
 
                 if (!isRetryable(e) || attempt == maxAttempts) {
@@ -94,11 +107,15 @@ public class RiskWatchClient {
         }
 
         log.warn("[{}] RiskWatch unavailable — returning fallback. reason={}", request.getTraceId(), reason);
-        recordFailure(reason, request.getTraceId());
+
+        // 실제로 호출했다가 실패한 경우만 연동 실패 기록
+        if (!shortCircuited) {
+            recordFailure(reason, request.getTraceId());
+        }
         return fallback(request.getTraceId());
     }
 
-    // 재시도 대상: 5xx, 응답 타임아웃이 아닌 연결 오류
+    // 재시도 대상: 5xx, 응답 타임아웃이 아닌 연결 오류\
     private boolean isRetryable(Exception e) {
         if (e instanceof HttpServerErrorException) {
             return true;
@@ -151,6 +168,17 @@ public class RiskWatchClient {
             auditService.logAudit("SYSTEM", "HOMEFIT_MATE", action, traceId);
         } catch (Exception e) {
             log.error("[{}] Failed to record RiskWatch failure audit: {}", traceId, e.getMessage());
+        }
+    }
+
+    // 서킷 상태 변경 감사 기록 (traceId는 상태를 바꾼 요청의 것, 기록 실패는 무시)
+    private void recordStateTransition(CircuitBreakerOnStateTransitionEvent event) {
+        String action = CIRCUIT_PREFIX + event.getStateTransition().name();
+        log.warn("RiskWatch circuit breaker {}", event.getStateTransition().name());
+        try {
+            auditService.logAudit("SYSTEM", "HOMEFIT_MATE", action, MDC.get("traceId"));
+        } catch (Exception e) {
+            log.error("Failed to record circuit breaker transition: {}", e.getMessage());
         }
     }
 
