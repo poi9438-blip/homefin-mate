@@ -7,16 +7,13 @@ import ErrorState from '../components/ErrorState'
 
 // 주택 보유 현황 선택지
 const PROPERTY_TYPES = [
-  { value: 'NONE', label: '생애 최초 주택 구매 (무주택)' },
+  { value: 'NONE', label: '무주택' },
   { value: 'OWN',  label: '기존 주택 보유자' },
   { value: 'RENT', label: '현재 임차 중' },
 ]
 
-// 지역 선택지 (값은 소문자)
-const REGIONS = [
-  'sydney', 'melbourne', 'brisbane', 'perth', 'adelaide', 'darwin', 'hobart',
-  '서울', '부산', '대구', '인천', '광주',
-]
+// 지역 선택지 (수도권 여부 판단용)
+const REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '기타 지역']
 
 // 입력값 검증 (소득, 대출 금액 필수, DSR 0~1)
 function validate(form) {
@@ -32,18 +29,27 @@ function validate(form) {
   return errors
 }
 
-// 정책 점수 배지
-function ScoreBadge({ score }) {
-  const color =
-    score >= 4 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-    score >= 2 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${color}`}>
-      점수: {score}
-    </span>
-  )
+
+// 상품 종합 판정 배지
+const ELIGIBILITY = {
+  ELIGIBLE:     { label: '조건 충족', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+  NEEDS_CHECK:  { label: '확인 필요', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
+  NOT_ELIGIBLE: { label: '조건 미충족', color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
 }
+
+function EligibilityBadge({ eligibility }) {
+  const e = ELIGIBILITY[eligibility] || ELIGIBILITY.NEEDS_CHECK
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${e.color}`}>{e.label}</span>
+}
+
+// 조건 하나의 판정 표시 (충족 ✓, 미충족 ✗, 확인 필요 ?)
+const CONDITION_ICON = {
+  MET:     { icon: '✓', color: 'text-green-600 dark:text-green-400' },
+  NOT_MET: { icon: '✗', color: 'text-red-600 dark:text-red-400' },
+  UNKNOWN: { icon: '?', color: 'text-yellow-600 dark:text-yellow-400' },
+}
+
+const formatWon = n => (n == null ? '-' : `${Number(n).toLocaleString('ko-KR')}원`)
 
 export default function PolicyPage() {
   const [form, setForm] = useState({
@@ -52,7 +58,7 @@ export default function PolicyPage() {
     loanAmount:   '',
     dsr:          '',
     propertyType: 'NONE',
-    region:       'sydney',
+    region:       '서울',
   })
   const [fieldErrors, setFieldErrors] = useState({})
   const [result, setResult]   = useState(null)
@@ -160,7 +166,7 @@ export default function PolicyPage() {
             <select name="region" value={form.region} onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
               {REGIONS.map(r => (
-                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                <option key={r} value={r}>{r}</option>
               ))}
             </select>
           </div>
@@ -178,6 +184,9 @@ export default function PolicyPage() {
       {/* 추천 결과 (요약 + 정책 카드 3개 + 다시 검색) */}
       {result && !loading && (
         <div className="flex flex-col gap-4 max-w-2xl">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            입력한 정보로 판단한 결과입니다. 최종 자격과 한도는 각 기관 심사에서 결정됩니다.
+          </p>
           {result.summary && (
             <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4 text-sm text-blue-800 dark:text-blue-200">
               {result.summary}
@@ -187,21 +196,43 @@ export default function PolicyPage() {
             {result.recommendedPolicies?.map((policy, idx) => (
               <div key={idx}
                 className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
-                <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-start justify-between gap-3 mb-1">
                   <h3 className="font-semibold text-gray-900 dark:text-white">{policy.name}</h3>
-                  <ScoreBadge score={policy.score} />
+                  <EligibilityBadge eligibility={policy.eligibility} />
                 </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{policy.provider}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{policy.description}</p>
-                {policy.reasons?.length > 0 && (
-                  <ul className="flex flex-col gap-1">
-                    {policy.reasons.map((reason, ri) => (
-                      <li key={ri} className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="text-green-500 mt-0.5">✓</span>
-                        {reason}
+
+                <ul className="flex flex-col gap-1 mb-3">
+                  {policy.conditions?.map((c, ci) => {
+                    const icon = CONDITION_ICON[c.result] || CONDITION_ICON.UNKNOWN
+                    return (
+                      <li key={ci} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
+                        <span className={`font-bold ${icon.color}`}>{icon.icon}</span>
+                        <span><b>{c.name}</b> · {c.detail}</span>
                       </li>
-                    ))}
-                  </ul>
+                    )
+                  })}
+                </ul>
+
+                <div className="text-xs text-gray-600 dark:text-gray-300 mb-2">
+                  <div>입력 기준 최대 한도: <b>{formatWon(policy.maxLoanAmount)}</b></div>
+                  <div>금리: {policy.interestRate}</div>
+                </div>
+
+                {policy.additionalChecks?.length > 0 && (
+                  <details className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    <summary className="cursor-pointer">신청 전에 따로 확인할 조건</summary>
+                    <ul className="list-disc ml-5 mt-1">
+                      {policy.additionalChecks.map((a, ai) => <li key={ai}>{a}</li>)}
+                    </ul>
+                  </details>
                 )}
+
+                <a href={policy.sourceUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-primary-600 dark:text-primary-400 underline">
+                  공식 안내 ({policy.checkedDate} 확인)
+                </a>
               </div>
             ))}
           </div>
