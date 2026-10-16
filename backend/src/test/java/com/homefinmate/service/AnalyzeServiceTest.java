@@ -61,7 +61,8 @@ class AnalyzeServiceTest {
         when(loanService.compute(any())).thenReturn(LoanCalculationResponse.builder()
                 .dsr(new BigDecimal("0.3800")).dsrStatus("ACCEPTABLE").build());
         when(analyzeResultSaver.save(any(), any(), any())).thenReturn(100L);
-        when(policyService.recommend(any())).thenReturn(PolicyRecommendationResponse.builder().score(4).build());
+        when(policyService.recommend(any()))
+                .thenReturn(PolicyRecommendationResponse.builder().eligibleCount(2).build());
         when(riskWatchClient.evaluateRisk(any())).thenReturn(RiskEvaluationResponse.builder()
                 .riskLevel("UNKNOWN").riskScore(0).available(false).build());
         when(analysisService.getRegionAnalysis(anyString(), anyString()))
@@ -95,7 +96,7 @@ class AnalyzeServiceTest {
         order.verify(analyzeResultSaver).save(eq(7L), any(), any());
 
         assertThat(res.getLoan().getSimulationId()).isEqualTo(100L);
-        assertThat(res.getPolicy().getScore()).isEqualTo(4);
+        assertThat(res.getPolicy().getEligibleCount()).isEqualTo(2);
         assertThat(res.getRisk().isAvailable()).isFalse();
         assertThat(res.getRegion().getRegion()).isEqualTo("부산");
         assertThat(res.getTraceId()).isEqualTo("hfm-analyze-1");

@@ -1,6 +1,9 @@
 package com.homefinmate.service;
 
+import com.homefinmate.dto.policy.PolicyCondition;
+import com.homefinmate.dto.policy.PolicyCondition.Result;
 import com.homefinmate.dto.policy.PolicyProduct;
+import com.homefinmate.dto.policy.PolicyProduct.Eligibility;
 import com.homefinmate.dto.policy.PolicyRecommendationRequest;
 import com.homefinmate.dto.policy.PolicyRecommendationResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -10,76 +13,159 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// PolicyService 점수 규칙 검증 (정책별 점수와 상위 3개 순서)
+// 정책대출 자격 판정 테스트 (조건별 충족·미충족·확인 필요)
 class PolicyServiceTest {
 
-        private final PolicyService policyService = new PolicyService();
+    private static final String DIDIMDOL = "내집마련 디딤돌대출";
+    private static final String BOGEUMJARI = "보금자리론";
 
-        private PolicyRecommendationRequest request(String income, String existingDebt, String loanAmount,
-                        String dsr, String propertyType, String region) {
-                PolicyRecommendationRequest r = new PolicyRecommendationRequest();
-                r.setIncome(income == null ? null : new BigDecimal(income));
-                r.setExistingDebt(existingDebt == null ? null : new BigDecimal(existingDebt));
-                r.setLoanAmount(loanAmount == null ? null : new BigDecimal(loanAmount));
-                r.setDsr(dsr == null ? null : new BigDecimal(dsr));
-                r.setPropertyType(propertyType);
-                r.setRegion(region);
-                r.setTraceId("trace-policy");
-                return r;
-        }
+    private final PolicyService policyService = new PolicyService();
 
-        private int scoreOf(PolicyRecommendationResponse res, String name) {
-                return res.getRecommendedPolicies().stream()
-                                .filter(p -> p.getName().equals(name))
-                                .findFirst().map(PolicyProduct::getScore).orElse(-1);
-        }
+    // 모든 정보를 넣은 기본 요청: 월 400만(연 4,800만), 무주택, 주택 4억, 대출 2억, DSR 30%, 부산, 가구 조건 해당
+    // 없음
+    private PolicyRecommendationRequest fullRequest() {
+        PolicyRecommendationRequest r = new PolicyRecommendationRequest();
+        r.setIncome(new BigDecimal("4000000"));
+        r.setPropertyType("NONE");
+        r.setHousePrice(new BigDecimal("400000000"));
+        r.setLoanAmount(new BigDecimal("200000000"));
+        r.setDsr(new BigDecimal("0.30"));
+        r.setRegion("부산");
+        r.setFirstHome(false);
+        r.setNewlywed(false);
+        r.setChildCount(0);
+        r.setTraceId("trace-policy");
+        return r;
+    }
 
-        // 달러 기준 저소득 무주택자: 점수 4, 4, 3 순서, 합계 11
-        @Test
-        @DisplayName("[TC-POL-001] 달러 기준 저소득 무주택자: 보조금,저소득 지원이 4점으로 상위")
-        void recommend_lowIncomeFirstHomeBuyer() {
-                PolicyRecommendationResponse res = policyService.recommend(
-                                request("2000", "0", "200000", "0.15", "NONE", "부산"));
+    private PolicyProduct product(PolicyRecommendationResponse res, String name) {
+        return res.getRecommendedPolicies().stream().filter(p -> p.getName().equals(name)).findFirst().orElseThrow();
+    }
 
-                assertThat(res.getRecommendedPolicies()).extracting(PolicyProduct::getName)
-                                .containsExactly("First Home Buyer Grant", "Low-Income Housing Assistance",
-                                                "Stamp Duty Concession");
-                assertThat(res.getRecommendedPolicies()).extracting(PolicyProduct::getScore)
-                                .containsExactly(4, 4, 3);
-                assertThat(res.getScore()).isEqualTo(11);
-                assertThat(res.getSummary()).isEqualTo(
-                                "Based on your profile, you may qualify for: First Home Buyer Grant, "
-                                                + "Low-Income Housing Assistance, Stamp Duty Concession. "
-                                                + "As a first-home buyer you have additional benefits.");
-                assertThat(res.getTraceId()).isEqualTo("trace-policy");
-        }
+    private Result condition(PolicyProduct p, String name) {
+        return p.getConditions().stream().filter(c -> c.getName().equals(name))
+                .map(PolicyCondition::getResult).findFirst().orElseThrow();
+    }
 
-        @Test
-        @DisplayName("[TC-POL-002] ⚠️#60 빈 요청도 무주택으로 간주하고 3개를 추천함")
-        void recommend_emptyRequest_treatedAsNoHouse() {
-                PolicyRecommendationResponse res = policyService.recommend(
-                                request(null, null, null, null, null, null));
+    @Test
+    @DisplayName("[TC-POL-301] 원화 기준 입력(연 4,800만·주택 4억·대출 2억)이면 두 상품 모두 조건 충족")
+    void koreanInput_bothEligible() {
+        PolicyRecommendationResponse res = policyService.recommend(fullRequest());
 
-                assertThat(res.getRecommendedPolicies()).hasSize(3);
-                assertThat(res.getRecommendedPolicies()).extracting(PolicyProduct::getName)
-                                .containsExactly("Stamp Duty Concession", "First Home Buyer Grant",
-                                                "Regional Growth Incentive");
-                assertThat(res.getScore()).isEqualTo(4);
-                assertThat(res.getSummary()).endsWith("As a first-home buyer you have additional benefits.");
-        }
+        assertThat(res.getRecommendedPolicies()).extracting(PolicyProduct::getEligibility)
+                .containsOnly(Eligibility.ELIGIBLE);
+        assertThat(res.getEligibleCount()).isEqualTo(2);
+        // 디딤돌 한도: 일반 2억과 4억 × 70% = 2.8억 중 작은 값
+        assertThat(product(res, DIDIMDOL).getMaxLoanAmount()).isEqualByComparingTo("200000000");
+        assertThat(res.getSummary()).contains("조건 충족 2개");
+        assertThat(res.getTraceId()).isEqualTo("trace-policy");
+    }
 
-        // 주택 보유자: 부채 대환 3점이 1위, 지역은 대소문자 무시, DSR 없으면 "높음"으로 판정
-        @Test
-        @DisplayName("[TC-POL-003] 주택 보유·고부채: 부채 대환 1위, 무주택 점수 없음")
-        void recommend_ownerWithDebt() {
-                PolicyRecommendationResponse res = policyService.recommend(
-                                request("3000", "150000", null, null, "OWN", "Perth"));
+    @Test
+    @DisplayName("[TC-POL-201] 디딤돌 소득 경계: 연 6,000만 원은 충족, 넘으면 미충족 (가구 조건 해당 없음)")
+    void didimdolIncomeBoundary() {
+        PolicyRecommendationRequest atLimit = fullRequest();
+        atLimit.setIncome(new BigDecimal("5000000"));
+        PolicyRecommendationRequest over = fullRequest();
+        over.setIncome(new BigDecimal("5000001"));
 
-                assertThat(res.getRecommendedPolicies()).extracting(PolicyProduct::getName)
-                                .containsExactly("Debt Reduction Refinance Scheme", "Regional Growth Incentive",
-                                                "First Home Buyer Grant");
-                assertThat(res.getRecommendedPolicies()).extracting(PolicyProduct::getScore)
-                                .containsExactly(3, 2, 1);
-                assertThat(res.getSummary()).doesNotContain("first-home buyer");
-        }
+        assertThat(condition(product(policyService.recommend(atLimit), DIDIMDOL), "연소득")).isEqualTo(Result.MET);
+        assertThat(condition(product(policyService.recommend(over), DIDIMDOL), "연소득")).isEqualTo(Result.NOT_MET);
+    }
+
+    @Test
+    @DisplayName("[TC-POL-202] 가구 조건을 모르면 기준 사이 소득은 확인 필요, 생애최초면 충족")
+    void unknownHousehold_needsCheck_thenFirstHomeMeets() {
+        PolicyRecommendationRequest unknown = fullRequest();
+        unknown.setIncome(new BigDecimal("5500000"));
+        unknown.setFirstHome(null);
+        unknown.setNewlywed(null);
+        unknown.setChildCount(null);
+        PolicyRecommendationRequest firstHome = fullRequest();
+        firstHome.setIncome(new BigDecimal("5500000"));
+        firstHome.setFirstHome(true);
+
+        PolicyProduct didimdolUnknown = product(policyService.recommend(unknown), DIDIMDOL);
+        assertThat(condition(didimdolUnknown, "연소득")).isEqualTo(Result.UNKNOWN);
+        assertThat(didimdolUnknown.getEligibility()).isEqualTo(Eligibility.NEEDS_CHECK);
+        assertThat(condition(product(policyService.recommend(firstHome), DIDIMDOL), "연소득")).isEqualTo(Result.MET);
+    }
+
+    @Test
+    @DisplayName("[TC-POL-203] 주택 보유자: 디딤돌은 미충족, 보금자리론은 1주택 처분 조건이라 확인 필요")
+    void owner_didimdolNotEligible_bogeumjariNeedsCheck() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setPropertyType("OWN");
+
+        PolicyRecommendationResponse res = policyService.recommend(r);
+
+        assertThat(product(res, DIDIMDOL).getEligibility()).isEqualTo(Eligibility.NOT_ELIGIBLE);
+        assertThat(product(res, BOGEUMJARI).getEligibility()).isEqualTo(Eligibility.NEEDS_CHECK);
+        // 정렬: 확인 필요가 미충족보다 앞
+        assertThat(res.getRecommendedPolicies()).extracting(PolicyProduct::getName).containsExactly(BOGEUMJARI,
+                DIDIMDOL);
+    }
+
+    @Test
+    @DisplayName("[TC-POL-204] 주택 5.5억: 디딤돌은 가격 초과(신혼이면 6억 기준으로 충족), 보금자리론은 충족")
+    void housePrice_didimdolLimitDependsOnNewlywed() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setHousePrice(new BigDecimal("550000000"));
+        PolicyRecommendationRequest newlywed = fullRequest();
+        newlywed.setHousePrice(new BigDecimal("550000000"));
+        newlywed.setNewlywed(true);
+
+        PolicyRecommendationResponse res = policyService.recommend(r);
+
+        assertThat(condition(product(res, DIDIMDOL), "주택 가격")).isEqualTo(Result.NOT_MET);
+        assertThat(condition(product(res, BOGEUMJARI), "주택 가격")).isEqualTo(Result.MET);
+        assertThat(condition(product(policyService.recommend(newlywed), DIDIMDOL), "주택 가격")).isEqualTo(Result.MET);
+    }
+
+    @Test
+    @DisplayName("[TC-POL-205] 대출 한도는 상품 한도와 주택 가격 × LTV 70% 중 작은 값")
+    void loanLimit_isMinOfProductLimitAndLtv() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setHousePrice(new BigDecimal("300000000"));
+        r.setLoanAmount(new BigDecimal("250000000"));
+
+        PolicyRecommendationResponse res = policyService.recommend(r);
+
+        assertThat(product(res, BOGEUMJARI).getMaxLoanAmount()).isEqualByComparingTo("210000000");
+        assertThat(condition(product(res, BOGEUMJARI), "대출 금액")).isEqualTo(Result.NOT_MET);
+        assertThat(condition(product(res, DIDIMDOL), "대출 금액")).isEqualTo(Result.NOT_MET);
+    }
+
+    @Test
+    @DisplayName("[TC-POL-206] DSR 60% 초과면 DTI 조건 미충족")
+    void highDsr_failsDti() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setDsr(new BigDecimal("0.61"));
+
+        assertThat(condition(product(policyService.recommend(r), BOGEUMJARI), "DTI 60% 이내")).isEqualTo(Result.NOT_MET);
+    }
+
+    @Test
+    @DisplayName("[TC-POL-207] 빈 요청은 모든 조건이 확인 필요 (충족·미충족으로 단정하지 않음, #60)")
+    void emptyRequest_everythingNeedsCheck() {
+        PolicyRecommendationResponse res = policyService.recommend(new PolicyRecommendationRequest());
+
+        assertThat(res.getRecommendedPolicies()).extracting(PolicyProduct::getEligibility)
+                .containsOnly(Eligibility.NEEDS_CHECK);
+        assertThat(res.getRecommendedPolicies()).flatExtracting(PolicyProduct::getConditions)
+                .extracting(PolicyCondition::getResult).containsOnly(Result.UNKNOWN);
+        assertThat(res.getEligibleCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("[TC-POL-208] 모든 상품에 공식 출처 URL·확인 날짜·금리 안내가 있음")
+    void everyProduct_hasSourceAndDate() {
+        PolicyRecommendationResponse res = policyService.recommend(fullRequest());
+
+        assertThat(res.getRecommendedPolicies()).allSatisfy(p -> {
+            assertThat(p.getSourceUrl()).startsWith("https://").containsAnyOf("molit.go.kr", "hf.go.kr");
+            assertThat(p.getCheckedDate()).matches("\\d{4}-\\d{2}-\\d{2}");
+            assertThat(p.getInterestRate()).isNotBlank();
+        });
+    }
 }

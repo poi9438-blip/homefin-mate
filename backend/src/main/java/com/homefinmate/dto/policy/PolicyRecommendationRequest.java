@@ -5,7 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-// 정책 추천 요청 (소득, 기존 부채, 대출 금액, DSR, 주택 보유, 지역)
+// 정책 추천 요청 (소득, 기존 부채, 대출 금액, DSR, 주택 보유, 지역, 주택 가격·가구 조건)
 @Data
 public class PolicyRecommendationRequest {
     // 월 소득 (income 또는 monthlyIncome)
@@ -26,6 +26,18 @@ public class PolicyRecommendationRequest {
 
     // 지역
     private String region;
+
+    // 주택 가격 (원, 선택)
+    private BigDecimal housePrice;
+
+    // 생애최초 주택 구입 여부 (선택)
+    private Boolean firstHome;
+
+    // 신혼가구 여부 (선택, 혼인 7년 이내)
+    private Boolean newlywed;
+
+    // 미성년 자녀 수 (선택)
+    private Integer childCount;
 
     private String traceId;
     private String eventVersion = "v1";
