@@ -1,0 +1,37 @@
+# CD 1단계: main CI 성공 시 이미지 빌드 → GHCR push (배포 없음)
+name: Release images
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    # main에 push(머지)되어 돈 CI가 성공했을 때만
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, frontend, python-service]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: |
+            ghcr.io/poi9438-blip/homefin-${{ matrix.service }}:${{ github.event.workflow_run.head_sha }}
+            ghcr.io/poi9438-blip/homefin-${{ matrix.service }}:latest
