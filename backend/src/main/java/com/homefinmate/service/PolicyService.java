@@ -137,6 +137,7 @@ public class PolicyService {
                 low, "연 4.90~5.30% 고정 (2026년 10월 공시, 우대금리 최대 1.0%p)", BOGEUMJARI_URL);
     }
 
+    // 다자녀 = 자녀 2명 이상으로 처리
     private BigDecimal bogeumjariIncomeLimit(PolicyRecommendationRequest r, boolean optimistic) {
         int kids = children(r, optimistic);
         if (kids >= 2)

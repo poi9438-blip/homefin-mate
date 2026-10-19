@@ -28,15 +28,15 @@
 
 ## 기술 스택
 
-| 구분     | 기술                                                                                     |
-| -------- | ---------------------------------------------------------------------------------------- |
-| Backend  | Java 17, Spring Boot 3.2, Spring Data JPA, Spring Security, JWT(jjwt 0.12), Resilience4j |
-| Frontend | React 18, Vite 5, Tailwind CSS 3, React Router 6, axios, Chart.js                        |
-| Python   | FastAPI, Pydantic, Uvicorn                                                               |
-| Database | MySQL 8 (테스트는 H2 메모리 DB)                                                          |
-| Test     | JUnit 5, Mockito, AssertJ, MockRestServiceServer, JaCoCo, pytest, Vitest                 |
-| CI       | GitHub Actions (테스트만, 배포 없음)                                                     |
-| Infra    | Docker, Docker Compose, nginx                                                            |
+| 구분     | 기술                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------------ |
+| Backend  | Java 17, Spring Boot 3.2, Spring Data JPA, Spring Security, JWT(jjwt 0.12), Resilience4j         |
+| Frontend | React 18, Vite 5, Tailwind CSS 3, React Router 6, axios, Chart.js                                |
+| Python   | FastAPI, Pydantic, Uvicorn                                                                       |
+| Database | MySQL 8 (테스트는 H2 메모리 DB)                                                                  |
+| Test     | JUnit 5, Mockito, AssertJ, MockRestServiceServer, JaCoCo, pytest, Vitest                         |
+| CI/CD    | GitHub Actions: PR·main마다 테스트, main CI 성공 시 Docker 이미지 → GHCR (서버 배포는 아직 없음) |
+| Infra    | Docker, Docker Compose, nginx                                                                    |
 
 ---
 
@@ -171,6 +171,8 @@ python scripts/tc_status.py
 ```
 
 PR과 main push마다 GitHub Actions([`.github/workflows/ci.yml`](.github/workflows/ci.yml))가 위 네 단계를 실행합니다.
+main에서 CI가 성공하면 [`.github/workflows/release.yml`](.github/workflows/release.yml)이 backend·frontend·python-service 이미지를 만들어
+`ghcr.io/poi9438-blip/homefin-<서비스>:<커밋 번호>`와 `:latest`로 올립니다. 서버 배포는 아직 하지 않습니다.
 
 ---
 
