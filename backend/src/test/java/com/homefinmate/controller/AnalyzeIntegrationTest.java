@@ -143,4 +143,38 @@ class AnalyzeIntegrationTest {
                                 .contains("loanAmount=300000000")
                                 .contains("monthlyPayment=1520055.93 dsr=0.3800");
         }
+
+        // 대출 화면 전체 입력으로 통합 분석 → 정책 추천 결과가 응답에 포함되는지 (실제 HTTP + DB)
+        @Test
+        @DisplayName("[TC-ANLZ-105] 정책 판정용 입력을 모두 넣으면 통합 분석 응답에 추천 상품(디딤돌대출)과 이유 포함")
+        void analyzeWithPolicyInputs_returnsRecommendation() throws Exception {
+                String full = "{\"loanAmount\":200000000,\"annualInterestRate\":4.5,\"termMonths\":360,"
+                                + "\"monthlyIncome\":4000000,\"propertyType\":\"NONE\",\"region\":\"부산\","
+                                + "\"housePrice\":400000000,\"householdAnnualIncome\":48000000,"
+                                + "\"firstHome\":true,\"newlywed\":false,\"childCount\":0}";
+
+                mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON).content(full))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.data.policy.recommendedProduct").value("내집마련 디딤돌대출"))
+                                .andExpect(jsonPath("$.data.policy.recommendationReason").isNotEmpty());
+        }
+
+        // 정책대출 판정용 입력 검증: 자녀 수 음수, 주택 가격 0 이하는 400
+        @Test
+        @DisplayName("[TC-ANLZ-106] 자녀 수 음수·주택 가격 0이면 400 (입력 검증)")
+        void invalidPolicyInputs_return400() throws Exception {
+                String base = "{\"loanAmount\":200000000,\"annualInterestRate\":4.5,\"termMonths\":360,";
+
+                mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON).content(base + "\"childCount\":-1}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.message")
+                                                .value(org.hamcrest.Matchers.containsString("childCount")));
+                mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON).content(base + "\"housePrice\":0}"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.message")
+                                                .value(org.hamcrest.Matchers.containsString("housePrice")));
+        }
 }

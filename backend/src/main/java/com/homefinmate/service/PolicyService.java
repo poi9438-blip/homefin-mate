@@ -26,6 +26,8 @@ public class PolicyService {
     private static final String DIDIMDOL_URL = "https://nhuf.molit.go.kr/FP/FP05/FP0503/FP05030101.jsp";
     private static final String BOGEUMJARI_URL = "https://www.hf.go.kr/ko/sub01/sub01_01_01.do";
 
+    private static final String DIDIMDOL = "내집마련 디딤돌대출";
+    private static final String BOGEUMJARI = "보금자리론";
     private static final BigDecimal DTI_LIMIT = new BigDecimal("0.60");
     private static final Set<String> CAPITAL_AREA = Set.of("서울", "인천", "경기");
 
@@ -37,13 +39,58 @@ public class PolicyService {
         int eligible = (int) products.stream().filter(p -> p.getEligibility() == Eligibility.ELIGIBLE).count();
         int needsCheck = (int) products.stream().filter(p -> p.getEligibility() == Eligibility.NEEDS_CHECK).count();
 
+        PolicyProduct didimdol = find(products, DIDIMDOL);
+        PolicyProduct bogeumjari = find(products, BOGEUMJARI);
+        String[] recommendation = recommendation(didimdol, bogeumjari);
+
         return PolicyRecommendationResponse.builder()
                 .recommendedPolicies(products)
                 .summary(String.format("입력한 정보 기준으로 %d개 상품 중 조건 충족 %d개, 확인 필요 %d개입니다. "
                         + "최종 자격과 한도는 각 기관 심사에서 결정됩니다.", products.size(), eligible, needsCheck))
                 .eligibleCount(eligible)
+                .recommendedProduct(recommendation[0])
+                .recommendationReason(recommendation[1])
                 .traceId(request.getTraceId())
                 .build();
+    }
+
+    // 둘 중 추천: 조건을 모두 충족한 상품만 추천 (확인 필요는 추천하지 않음)
+    // 둘 다 충족이면 공식 금리 범위가 겹치지 않고 더 낮은 디딤돌대출. 반환값 {상품 이름 또는 null, 이유}
+    private String[] recommendation(PolicyProduct didimdol, PolicyProduct bogeumjari) {
+        boolean didimdolOk = didimdol.getEligibility() == Eligibility.ELIGIBLE;
+        boolean bogeumjariOk = bogeumjari.getEligibility() == Eligibility.ELIGIBLE;
+
+        if (didimdolOk && bogeumjariOk) {
+            return new String[] { DIDIMDOL, "두 상품 모두 조건을 충족합니다. 디딤돌대출의 공식 금리 범위(연 2.85~4.15%)가 "
+                    + "보금자리론(연 4.90~5.30%)보다 낮아 디딤돌대출을 추천합니다." };
+        }
+        if (didimdolOk) {
+            return new String[] { DIDIMDOL, "디딤돌대출의 조건을 모두 충족합니다." };
+        }
+        if (bogeumjariOk) {
+            String reason = didimdol.getEligibility() == Eligibility.NOT_ELIGIBLE
+                    ? "디딤돌대출은 " + conditionNames(didimdol, Result.NOT_MET) + " 조건이 맞지 않아, "
+                    : "디딤돌대출은 " + conditionNames(didimdol, Result.UNKNOWN) + " 확인이 필요해 추천하지 않았고, ";
+            String hint = didimdol.getEligibility() == Eligibility.NEEDS_CHECK
+                    ? " 디딤돌대출 조건이 확인되면 더 낮은 금리로 이용할 수도 있습니다."
+                    : "";
+            return new String[] { BOGEUMJARI, reason + "조건을 모두 충족한 보금자리론을 추천합니다." + hint };
+        }
+        if (didimdol.getEligibility() == Eligibility.NEEDS_CHECK
+                || bogeumjari.getEligibility() == Eligibility.NEEDS_CHECK) {
+            return new String[] { null, "확인이 필요한 조건이 있어 추천하지 않았습니다. 입력을 보완하면 다시 판정합니다." };
+        }
+        return new String[] { null, "입력한 조건으로는 두 상품 모두 이용하기 어렵습니다." };
+    }
+
+    private PolicyProduct find(List<PolicyProduct> products, String name) {
+        return products.stream().filter(p -> p.getName().equals(name)).findFirst().orElseThrow();
+    }
+
+    // 특정 결과인 조건 이름을 "주택 가격, 대출 금액" 형태로
+    private String conditionNames(PolicyProduct product, Result result) {
+        return String.join("·", product.getConditions().stream()
+                .filter(c -> c.getResult() == result).map(PolicyCondition::getName).toList());
     }
 
     // ── 내집마련 디딤돌대출 (주택도시기금) ─────────────────────────────────────
@@ -68,11 +115,10 @@ public class PolicyService {
         conditions.add(rangeCheck("대출 금액", r.getLoanAmount(), low, high, "대출 금액을 입력하지 않았습니다"));
         conditions.add(dtiCheck(r));
 
-        return product("내집마련 디딤돌대출", "주택도시기금",
+        return product(DIDIMDOL, "주택도시기금",
                 "무주택 서민의 주택 구입 자금을 낮은 금리로 지원하는 정부 대출입니다.",
                 conditions,
-                List.of("부부합산 연소득으로 다시 확인",
-                        "전용면적 85㎡ 이하 (수도권 외 읍·면 100㎡ 이하)",
+                checks(r, "전용면적 85㎡ 이하 (수도권 외 읍·면 100㎡ 이하)",
                         "순자산 5.11억 원 이하 (2026년 기준)",
                         "성년 세대주, 신용 기준, 다른 주택담보대출 미이용"),
                 low, "연 2.85~4.15% (소득·기간별, 우대금리 별도)", DIDIMDOL_URL);
@@ -127,11 +173,10 @@ public class PolicyService {
         conditions.add(rangeCheck("대출 금액", r.getLoanAmount(), low, high, "대출 금액을 입력하지 않았습니다"));
         conditions.add(dtiCheck(r));
 
-        return product("보금자리론", "한국주택금융공사",
+        return product(BOGEUMJARI, "한국주택금융공사",
                 "만기까지 금리가 고정되는 장기 주택담보대출입니다.",
                 conditions,
-                List.of("부부합산 연소득으로 다시 확인",
-                        "아파트가 아니면 LTV 65%",
+                checks(r, "아파트가 아니면 LTV 65%",
                         "규제지역이면 LTV·DTI 10%p 차감 (생애최초·실수요자 예외)",
                         "신용점수 271점 이상"),
                 low, "연 4.90~5.30% 고정 (2026년 10월 공시, 우대금리 최대 1.0%p)", BOGEUMJARI_URL);
@@ -159,13 +204,29 @@ public class PolicyService {
 
     // ── 공통 판정 ────────────────────────────────────────────────────────────
 
+    // 소득 판정: 부부합산 연소득이 있으면 그 값, 없으면 월 소득 × 12(본인 기준, 부부합산 확인 안내)
     private PolicyCondition incomeCheck(PolicyRecommendationRequest r, BigDecimal low, BigDecimal high) {
+        if (r.getHouseholdAnnualIncome() != null) {
+            PolicyCondition c = rangeCheck("연소득", r.getHouseholdAnnualIncome(), low, high, "");
+            c.setDetail("부부합산 연소득 " + format(r.getHouseholdAnnualIncome()) + ". " + c.getDetail());
+            return c;
+        }
         BigDecimal annual = r.getIncome() == null ? null : r.getIncome().multiply(BigDecimal.valueOf(12));
         PolicyCondition c = rangeCheck("연소득", annual, low, high, "소득을 입력하지 않았습니다");
         if (annual != null) {
-            c.setDetail("월 소득 × 12 = " + format(annual) + " (본인 기준). " + c.getDetail());
+            c.setDetail("월 소득 × 12 = " + format(annual) + " (본인 기준, 부부합산으로 다시 확인). " + c.getDetail());
         }
         return c;
+    }
+
+    // 신청 전 추가 확인 조건 (부부합산 연소득을 입력하지 않았으면 맨 앞에 "부부합산 연소득으로 다시 확인")
+    private List<String> checks(PolicyRecommendationRequest r, String... items) {
+        List<String> list = new ArrayList<>();
+        if (r.getHouseholdAnnualIncome() == null) {
+            list.add("부부합산 연소득으로 다시 확인");
+        }
+        list.addAll(List.of(items));
+        return list;
     }
 
     private PolicyCondition dtiCheck(PolicyRecommendationRequest r) {

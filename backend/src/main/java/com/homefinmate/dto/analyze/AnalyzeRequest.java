@@ -2,6 +2,7 @@ package com.homefinmate.dto.analyze;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Max;
 import lombok.Data;
 
@@ -39,6 +40,25 @@ public class AnalyzeRequest {
 
     // 지역 (선택, 대출 저장,정책,위험 평가,지역 분석에 공통 사용)
     private String region;
+
+    // 정책대출 판정용 선택 입력 (비우면 해당 조건은 확인 필요)
+    // 주택 가격 (원)
+    @Positive(message = "House price must be positive")
+    private BigDecimal housePrice;
+
+    // 부부합산 연소득 (원)
+    @Positive(message = "Household annual income must be positive")
+    private BigDecimal householdAnnualIncome;
+
+    // 생애최초 주택 구입 여부
+    private Boolean firstHome;
+
+    // 신혼가구 여부 (혼인 7년 이내)
+    private Boolean newlywed;
+
+    // 미성년 자녀 수
+    @PositiveOrZero(message = "Child count must be zero or more")
+    private Integer childCount;
 
     private String traceId;
     private String eventVersion = "v1";
