@@ -222,7 +222,11 @@ export default function PolicyPage() {
                     return (
                       <li key={ci} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
                         <span className={`font-bold ${icon.color}`}>{icon.icon}</span>
-                        <span><b>{c.name}</b> · {c.detail}</span>
+                        <span>
+                          <b>{c.name}</b> · {c.detail}
+                          {/* 충족하려면 무엇을 바꾸거나 확인하면 되는지 */}
+                          {c.hint && <span className="block text-primary-700 dark:text-primary-300">→ {c.hint}</span>}
+                        </span>
                       </li>
                     )
                   })}
