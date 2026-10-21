@@ -146,4 +146,27 @@ class AnalyzeServiceTest {
 
         verifyNoInteractions(analysisService, analyzeResultSaver);
     }
+
+    // 대출 화면에서 받은 정책대출 판정용 입력이 정책 판정 요청에 그대로 전달되는지
+    @Test
+    @DisplayName("[TC-ANLZ-005] 주택 가격·부부합산 연소득·생애최초·신혼·자녀 수를 정책 판정에 전달")
+    void analyze_passesPolicyInputs() {
+        AnalyzeRequest req = request("부산");
+        req.setHousePrice(new BigDecimal("400000000"));
+        req.setHouseholdAnnualIncome(new BigDecimal("55000000"));
+        req.setFirstHome(true);
+        req.setNewlywed(false);
+        req.setChildCount(1);
+
+        analyzeService.analyze(req, "user@test.com");
+
+        ArgumentCaptor<PolicyRecommendationRequest> policyReq = ArgumentCaptor
+                .forClass(PolicyRecommendationRequest.class);
+        verify(policyService).recommend(policyReq.capture());
+        assertThat(policyReq.getValue().getHousePrice()).isEqualByComparingTo("400000000");
+        assertThat(policyReq.getValue().getHouseholdAnnualIncome()).isEqualByComparingTo("55000000");
+        assertThat(policyReq.getValue().getFirstHome()).isTrue();
+        assertThat(policyReq.getValue().getNewlywed()).isFalse();
+        assertThat(policyReq.getValue().getChildCount()).isEqualTo(1);
+    }
 }

@@ -168,4 +168,84 @@ class PolicyServiceTest {
             assertThat(p.getInterestRate()).isNotBlank();
         });
     }
+
+    // 추천: 둘 다 충족이면 금리 범위가 더 낮은 디딤돌대출
+    @Test
+    @DisplayName("[TC-POL-209] 두 상품 모두 충족이면 디딤돌대출 추천 (금리 범위가 더 낮음)")
+    void bothEligible_recommendsDidimdol() {
+        PolicyRecommendationResponse res = policyService.recommend(fullRequest());
+
+        assertThat(res.getRecommendedProduct()).isEqualTo(DIDIMDOL);
+        assertThat(res.getRecommendationReason()).contains("금리");
+    }
+
+    // 추천: 디딤돌만 미충족이면 보금자리론, 이유에 미충족 조건 이름
+    @Test
+    @DisplayName("[TC-POL-210] 디딤돌이 미충족(주택 5.5억)이고 보금자리론이 충족이면 보금자리론 추천")
+    void didimdolNotEligible_recommendsBogeumjari() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setHousePrice(new BigDecimal("550000000"));
+
+        PolicyRecommendationResponse res = policyService.recommend(r);
+
+        assertThat(res.getRecommendedProduct()).isEqualTo(BOGEUMJARI);
+        assertThat(res.getRecommendationReason()).contains("주택 가격");
+    }
+
+    // 추천: 확인 필요인 상품은 추천하지 않음. 디딤돌이 확인 필요면 충족한 보금자리론 추천 + 안내
+    @Test
+    @DisplayName("[TC-POL-211] 디딤돌이 확인 필요(가구 조건 모름)이면 충족한 보금자리론 추천, 디딤돌은 확인 시 가능 안내")
+    void didimdolNeedsCheck_recommendsBogeumjariWithHint() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setIncome(new BigDecimal("5500000"));
+        r.setFirstHome(null);
+        r.setNewlywed(null);
+        r.setChildCount(null);
+
+        PolicyRecommendationResponse res = policyService.recommend(r);
+
+        assertThat(product(res, DIDIMDOL).getEligibility()).isEqualTo(Eligibility.NEEDS_CHECK);
+        assertThat(res.getRecommendedProduct()).isEqualTo(BOGEUMJARI);
+        assertThat(res.getRecommendationReason()).contains("연소득").contains("더 낮은 금리");
+    }
+
+    // 추천: 둘 다 미충족이면 추천 없음
+    @Test
+    @DisplayName("[TC-POL-212] 두 상품 모두 미충족(주택 7억)이면 추천 없음")
+    void bothNotEligible_noRecommendation() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setHousePrice(new BigDecimal("700000000"));
+
+        PolicyRecommendationResponse res = policyService.recommend(r);
+
+        assertThat(res.getRecommendedProduct()).isNull();
+        assertThat(res.getRecommendationReason()).contains("두 상품 모두");
+    }
+
+    // 추천: 충족한 상품 없이 확인 필요만 있으면 추천 없음
+    @Test
+    @DisplayName("[TC-POL-213] 빈 요청(모두 확인 필요)이면 추천 없음, 입력 보완 안내")
+    void onlyNeedsCheck_noRecommendation() {
+        PolicyRecommendationResponse res = policyService.recommend(new PolicyRecommendationRequest());
+
+        assertThat(res.getRecommendedProduct()).isNull();
+        assertThat(res.getRecommendationReason()).contains("확인이 필요한 조건");
+    }
+
+    // 부부합산 연소득이 있으면 월 소득 대신 그 값으로 판정하고 "다시 확인" 안내를 빼고, 없으면 안내를 넣음
+    @Test
+    @DisplayName("[TC-POL-214] 부부합산 연소득(7,500만)이 있으면 그 값으로 판정, 없으면 월 소득 × 12 + 다시 확인 안내")
+    void householdIncome_overridesMonthlyIncome() {
+        PolicyRecommendationRequest withHousehold = fullRequest();
+        withHousehold.setHouseholdAnnualIncome(new BigDecimal("75000000"));
+
+        PolicyProduct didimdol = product(policyService.recommend(withHousehold), DIDIMDOL);
+        PolicyProduct fallback = product(policyService.recommend(fullRequest()), DIDIMDOL);
+
+        assertThat(condition(didimdol, "연소득")).isEqualTo(Result.NOT_MET);
+        assertThat(didimdol.getConditions().get(0).getDetail()).contains("부부합산 연소득");
+        assertThat(didimdol.getAdditionalChecks()).doesNotContain("부부합산 연소득으로 다시 확인");
+        assertThat(condition(fallback, "연소득")).isEqualTo(Result.MET);
+        assertThat(fallback.getAdditionalChecks()).contains("부부합산 연소득으로 다시 확인");
+    }
 }
