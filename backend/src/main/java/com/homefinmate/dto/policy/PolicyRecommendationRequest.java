@@ -39,6 +39,9 @@ public class PolicyRecommendationRequest {
     // 미성년 자녀 수 (선택)
     private Integer childCount;
 
+    // 부부합산 연소득 (원, 선택). 있으면 소득 판정에 이 값을 쓰고, 없으면 월 소득 × 12(본인 기준)
+    private BigDecimal householdAnnualIncome;
+
     private String traceId;
     private String eventVersion = "v1";
 }

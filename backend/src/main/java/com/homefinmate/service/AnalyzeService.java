@@ -54,6 +54,12 @@ public class AnalyzeService {
                 policyReq.setDsr(loanResult.getDsr());
                 policyReq.setPropertyType(request.getPropertyType());
                 policyReq.setRegion(request.getRegion());
+                // 정책대출 판정용 입력 전달 (주택 가격, 부부합산 연소득, 가구 조건)
+                policyReq.setHousePrice(request.getHousePrice());
+                policyReq.setHouseholdAnnualIncome(request.getHouseholdAnnualIncome());
+                policyReq.setFirstHome(request.getFirstHome());
+                policyReq.setNewlywed(request.getNewlywed());
+                policyReq.setChildCount(request.getChildCount());
                 policyReq.setTraceId(traceId);
                 policyReq.setEventVersion(request.getEventVersion());
                 PolicyRecommendationResponse policyResult = policyService.recommend(policyReq);
