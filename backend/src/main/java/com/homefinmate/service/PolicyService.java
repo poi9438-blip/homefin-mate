@@ -101,18 +101,23 @@ public class PolicyService {
     private PolicyProduct didimdol(PolicyRecommendationRequest r) {
         List<PolicyCondition> conditions = new ArrayList<>();
 
-        conditions.add(incomeCheck(r, didimdolIncomeLimit(r, false), didimdolIncomeLimit(r, true)));
+        conditions.add(withHint(incomeCheck(r, didimdolIncomeLimit(r, false), didimdolIncomeLimit(r, true)),
+                "부부합산 연소득", didimdolIncomeLimit(r, true), "이하가 기준입니다. 보금자리론은 최대 1억 원(다자녀)까지 가능합니다"));
         conditions.add(switch (r.getPropertyType() == null ? "" : r.getPropertyType().toUpperCase()) {
             case "NONE", "RENT" -> new PolicyCondition("무주택", Result.MET, "세대원 전원이 무주택이어야 합니다");
-            case "OWN" -> new PolicyCondition("무주택", Result.NOT_MET, "주택 보유 시 이용할 수 없습니다");
-            default -> new PolicyCondition("무주택", Result.UNKNOWN, "주택 보유 여부를 입력하지 않았습니다");
+            case "OWN" -> new PolicyCondition("무주택", Result.NOT_MET, "주택 보유 시 이용할 수 없습니다",
+                    "세대원 전원이 무주택이어야 합니다. 보금자리론은 1주택이어도 기존 주택 처분 조건으로 가능합니다");
+            default -> new PolicyCondition("무주택", Result.UNKNOWN, "주택 보유 여부를 입력하지 않았습니다",
+                    "주택 보유 여부를 선택하면 판정할 수 있습니다");
         });
-        conditions.add(rangeCheck("주택 가격", r.getHousePrice(),
-                didimdolPriceLimit(r, false), didimdolPriceLimit(r, true), "주택 가격을 입력하지 않았습니다"));
+        conditions.add(withHint(rangeCheck("주택 가격", r.getHousePrice(),
+                didimdolPriceLimit(r, false), didimdolPriceLimit(r, true), "주택 가격을 입력하지 않았습니다"),
+                "주택 가격", didimdolPriceLimit(r, true), "이하 주택이면 충족 (신혼·자녀 2명 이상이면 6억 원)"));
 
         BigDecimal low = maxLoan(didimdolLimit(r, false), r.getHousePrice(), didimdolLtv(r, false));
         BigDecimal high = maxLoan(didimdolLimit(r, true), r.getHousePrice(), didimdolLtv(r, true));
-        conditions.add(rangeCheck("대출 금액", r.getLoanAmount(), low, high, "대출 금액을 입력하지 않았습니다"));
+        conditions.add(withHint(rangeCheck("대출 금액", r.getLoanAmount(), low, high, "대출 금액을 입력하지 않았습니다"),
+                "대출 금액", high, "이하로 줄이면 충족 (상품 한도와 주택 가격 × LTV 중 작은 값)"));
         conditions.add(dtiCheck(r));
 
         return product(DIDIMDOL, "주택도시기금",
@@ -157,20 +162,24 @@ public class PolicyService {
     private PolicyProduct bogeumjari(PolicyRecommendationRequest r) {
         List<PolicyCondition> conditions = new ArrayList<>();
 
-        conditions.add(incomeCheck(r, bogeumjariIncomeLimit(r, false), bogeumjariIncomeLimit(r, true)));
+        conditions.add(withHint(incomeCheck(r, bogeumjariIncomeLimit(r, false), bogeumjariIncomeLimit(r, true)),
+                "부부합산 연소득", bogeumjariIncomeLimit(r, true), "이하가 기준입니다 (신혼 8,500만 원, 자녀 1명 9,000만 원, 다자녀 1억 원)"));
         conditions.add(switch (r.getPropertyType() == null ? "" : r.getPropertyType().toUpperCase()) {
             case "NONE", "RENT" -> new PolicyCondition("주택 보유", Result.MET, "무주택");
             case "OWN" -> new PolicyCondition("주택 보유", Result.UNKNOWN,
-                    "1주택이면 기존 주택을 3년 안에 처분하는 조건으로 가능, 2주택 이상은 불가");
-            default -> new PolicyCondition("주택 보유", Result.UNKNOWN, "주택 보유 여부를 입력하지 않았습니다");
+                    "1주택이면 기존 주택을 3년 안에 처분하는 조건으로 가능, 2주택 이상은 불가",
+                    "1주택이고 기존 주택을 대출 후 3년 안에 처분하면 이용할 수 있습니다");
+            default -> new PolicyCondition("주택 보유", Result.UNKNOWN, "주택 보유 여부를 입력하지 않았습니다",
+                    "주택 보유 여부를 선택하면 판정할 수 있습니다");
         });
-        conditions.add(rangeCheck("주택 가격", r.getHousePrice(), won(600_000_000), won(600_000_000),
-                "주택 가격을 입력하지 않았습니다"));
+        conditions.add(withHint(rangeCheck("주택 가격", r.getHousePrice(), won(600_000_000), won(600_000_000),
+                "주택 가격을 입력하지 않았습니다"), "주택 가격", won(600_000_000), "이하 주택이면 충족"));
 
         BigDecimal ltv = new BigDecimal("0.70");
         BigDecimal low = maxLoan(bogeumjariLimit(r, false), r.getHousePrice(), ltv);
         BigDecimal high = maxLoan(bogeumjariLimit(r, true), r.getHousePrice(), ltv);
-        conditions.add(rangeCheck("대출 금액", r.getLoanAmount(), low, high, "대출 금액을 입력하지 않았습니다"));
+        conditions.add(withHint(rangeCheck("대출 금액", r.getLoanAmount(), low, high, "대출 금액을 입력하지 않았습니다"),
+                "대출 금액", high, "이하로 줄이면 충족 (상품 한도와 주택 가격 × LTV 중 작은 값)"));
         conditions.add(dtiCheck(r));
 
         return product(BOGEUMJARI, "한국주택금융공사",
@@ -231,12 +240,38 @@ public class PolicyService {
 
     private PolicyCondition dtiCheck(PolicyRecommendationRequest r) {
         if (r.getDsr() == null) {
-            return new PolicyCondition("DTI 60% 이내", Result.UNKNOWN, "DSR을 입력하지 않았습니다");
+            return new PolicyCondition("DTI 60% 이내", Result.UNKNOWN, "DSR을 입력하지 않았습니다",
+                    "대출 계산 결과(DSR)를 넣으면 판정할 수 있습니다");
         }
         String pct = r.getDsr().multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP) + "%";
         boolean ok = r.getDsr().compareTo(DTI_LIMIT) <= 0;
         return new PolicyCondition("DTI 60% 이내", ok ? Result.MET : Result.NOT_MET,
-                "입력한 DSR " + pct + "로 대신 확인 (실제 DTI는 기존 대출 이자도 포함)");
+                "입력한 DSR " + pct + "로 대신 확인 (실제 DTI는 기존 대출 이자도 포함)",
+                ok ? null : dtiHint(r));
+    }
+
+    // DTI 미충족 피드백: 월 소득의 60%를 넘지 않는 월 상환액 (월 소득이 없으면 부부합산 연소득 ÷ 12)
+    private String dtiHint(PolicyRecommendationRequest r) {
+        BigDecimal monthly = r.getIncome() != null ? r.getIncome()
+                : r.getHouseholdAnnualIncome() != null
+                        ? r.getHouseholdAnnualIncome().divide(BigDecimal.valueOf(12), 0, RoundingMode.DOWN)
+                        : null;
+        String target = monthly == null ? "월 소득의 60%"
+                : String.format("약 %,d원", monthly.multiply(DTI_LIMIT).setScale(0, RoundingMode.DOWN).longValue());
+        return "월 상환액을 " + target + " 이하로 낮추면 충족 (대출 금액을 줄이거나 기간을 늘리기)";
+    }
+
+    // 범위 조건 피드백: 미충족 → 기준값으로 무엇을 바꾸면 되는지,
+    // 확인 필요(가구 조건) → 해당하면 기준이 올라 충족될 수 있음, 확인 필요(입력 없음) → 입력 안내
+    private PolicyCondition withHint(PolicyCondition c, String inputName, BigDecimal high, String notMetSuffix) {
+        if (c.getResult() == Result.NOT_MET) {
+            c.setHint(inputName + " " + format(high) + " " + notMetSuffix);
+        } else if (c.getResult() == Result.UNKNOWN && c.getDetail() != null && c.getDetail().contains("기준이 가구 조건")) {
+            c.setHint("생애최초·신혼·자녀 수 조건에 해당하면 기준이 최대 " + format(high) + "까지 올라 충족될 수 있습니다");
+        } else if (c.getResult() == Result.UNKNOWN) {
+            c.setHint(inputName + "을(를) 입력하면 판정할 수 있습니다");
+        }
+        return c;
     }
 
     // 값이 low 이하면 충족, high 초과면 미충족, 그 사이는 가구 조건에 따라 달라서 확인 필요
