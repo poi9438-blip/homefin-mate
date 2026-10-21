@@ -12,6 +12,12 @@ export function EligibilityBadge({ eligibility }) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${e.color}`}>{e.label}</span>
 }
 
+// 상품의 조건 피드백 목록 (미충족 먼저, 그다음 확인 필요)
+const hintsOf = product => [
+  ...(product.conditions || []).filter(c => c.result === 'NOT_MET' && c.hint),
+  ...(product.conditions || []).filter(c => c.result === 'UNKNOWN' && c.hint),
+].map(c => c.hint)
+
 const formatWon = n => (n == null ? '-' : `${Math.floor(Number(n)).toLocaleString('ko-KR')}원`)
 
 // 둘 중 추천 카드 (추천 상품의 한도,금리,이유, 전체 상품 판정 배지, 상세 보기 버튼)
@@ -43,9 +49,17 @@ export function RecommendationCard({ policy, onDetail }) {
 
       <ul className="flex flex-col gap-1 mb-3">
         {policy.recommendedPolicies?.map(p => (
-          <li key={p.name} className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">
-            <span>{p.name}</span>
-            <EligibilityBadge eligibility={p.eligibility} />
+          <li key={p.name} className="text-xs text-gray-600 dark:text-gray-300">
+            <div className="flex items-center justify-between">
+              <span>{p.name}</span>
+              <EligibilityBadge eligibility={p.eligibility} />
+            </div>
+            {/* 충족하지 못한 상품은 '이렇게 하면 가능' 피드백을 최대 2개까지 */}
+            {p.eligibility !== 'ELIGIBLE' && hintsOf(p).length > 0 && (
+              <ul className="mt-1 ml-3 list-disc text-primary-700 dark:text-primary-300">
+                {hintsOf(p).slice(0, 2).map(h => <li key={h}>{h}</li>)}
+              </ul>
+            )}
           </li>
         ))}
       </ul>

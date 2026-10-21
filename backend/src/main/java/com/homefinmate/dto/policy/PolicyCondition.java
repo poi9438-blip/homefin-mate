@@ -18,4 +18,10 @@ public class PolicyCondition {
     private String name;
     private Result result;
     private String detail;
+    // 충족하려면 무엇을 바꾸거나 확인하면 되는지 (충족이면 null)
+    private String hint;
+
+    public PolicyCondition(String name, Result result, String detail) {
+        this(name, result, detail, null);
+    }
 }

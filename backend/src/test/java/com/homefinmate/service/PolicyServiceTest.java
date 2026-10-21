@@ -248,4 +248,71 @@ class PolicyServiceTest {
         assertThat(condition(fallback, "연소득")).isEqualTo(Result.MET);
         assertThat(fallback.getAdditionalChecks()).contains("부부합산 연소득으로 다시 확인");
     }
+
+    private String hint(PolicyProduct p, String name) {
+        return p.getConditions().stream().filter(c -> c.getName().equals(name))
+                .map(PolicyCondition::getHint).findFirst().orElseThrow();
+    }
+
+    // 피드백: 대출 금액 미충족이면 줄여야 할 금액(상품 한도와 주택 가격 × LTV 중 작은 값)을 알려 줌
+    @Test
+    @DisplayName("[TC-POL-215] 대출 금액 미충족이면 '2.1억 원 이하로 줄이면 충족' 피드백 (주택 3억 × 70%)")
+    void loanAmountNotMet_hintShowsMaxAmount() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setHousePrice(new BigDecimal("300000000"));
+        r.setLoanAmount(new BigDecimal("250000000"));
+
+        assertThat(hint(product(policyService.recommend(r), BOGEUMJARI), "대출 금액"))
+                .contains("2.1억 원").contains("줄이면 충족");
+    }
+
+    // 피드백: 주택 가격 미충족이면 기준 가격과 기준이 올라가는 조건을 알려 줌
+    @Test
+    @DisplayName("[TC-POL-216] 디딤돌 주택 가격 미충족(5.5억)이면 '5억 원 이하 주택이면 충족' 피드백")
+    void housePriceNotMet_hintShowsLimit() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setHousePrice(new BigDecimal("550000000"));
+
+        assertThat(hint(product(policyService.recommend(r), DIDIMDOL), "주택 가격"))
+                .contains("5억 원").contains("신혼");
+    }
+
+    // 피드백: 가구 조건을 몰라 확인 필요이면 해당하면 기준이 최대 얼마까지 오르는지 알려 줌
+    @Test
+    @DisplayName("[TC-POL-217] 가구 조건 모름으로 소득이 확인 필요면 '해당하면 최대 8,500만 원까지' 피드백")
+    void incomeNeedsCheck_hintShowsHouseholdCondition() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setIncome(new BigDecimal("5500000"));
+        r.setFirstHome(null);
+        r.setNewlywed(null);
+        r.setChildCount(null);
+
+        assertThat(hint(product(policyService.recommend(r), DIDIMDOL), "연소득"))
+                .contains("생애최초").contains("8,500만 원");
+    }
+
+    // 피드백: DTI 미충족이면 넘지 말아야 할 월 상환액(월 소득 × 60%)을 알려 줌
+    @Test
+    @DisplayName("[TC-POL-218] DTI 미충족이면 '월 상환액 약 2,400,000원 이하' 피드백 (월 소득 400만 × 60%)")
+    void dtiNotMet_hintShowsMaxMonthlyPayment() {
+        PolicyRecommendationRequest r = fullRequest();
+        r.setDsr(new BigDecimal("0.61"));
+
+        assertThat(hint(product(policyService.recommend(r), BOGEUMJARI), "DTI 60% 이내"))
+                .contains("약 2,400,000원");
+    }
+
+    // 피드백: 충족한 조건에는 피드백이 없고, 입력이 없는 조건에는 입력 안내가 있음
+    @Test
+    @DisplayName("[TC-POL-219] 충족 조건은 피드백 없음, 입력 없는 조건은 '입력하면 판정' 안내")
+    void hints_emptyForMet_andInputGuideForMissing() {
+        PolicyRecommendationResponse full = policyService.recommend(fullRequest());
+        PolicyRecommendationResponse empty = policyService.recommend(new PolicyRecommendationRequest());
+
+        assertThat(full.getRecommendedPolicies()).flatExtracting(PolicyProduct::getConditions)
+                .extracting(PolicyCondition::getHint).containsOnlyNulls();
+        assertThat(empty.getRecommendedPolicies()).flatExtracting(PolicyProduct::getConditions)
+                .extracting(PolicyCondition::getHint).doesNotContainNull()
+                .anySatisfy(h -> assertThat(h).contains("입력하면 판정"));
+    }
 }
