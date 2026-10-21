@@ -74,6 +74,8 @@ class AnalyzeIntegrationTest {
         private String body() {
                 return "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":360,"
                                 + "\"monthlyIncome\":4000000,\"propertyType\":\"NONE\",\"region\":\"부산\","
+                                + "\"housePrice\":400000000,\"householdAnnualIncome\":48000000,"
+                                + "\"firstHome\":true,\"newlywed\":false,\"childCount\":0,"
                                 + "\"traceId\":\"" + traceId + "\"}";
         }
 
@@ -164,17 +166,42 @@ class AnalyzeIntegrationTest {
         @Test
         @DisplayName("[TC-ANLZ-106] 자녀 수 음수·주택 가격 0이면 400 (입력 검증)")
         void invalidPolicyInputs_return400() throws Exception {
-                String base = "{\"loanAmount\":200000000,\"annualInterestRate\":4.5,\"termMonths\":360,";
+                // 다른 필수 입력은 모두 넣어서, 400이 검사하려는 값 때문에 나도록 함
+                String base = "{\"loanAmount\":200000000,\"annualInterestRate\":4.5,\"termMonths\":360,"
+                                + "\"monthlyIncome\":4000000,\"householdAnnualIncome\":48000000,"
+                                + "\"firstHome\":true,\"newlywed\":false,";
 
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
-                                .contentType(MediaType.APPLICATION_JSON).content(base + "\"childCount\":-1}"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(base + "\"housePrice\":400000000,\"childCount\":-1}"))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.message")
                                                 .value(org.hamcrest.Matchers.containsString("childCount")));
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
-                                .contentType(MediaType.APPLICATION_JSON).content(base + "\"housePrice\":0}"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(base + "\"housePrice\":0,\"childCount\":0}"))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.message")
                                                 .value(org.hamcrest.Matchers.containsString("housePrice")));
+        }
+
+        // 정책 판정 입력은 필수: 비우면 판정을 못 해 추천이 나오지 않으므로 요청 단계에서 400
+        @Test
+        @DisplayName("[TC-ANLZ-107] 월 소득·주택 가격·부부합산 연소득·생애최초·신혼·자녀 수를 비우면 400, 계산 기록 0건")
+        void missingPolicyInputs_return400() throws Exception {
+                String loanOnly = "{\"loanAmount\":200000000,\"annualInterestRate\":4.5,\"termMonths\":360}";
+
+                mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON).content(loanOnly))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.allOf(
+                                                org.hamcrest.Matchers.containsString("monthlyIncome"),
+                                                org.hamcrest.Matchers.containsString("housePrice"),
+                                                org.hamcrest.Matchers.containsString("householdAnnualIncome"),
+                                                org.hamcrest.Matchers.containsString("firstHome"),
+                                                org.hamcrest.Matchers.containsString("newlywed"),
+                                                org.hamcrest.Matchers.containsString("childCount"))));
+
+                assertThat(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(userId())).isEmpty();
         }
 }
