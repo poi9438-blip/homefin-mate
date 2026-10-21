@@ -59,8 +59,12 @@ class LoanApiValidationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.monthlyPayment").value(-85378.52));
 
-        postJson("/api/analyze", "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":601}")
-                .andExpect(status().isBadRequest());
+        // 통합 분석의 필수 입력은 모두 넣어서, 400이 기간 601개월 때문인지 확인
+        postJson("/api/analyze", "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":601,"
+                + "\"monthlyIncome\":4000000,\"housePrice\":400000000,\"householdAnnualIncome\":48000000,"
+                + "\"firstHome\":true,\"newlywed\":false,\"childCount\":0}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("termMonths")));
     }
 
     @Test

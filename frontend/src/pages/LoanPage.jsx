@@ -49,7 +49,10 @@ function validate(form) {
     errors.termMonths = '대출 기간은 최소 1개월 이상이어야 합니다.'
   if (Number(form.termMonths) > 600)
     errors.termMonths = '대출 기간은 600개월(50년)을 초과할 수 없습니다.'
-  if (form.monthlyIncome && Number(form.monthlyIncome) <= 0)
+  // 월 소득은 DTI 판정에 필요해서 필수
+  if (!form.monthlyIncome)
+    errors.monthlyIncome = '월 소득을 입력해주세요.'
+  else if (Number(form.monthlyIncome) <= 0)
     errors.monthlyIncome = '월 소득은 0보다 커야 합니다.'
   if (form.existingDebt && Number(form.existingDebt) < 0)
     errors.existingDebt = '기존 부채는 0 이상이어야 합니다.'
@@ -270,7 +273,7 @@ export default function LoanPage() {
             { name: 'loanAmount',        label: '대출 금액 (원)',            placeholder: '예: 180000000', required: true  },
             { name: 'annualInterestRate', label: '연 이자율 (%)',             placeholder: '예: 3.8',       required: true  },
             { name: 'termMonths',        label: '대출 기간 (개월)',           placeholder: '예: 360',       required: true  },
-            { name: 'monthlyIncome',     label: '월 소득 (원)',               placeholder: '예: 4000000',   required: false },
+            { name: 'monthlyIncome',     label: '월 소득 (원)',               placeholder: '예: 4000000',   required: true  },
             { name: 'existingDebt',      label: '기존 월 부채 상환액 (원)',   placeholder: '예: 0',         required: false },
           ].map(({ name, label, placeholder, required }) => (
             <div key={name}>
