@@ -1,7 +1,11 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { policyApi } from '../api/policyApi'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
+import PolicyInputs from '../components/PolicyInputs'
+import { EligibilityBadge, RecommendationCard } from '../components/PolicyRecommendation'
+import { POLICY_INPUT_DEFAULTS, numOrUndefined, policyInputPayload, validatePolicyInputs } from '../utils/policyInput'
 
 // 정책 추천 화면 (입력 => 추천 => 정책 카드)
 
@@ -15,32 +19,34 @@ const PROPERTY_TYPES = [
 // 지역 선택지 (수도권 여부 판단용)
 const REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '기타 지역']
 
-// 입력값 검증 (소득, 대출 금액 필수, DSR 0~1)
+// 입력값 검증 (월 소득 또는 부부합산 연소득 중 하나, 대출 금액, DSR 0~1 필수)
 function validate(form) {
   const errors = {}
-  if (!form.income || Number(form.income) <= 0)
-    errors.income = '월 소득을 입력해주세요.'
+  if (!form.income && !form.householdAnnualIncome)
+    errors.income = '월 소득 또는 부부합산 연소득을 입력해주세요.'
+  else if (form.income && Number(form.income) <= 0)
+    errors.income = '월 소득은 0보다 커야 합니다.'
   if (!form.loanAmount || Number(form.loanAmount) <= 0)
     errors.loanAmount = '대출 금액을 입력해주세요.'
   if (!form.dsr || Number(form.dsr) < 0)
     errors.dsr = 'DSR을 입력해주세요. (0~1 범위, 예: 0.35)'
   if (Number(form.dsr) > 1)
     errors.dsr = 'DSR은 0과 1 사이 값이어야 합니다.'
-  return errors
+  return { ...errors, ...validatePolicyInputs(form) }
 }
 
-
-// 상품 종합 판정 배지
-const ELIGIBILITY = {
-  ELIGIBLE:     { label: '조건 충족', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  NEEDS_CHECK:  { label: '확인 필요', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-  NOT_ELIGIBLE: { label: '조건 미충족', color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
+// 대출 화면에서 넘어온 값으로 시작 (지역이 목록에 없으면 '기타 지역')
+function initialForm(prefill) {
+  const base = {
+    income: '', existingDebt: '', loanAmount: '', dsr: '',
+    propertyType: 'NONE', region: '서울', ...POLICY_INPUT_DEFAULTS,
+  }
+  if (!prefill) return base
+  const merged = { ...base, ...Object.fromEntries(Object.entries(prefill).filter(([, v]) => v != null)) }
+  if (!REGIONS.includes(merged.region)) merged.region = '기타 지역'
+  return merged
 }
 
-function EligibilityBadge({ eligibility }) {
-  const e = ELIGIBILITY[eligibility] || ELIGIBILITY.NEEDS_CHECK
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${e.color}`}>{e.label}</span>
-}
 
 // 조건 하나의 판정 표시 (충족 ✓, 미충족 ✗, 확인 필요 ?)
 const CONDITION_ICON = {
@@ -52,14 +58,9 @@ const CONDITION_ICON = {
 const formatWon = n => (n == null ? '-' : `${Number(n).toLocaleString('ko-KR')}원`)
 
 export default function PolicyPage() {
-  const [form, setForm] = useState({
-    income:       '',
-    existingDebt: '',
-    loanAmount:   '',
-    dsr:          '',
-    propertyType: 'NONE',
-    region:       '서울',
-  })
+  // 대출 화면의 '자세히 보기'로 들어오면 location.state.prefill에 입력값과 계산된 DSR이 있음
+  const prefill = useLocation().state?.prefill
+  const [form, setForm] = useState(() => initialForm(prefill))
   const [fieldErrors, setFieldErrors] = useState({})
   const [result, setResult]   = useState(null)
   const [loading, setLoading] = useState(false)
@@ -73,8 +74,18 @@ export default function PolicyPage() {
   }
 
   // 검증 => API 호출 => 결과 표시
-  const handleSubmit = async e => {
+  const handleSubmit = e => {
     e.preventDefault()
+    submit(form)
+  }
+
+  // 대출 화면에서 넘어왔으면 바로 판정 결과를 보여 줌 (처음 한 번)
+  useEffect(() => {
+    if (prefill) submit(initialForm(prefill))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const submit = async form => {
     const errors = validate(form)
     if (Object.keys(errors).length) {
       setFieldErrors(errors)
@@ -85,12 +96,13 @@ export default function PolicyPage() {
     setLoading(true)
     try {
       const res = await policyApi.recommend({
-        income:       Number(form.income),
+        income:       numOrUndefined(form.income),
         existingDebt: Number(form.existingDebt) || 0,
         loanAmount:   Number(form.loanAmount),
         dsr:          Number(form.dsr),
         propertyType: form.propertyType,
         region:       form.region,
+        ...policyInputPayload(form),
       })
       setResult(res.data.data)
     } catch (err) {
@@ -113,7 +125,7 @@ export default function PolicyPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              월 소득 (원) <span className="text-red-500">*</span>
+              월 소득 (원) <span className="text-gray-400 text-xs">(부부합산 연소득을 넣으면 선택)</span>
             </label>
             <input type="number" name="income" value={form.income} onChange={handleChange}
               placeholder="예: 4500000"
@@ -171,6 +183,8 @@ export default function PolicyPage() {
             </select>
           </div>
 
+          <PolicyInputs form={form} onChange={handleChange} errors={fieldErrors} />
+
           <button type="submit" disabled={loading}
             className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-60">
             {loading ? '분석 중...' : '정책 추천 받기'}
@@ -184,9 +198,8 @@ export default function PolicyPage() {
       {/* 추천 결과 (요약 + 정책 카드 3개 + 다시 검색) */}
       {result && !loading && (
         <div className="flex flex-col gap-4 max-w-2xl">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            입력한 정보로 판단한 결과입니다. 최종 자격과 한도는 각 기관 심사에서 결정됩니다.
-          </p>
+          {/* 둘 중 추천 결과 (아래에 상품별 조건 판정·근거) */}
+          <RecommendationCard policy={result} />
           {result.summary && (
             <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4 text-sm text-blue-800 dark:text-blue-200">
               {result.summary}

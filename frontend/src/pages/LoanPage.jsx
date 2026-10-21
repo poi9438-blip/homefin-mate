@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { analyzeApi } from '../api/analyzeApi'
@@ -9,6 +10,9 @@ import ErrorState from '../components/ErrorState'
 import SummaryCard from '../components/SummaryCard'
 import ChartCard from '../components/ChartCard'
 import StepGuide from '../components/StepGuide'
+import PolicyInputs from '../components/PolicyInputs'
+import { RecommendationCard } from '../components/PolicyRecommendation'
+import { POLICY_INPUT_DEFAULTS, policyInputPayload, validatePolicyInputs } from '../utils/policyInput'
 
 // 대출 시뮬레이터 화면 (통합 분석: 대출 + 정책 + 위험 평가 + 지역)
 // 도넛 차트에 필요한 chart.js 부품 등록
@@ -21,7 +25,7 @@ const steps = ['정보 입력', '분석 중', '결과 확인']
 const REGIONS = ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide', 'Darwin', 'Hobart',
                  '서울', '부산', '대구', '인천', '광주']
 const PROPERTY_TYPES = [
-  { value: 'NONE', label: '생애 최초 주택 구매 (무주택)' },
+  { value: 'NONE', label: '무주택' },
   { value: 'OWN',  label: '기존 주택 보유자' },
   { value: 'RENT', label: '현재 임차 중' },
 ]
@@ -29,6 +33,8 @@ const PROPERTY_TYPES = [
 const INITIAL_FORM = {
   loanAmount: '', annualInterestRate: '', termMonths: '',
   monthlyIncome: '', existingDebt: '', region: '', propertyType: 'NONE',
+  // 정책대출 판정용 선택 입력
+  ...POLICY_INPUT_DEFAULTS,
 }
 
 function validate(form) {
@@ -47,7 +53,7 @@ function validate(form) {
     errors.monthlyIncome = '월 소득은 0보다 커야 합니다.'
   if (form.existingDebt && Number(form.existingDebt) < 0)
     errors.existingDebt = '기존 부채는 0 이상이어야 합니다.'
-  return errors
+  return { ...errors, ...validatePolicyInputs(form) }
 }
 
 // 리스크 평가 패널 (fallback이면 이용 불가 안내, 등급별 색)
@@ -126,7 +132,10 @@ function RegionPanel({ region }) {
 
 export default function LoanPage() {
   // 입력값 (임시 저장 훅 사용)
-  const { values: form, setValues: setForm, clearDraft } = useFormDraft('loan', INITIAL_FORM)
+  const navigate = useNavigate()
+  // 예전 임시 저장값에 새 입력칸이 없을 수 있어 기본값과 합침
+  const { values: savedForm, setValues: setForm, clearDraft } = useFormDraft('loan', INITIAL_FORM)
+  const form = { ...INITIAL_FORM, ...savedForm }
   const [step, setStep]               = useState(0)
   const [fieldErrors, setFieldErrors] = useState({})
   const [result, setResult]           = useState(null)
@@ -156,6 +165,7 @@ export default function LoanPage() {
         existingDebt:       form.existingDebt  ? Number(form.existingDebt)  : undefined,
         region:             form.region        || undefined,
         propertyType:       form.propertyType  || 'NONE',
+        ...policyInputPayload(form),
       }, traceId)
       setResult(res.data.data)
       setStep(2)
@@ -170,6 +180,25 @@ export default function LoanPage() {
 
   // 새 분석: 결과·단계 초기화, 임시 저장 삭제
   const handleNewAnalysis = () => { setResult(null); setStep(0); clearDraft() }
+
+  // 정책 화면으로 이동하며 입력값과 계산된 DSR 전달 (정책 화면에서 다시 입력하지 않게)
+  const goPolicyDetail = () => navigate('/policy', {
+    state: {
+      prefill: {
+        income: form.monthlyIncome,
+        existingDebt: form.existingDebt,
+        loanAmount: form.loanAmount,
+        dsr: result?.loan?.dsr != null ? String(result.loan.dsr) : '',
+        propertyType: form.propertyType || 'NONE',
+        region: form.region,
+        housePrice: form.housePrice,
+        householdAnnualIncome: form.householdAnnualIncome,
+        firstHome: form.firstHome,
+        newlywed: form.newlywed,
+        childCount: form.childCount,
+      },
+    },
+  })
 
   const loanResult   = result?.loan
   const riskResult   = result?.risk
@@ -280,6 +309,8 @@ export default function LoanPage() {
             </select>
           </div>
 
+          <PolicyInputs form={form} onChange={handleChange} errors={fieldErrors} />
+
           <button type="submit" disabled={loading}
             className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-60">
             {loading ? '분석 중...' : '분석 시작'}
@@ -364,19 +395,8 @@ export default function LoanPage() {
           <RiskPanel risk={riskResult} />
           <RegionPanel region={regionResult} />
 
-          {policyResult && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">정책 추천</h3>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{policyResult.summary}</p>
-              <div className="flex flex-wrap gap-2">
-                {policyResult.recommendedPolicies?.slice(0, 3).map((p, i) => (
-                  <span key={i} className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full text-xs font-medium">
-                    {p.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* 둘 중 추천 카드 → 정책 화면으로 입력값과 계산된 DSR을 넘겨 조건별 근거 보기 */}
+          <RecommendationCard policy={policyResult} onDetail={goPolicyDetail} />
 
           <button onClick={handleNewAnalysis}
             className="w-fit px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
