@@ -49,6 +49,12 @@ export default function (data) {
       termMonths: 360,
       monthlyIncome: 4000000,
       propertyType: "NONE",
+      // 정책 판정용 필수 입력 (없으면 400)
+      housePrice: 400000000,
+      householdAnnualIncome: 48000000,
+      firstHome: true,
+      newlywed: false,
+      childCount: 0,
     }),
     {
       headers: {
