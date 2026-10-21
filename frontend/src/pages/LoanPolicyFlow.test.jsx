@@ -114,4 +114,23 @@ describe('대출 화면 → 정책 화면 연결', () => {
     })
     expect(container.textContent).toContain('두 상품 모두 조건을 충족합니다.')
   })
+  // 정책 판정 입력은 필수: 하나라도 비우면 요청을 보내지 않고 입력칸 아래에 안내를 보여 줌
+  it('[TC-POL-306] 정책 판정 입력(생애최초·자녀 수)을 비우면 분석 요청을 보내지 않고 입력 안내를 보여 줌', async () => {
+    localStorage.setItem('hfm_draft_loan', JSON.stringify({
+      loanAmount: '200000000', annualInterestRate: '4.5', termMonths: '360', monthlyIncome: '4000000',
+      existingDebt: '', region: '부산', propertyType: 'NONE',
+      housePrice: '400000000', householdAnnualIncome: '48000000', firstHome: '', newlywed: 'false', childCount: '',
+    }))
+
+    await act(async () => {
+      root.render(<MemoryRouter initialEntries={['/loan']}><LoanPage /></MemoryRouter>)
+    })
+    await act(async () => { container.querySelector('form').requestSubmit() })
+    await flush()
+
+    expect(analyzeApi.analyze).not.toHaveBeenCalled()
+    expect(container.textContent).toContain('생애최초 여부를 선택해주세요.')
+    expect(container.textContent).toContain('자녀 수를 입력해주세요.')
+    expect(container.querySelector('select[name="firstHome"] option[value=""]').textContent).toBe('선택')
+  })
 })

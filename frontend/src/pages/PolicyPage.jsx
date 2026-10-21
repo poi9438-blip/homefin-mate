@@ -19,12 +19,12 @@ const PROPERTY_TYPES = [
 // 지역 선택지 (수도권 여부 판단용)
 const REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '기타 지역']
 
-// 입력값 검증 (월 소득 또는 부부합산 연소득 중 하나, 대출 금액, DSR 0~1 필수)
+// 입력값 검증 (월 소득, 대출 금액, DSR 0~1, 정책 판정 입력 모두 필수)
 function validate(form) {
   const errors = {}
-  if (!form.income && !form.householdAnnualIncome)
-    errors.income = '월 소득 또는 부부합산 연소득을 입력해주세요.'
-  else if (form.income && Number(form.income) <= 0)
+  if (!form.income)
+    errors.income = '월 소득을 입력해주세요.'
+  else if (Number(form.income) <= 0)
     errors.income = '월 소득은 0보다 커야 합니다.'
   if (!form.loanAmount || Number(form.loanAmount) <= 0)
     errors.loanAmount = '대출 금액을 입력해주세요.'
@@ -125,7 +125,7 @@ export default function PolicyPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              월 소득 (원) <span className="text-gray-400 text-xs">(부부합산 연소득을 넣으면 선택)</span>
+              월 소득 (원) <span className="text-red-500">*</span>
             </label>
             <input type="number" name="income" value={form.income} onChange={handleChange}
               placeholder="예: 4500000"
