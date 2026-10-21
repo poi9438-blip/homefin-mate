@@ -80,8 +80,11 @@ def load_tests():
                     add(m.group(1), "python", mm.group(1), f"{os.path.basename(py)}::{mm.group(1)}")
                     break
 
-    for js in glob.glob(path("frontend", "src", "**", "*.test.js"), recursive=True):
-        for m in re.finditer(r'it\(\s*"\[(TC-[A-Z]+-\d{3})\]', read(js)):
+    # 프론트 테스트 파일 (.test.js, .test.jsx)
+    js_files = glob.glob(path("frontend", "src", "**", "*.test.js"), recursive=True)         + glob.glob(path("frontend", "src", "**", "*.test.jsx"), recursive=True)
+    for js in js_files:
+        # it("[TC-…]"), it('[TC-…]'), it(`[TC-…]`) 모두 인식
+        for m in re.finditer(r"it\(\s*[\"'`]\[(TC-[A-Z]+-\d{3})\]", read(js)):
             add(m.group(1), "frontend", m.group(1), os.path.relpath(js, path("frontend")).replace("\\", "/"))
     return tests
 
