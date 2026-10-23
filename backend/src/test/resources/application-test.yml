@@ -1,8 +1,13 @@
 # 테스트 설정: MySQL 대신 H2 메모리 DB 사용
 
 spring:
+  # @DataJpaTest도 아래 H2(MySQL 모드) 설정을 그대로 사용
+  test:
+    database:
+      replace: none
   datasource:
-    url: jdbc:h2:mem:hfmtest;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+    # 테스트 컨텍스트마다 새 DB (예전 create-drop처럼 빈 DB에서 시작), MySQL 문법으로 Flyway SQL 실행
+    url: jdbc:h2:mem:hfmtest-${random.uuid};MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -13,8 +18,9 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
     hibernate:
-      # create-drop : 시작할 때 테이블 만들고 끝날 때 지움
-      ddl-auto: create-drop
+      # 운영과 같이 Flyway가 테이블을 만듦 (마이그레이션 SQL도 테스트됨)
+      # 엔티티 확인(validate)은 끔: H2는 users.role의 enum 컬럼을 varchar로 기대해서 MySQL과 결과가 다름
+      ddl-auto: none
     show-sql: false
 
 # 테스트용 암호화 키
