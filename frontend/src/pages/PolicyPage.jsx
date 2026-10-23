@@ -19,7 +19,7 @@ const PROPERTY_TYPES = [
 // 지역 선택지 (수도권 여부 판단용)
 const REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '기타 지역']
 
-// 입력값 검증 (월 소득, 대출 금액, DSR 0~1, 정책 판정 입력 모두 필수)
+// 입력값 검증 (월 소득, 대출 금액, DTI 0~1, 정책 판정 입력 모두 필수)
 function validate(form) {
   const errors = {}
   if (!form.income)
@@ -28,17 +28,17 @@ function validate(form) {
     errors.income = '월 소득은 0보다 커야 합니다.'
   if (!form.loanAmount || Number(form.loanAmount) <= 0)
     errors.loanAmount = '대출 금액을 입력해주세요.'
-  if (!form.dsr || Number(form.dsr) < 0)
-    errors.dsr = 'DSR을 입력해주세요. (0~1 범위, 예: 0.35)'
-  if (Number(form.dsr) > 1)
-    errors.dsr = 'DSR은 0과 1 사이 값이어야 합니다.'
+  if (!form.dti || Number(form.dti) < 0)
+    errors.dti = 'DTI를 입력해주세요. (0~1 범위, 예: 0.35)'
+  if (Number(form.dti) > 1)
+    errors.dti = 'DTI는 0과 1 사이 값이어야 합니다.'
   return { ...errors, ...validatePolicyInputs(form) }
 }
 
 // 대출 화면에서 넘어온 값으로 시작 (지역이 목록에 없으면 '기타 지역')
 function initialForm(prefill) {
   const base = {
-    income: '', existingDebt: '', loanAmount: '', dsr: '',
+    income: '', loanAmount: '', dti: '',
     propertyType: 'NONE', region: '서울', ...POLICY_INPUT_DEFAULTS,
   }
   if (!prefill) return base
@@ -58,7 +58,7 @@ const CONDITION_ICON = {
 const formatWon = n => (n == null ? '-' : `${Number(n).toLocaleString('ko-KR')}원`)
 
 export default function PolicyPage() {
-  // 대출 화면의 '자세히 보기'로 들어오면 location.state.prefill에 입력값과 계산된 DSR이 있음
+  // 대출 화면의 '자세히 보기'로 들어오면 location.state.prefill에 입력값과 계산된 DTI가 있음
   const prefill = useLocation().state?.prefill
   const [form, setForm] = useState(() => initialForm(prefill))
   const [fieldErrors, setFieldErrors] = useState({})
@@ -97,9 +97,8 @@ export default function PolicyPage() {
     try {
       const res = await policyApi.recommend({
         income:       numOrUndefined(form.income),
-        existingDebt: Number(form.existingDebt) || 0,
         loanAmount:   Number(form.loanAmount),
-        dsr:          Number(form.dsr),
+        dti:          Number(form.dti),
         propertyType: form.propertyType,
         region:       form.region,
         ...policyInputPayload(form),
@@ -145,22 +144,15 @@ export default function PolicyPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              기존 부채 (원) <span className="text-gray-400 text-xs">(선택)</span>
-            </label>
-            <input type="number" name="existingDebt" value={form.existingDebt} onChange={handleChange}
-              placeholder="예: 0"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              DSR (0~1) <span className="text-red-500">*</span>
+              DTI (0~1) <span className="text-red-500">*</span>
               <span className="text-gray-400 text-xs ml-1">예: 0.35 = 35%</span>
+              {/* 기존 대출 이자는 DTI에 이미 들어 있어서 따로 받지 않음 */}
+              <span className="block text-gray-400 text-xs">(신규 대출 월 상환액 + 기존 대출 월 이자) ÷ 월 소득, 대출 계산 결과에서 넘어옴</span>
             </label>
-            <input type="number" name="dsr" value={form.dsr} onChange={handleChange}
+            <input type="number" name="dti" value={form.dti} onChange={handleChange}
               placeholder="예: 0.35" step="0.01" min="0" max="1"
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${fieldErrors.dsr ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`} />
-            {fieldErrors.dsr && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.dsr}</p>}
+              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${fieldErrors.dti ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`} />
+            {fieldErrors.dti && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.dti}</p>}
           </div>
 
           <div>

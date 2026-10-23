@@ -5,6 +5,7 @@ import {
   BarElement, ArcElement, Title, Tooltip, Legend,
 } from 'chart.js'
 import { reportApi } from '../api/reportApi'
+import { isNewLoanOnly, NEW_LOAN_ONLY_NOTE } from '../utils/dti'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import ChartCard from '../components/ChartCard'
@@ -34,8 +35,8 @@ function DataRow({ label, value, highlight }) {
   )
 }
 
-// DSR 판정 배지 (적정 / 초과)
-function DsrBadge({ status }) {
+// DTI 판정 배지 (적정 / 초과)
+function DtiBadge({ status }) {
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
       status === 'ACCEPTABLE'
@@ -47,7 +48,7 @@ function DsrBadge({ status }) {
   )
 }
 
-// 재무 리포트 화면 (요약, 차트, DSR 추이)
+// 재무 리포트 화면 (요약, 차트, DTI 추이)
 export default function ReportPage() {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -74,29 +75,29 @@ export default function ReportPage() {
 
   const data      = summary?.reportData ?? {}
   const lastSim   = data.lastSimulation
-  const dsrTrend  = data.dsrTrend ?? []
+  const dtiTrend  = data.dtiTrend ?? []
   const totalSims = data.totalSimulations ?? 0
   const hint      = data.eligibilityHint
   const noData    = !lastSim && totalSims === 0
   const lastRegion = lastSim?.region
 
-  // 금액(₩), DSR(%), 날짜 형식
+  // 금액(₩), DTI(%), 날짜 형식
   const fmt     = (n, prefix = '₩') => n != null ? `${prefix}${Number(n).toLocaleString()}` : '—'
-  const fmtDsr  = d => d != null ? `${(Number(d) * 100).toFixed(1)}%` : '—'
+  const fmtDti  = d => d != null ? `${(Number(d) * 100).toFixed(1)}%` : '—'
   const fmtDate = dt => dt ? new Date(dt).toLocaleDateString() : '—'
 
-  // DSR 추이 바차트
-  const dsrBarData = dsrTrend.length > 0 ? {
-    labels: dsrTrend.map((_, i) => `${i + 1}회차`),
+  // DTI 추이 바차트
+  const dtiBarData = dtiTrend.length > 0 ? {
+    labels: dtiTrend.map((_, i) => `${i + 1}회차`),
     datasets: [{
-      label: 'DSR (%)',
-      data: dsrTrend.map(s => Number((Number(s.dsr) * 100).toFixed(1))),
-      backgroundColor: dsrTrend.map(s => s.dsrStatus === 'ACCEPTABLE' ? '#22c55e' : '#ef4444'),
+      label: 'DTI (%)',
+      data: dtiTrend.map(s => Number((Number(s.dti) * 100).toFixed(1))),
+      backgroundColor: dtiTrend.map(s => s.dtiStatus === 'ACCEPTABLE' ? '#22c55e' : '#ef4444'),
       borderRadius: 4,
     }],
   } : null
 
-  // 43% 기준선 플러그인용 annotation은 생략하고, 설명 텍스트로 대체
+  // 60% 기준선 플러그인용 annotation은 생략하고, 설명 텍스트로 대체
   // 최근 시뮬레이션 원금 vs 이자 도넛
   const interestPieData = lastSim ? (() => {
     const principal = Number(lastSim.loanAmount) || 0
@@ -119,10 +120,10 @@ export default function ReportPage() {
     }
   })() : null
 
-  // DSR 적정/초과 파이
-  const dsrStatusPieData = dsrTrend.length > 0 ? (() => {
-    const acceptable = dsrTrend.filter(s => s.dsrStatus === 'ACCEPTABLE').length
-    const exceeded   = dsrTrend.length - acceptable
+  // DTI 적정/초과 파이
+  const dtiStatusPieData = dtiTrend.length > 0 ? (() => {
+    const acceptable = dtiTrend.filter(s => s.dtiStatus === 'ACCEPTABLE').length
+    const exceeded   = dtiTrend.length - acceptable
     return {
       labels: ['적정', '초과'],
       datasets: [{
@@ -172,11 +173,11 @@ export default function ReportPage() {
                   <DataRow label="지역" value={lastRegion.charAt(0).toUpperCase() + lastRegion.slice(1)} />
                 )}
                 <DataRow
-                  label="최근 DSR"
+                  label="최근 DTI"
                   value={
                     <span className="flex items-center gap-2">
-                      {fmtDsr(lastSim.dsr)}
-                      <DsrBadge status={lastSim.dsrStatus} />
+                      {fmtDti(lastSim.dti)}
+                      <DtiBadge status={lastSim.dtiStatus} />
                     </span>
                   }
                 />
@@ -191,7 +192,7 @@ export default function ReportPage() {
           )}
 
           {/* 차트 섹션 */}
-          {(interestPieData || dsrStatusPieData) && (
+          {(interestPieData || dtiStatusPieData) && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* 원금 vs 이자 도넛 */}
               {interestPieData && (
@@ -225,59 +226,65 @@ export default function ReportPage() {
                 </ChartCard>
               )}
 
-              {/* DSR 적정/초과 파이 */}
-              {dsrStatusPieData && (
-                <ChartCard title="DSR 적정 / 초과 비율">
+              {/* DTI 적정/초과 파이 */}
+              {dtiStatusPieData && (
+                <ChartCard title="DTI 적정 / 초과 비율">
                   <div className="flex justify-center">
                     <div className="w-48 h-48">
-                      <Doughnut data={dsrStatusPieData}
+                      <Doughnut data={dtiStatusPieData}
                         options={{ plugins: { legend: { position: 'bottom' } }, cutout: '60%' }} />
                     </div>
                   </div>
                   <p className="text-xs text-center text-gray-400 mt-2 dark:text-gray-500">
-                    최근 {dsrTrend.length}회 시뮬레이션 기준 · DSR 43% 기준
+                    최근 {dtiTrend.length}회 시뮬레이션 기준 · DTI 60% 기준
                   </p>
                 </ChartCard>
               )}
             </div>
           )}
 
-          {/* DSR 추이 바차트 */}
-          {dsrBarData && (
-            <ChartCard title="DSR 추이 (초록=적정 / 빨강=초과, 기준선 43%)">
-              <Bar data={dsrBarData}
+          {/* DTI 추이 바차트 */}
+          {dtiBarData && (
+            <ChartCard title="DTI 추이 (초록=적정 / 빨강=초과, 기준선 60%)">
+              <Bar data={dtiBarData}
                 options={{
                   responsive: true,
                   plugins: { legend: { display: false } },
                   scales: {
                     y: {
                       max: 100,
-                      title: { display: true, text: 'DSR (%)' },
+                      title: { display: true, text: 'DTI (%)' },
                     },
                   },
                 }} />
             </ChartCard>
           )}
 
-          {/* DSR 추이 테이블 */}
-          {dsrTrend.length > 0 && (
-            <Section title="DSR 추이 상세 (최근 5회 시뮬레이션)">
+          {/* DTI 추이 테이블 */}
+          {dtiTrend.length > 0 && (
+            <Section title="DTI 추이 상세 (최근 5회 시뮬레이션)">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-700">
-                      {['#', '월 상환금', 'DSR', '상태', '날짜'].map(h => (
+                      {['#', '월 상환금', 'DTI', '상태', '날짜'].map(h => (
                         <th key={h} className="pb-2 pr-4 font-medium text-gray-500 dark:text-gray-400">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {dsrTrend.map((s, i) => (
+                    {dtiTrend.map((s, i) => (
                       <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
                         <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{s.simulationId}</td>
                         <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">{fmt(s.monthlyPayment)}</td>
-                        <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">{fmtDsr(s.dsr)}</td>
-                        <td className="py-2 pr-4"><DsrBadge status={s.dsrStatus} /></td>
+                        <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">
+                          {fmtDti(s.dti)}
+                          {/* 전환 전 기록은 기존 대출 이자가 빠진 값이라 표시 */}
+                          {isNewLoanOnly(s) && (
+                            <span className="block text-xs text-gray-400 dark:text-gray-500">{NEW_LOAN_ONLY_NOTE}</span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-4"><DtiBadge status={s.dtiStatus} /></td>
                         <td className="py-2 pr-4 text-gray-500 dark:text-gray-400">{fmtDate(s.createdAt)}</td>
                       </tr>
                     ))}

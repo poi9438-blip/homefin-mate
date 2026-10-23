@@ -33,7 +33,10 @@ describe("auth 저장소", () => {
     setToken("jwt-token");
     localStorage.setItem(
       "hfm_draft_loan",
-      JSON.stringify({ monthlyIncome: "4000000", existingDebt: "500000" }),
+      JSON.stringify({
+        monthlyIncome: "4000000",
+        existingMonthlyInterest: "500000",
+      }),
     );
 
     removeToken();
