@@ -59,7 +59,8 @@ class AnalyzeServiceTest {
         when(userRepository.findByEmail("user@test.com"))
                 .thenReturn(Optional.of(User.builder().id(7L).email("user@test.com").build()));
         when(loanService.compute(any())).thenReturn(LoanCalculationResponse.builder()
-                .dsr(new BigDecimal("0.3800")).dsrStatus("ACCEPTABLE").build());
+                .monthlyPayment(new BigDecimal("1520000"))
+                .dti(new BigDecimal("0.3800")).dtiStatus("ACCEPTABLE").build());
         when(analyzeResultSaver.save(any(), any(), any())).thenReturn(100L);
         when(policyService.recommend(any()))
                 .thenReturn(PolicyRecommendationResponse.builder().eligibleCount(2).build());
@@ -75,7 +76,7 @@ class AnalyzeServiceTest {
         r.setAnnualInterestRate(new BigDecimal("4.5"));
         r.setTermMonths(360);
         r.setMonthlyIncome(new BigDecimal("4000000"));
-        r.setExistingDebt(new BigDecimal("500000"));
+        r.setExistingMonthlyInterest(new BigDecimal("500000"));
         r.setPropertyType("NONE");
         r.setRegion(region);
         r.setTraceId("hfm-analyze-1");
@@ -102,10 +103,11 @@ class AnalyzeServiceTest {
         assertThat(res.getTraceId()).isEqualTo("hfm-analyze-1");
     }
 
-    // ①의 DSR을 ②③에 전달, 기존 부채는 정책에만
+    // 기존 대출 월 이자는 대출 계산(DTI)에, ①의 DTI는 정책, 위험 평가에 전달
+    // 위험 평가의 dsr은 호환용 예전 계산(월 상환액 ÷ 월 소득)
     @Test
-    @DisplayName("[TC-ANLZ-002] 대출 결과 DSR을 정책·위험 평가에 전달, 기존 부채는 정책에만")
-    void analyze_passesDsrAndTraceId() {
+    @DisplayName("[TC-ANLZ-002] 기존 대출 월 이자는 DTI 계산에, 대출 결과 DTI는 정책·위험 평가에 전달 (위험 평가 dsr은 예전 계산)")
+    void analyze_passesDtiAndTraceId() {
         analyzeService.analyze(request("부산"), "user@test.com");
 
         ArgumentCaptor<LoanCalculationRequest> loanReq = ArgumentCaptor.forClass(LoanCalculationRequest.class);
@@ -117,8 +119,9 @@ class AnalyzeServiceTest {
         verify(riskWatchClient).evaluateRisk(riskReq.capture());
 
         assertThat(loanReq.getValue().getTraceId()).isEqualTo("hfm-analyze-1");
-        assertThat(policyReq.getValue().getDsr()).isEqualByComparingTo("0.3800");
-        assertThat(policyReq.getValue().getExistingDebt()).isEqualByComparingTo("500000");
+        assertThat(loanReq.getValue().getExistingMonthlyInterest()).isEqualByComparingTo("500000");
+        assertThat(policyReq.getValue().getDti()).isEqualByComparingTo("0.3800");
+        assertThat(riskReq.getValue().getDti()).isEqualByComparingTo("0.3800");
         assertThat(riskReq.getValue().getDsr()).isEqualByComparingTo("0.3800");
         assertThat(riskReq.getValue().getUserId()).isEqualTo("7");
         assertThat(riskReq.getValue().getHouseOwnership()).isEqualTo("NONE");

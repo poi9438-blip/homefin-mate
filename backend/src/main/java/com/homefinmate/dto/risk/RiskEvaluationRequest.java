@@ -14,8 +14,10 @@ public class RiskEvaluationRequest {
     private BigDecimal loanAmount;
     // 월 소득 (RiskWatch 필드명 monthlyIncome)
     private BigDecimal monthlyIncome;
-    // DSR (%)
+    // DSR (0~1, 신규 대출 월 상환액 ÷ 월 소득, RiskWatch 호환용으로 유지)
     private BigDecimal dsr;
+    // DTI (0~1, (신규 대출 월 상환액 + 기존 대출 월 이자) ÷ 월 소득)
+    private BigDecimal dti;
     private String region;
     // 주택 보유 현황 (NONE, OWN, RENT)
     private String houseOwnership;

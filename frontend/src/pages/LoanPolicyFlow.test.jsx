@@ -54,14 +54,14 @@ function StateProbe() {
 
 describe('대출 화면 → 정책 화면 연결', () => {
   // 대출 화면 입력(정책 판정용 포함)이 통합 분석 요청에 들어가고, 추천 카드에서 정책 화면으로 값이 넘어가는지
-  it('[TC-POL-303] 대출 화면의 정책 입력을 분석 요청에 넣고, 추천 카드의 자세히 보기로 입력값과 DSR을 정책 화면에 전달', async () => {
+  it('[TC-POL-303] 대출 화면의 정책 입력·기존 대출 월 이자를 분석 요청에 넣고, 추천 카드의 자세히 보기로 입력값과 DTI를 정책 화면에 전달', async () => {
     localStorage.setItem('hfm_draft_loan', JSON.stringify({
       loanAmount: '200000000', annualInterestRate: '4.5', termMonths: '360', monthlyIncome: '4000000',
-      existingDebt: '', region: '부산', propertyType: 'NONE',
+      existingMonthlyInterest: '300000', region: '부산', propertyType: 'NONE',
       housePrice: '400000000', householdAnnualIncome: '48000000', firstHome: 'true', newlywed: 'false', childCount: '0',
     }))
     analyzeApi.analyze.mockResolvedValue({ data: { data: {
-      loan: { monthlyPayment: 1013370.62, totalInterest: 164813423.2, totalPayment: 364813423.2, dsr: 0.2533, dsrStatus: 'ACCEPTABLE' },
+      loan: { monthlyPayment: 1013370.62, totalInterest: 164813423.2, totalPayment: 364813423.2, dti: 0.3283, dtiStatus: 'ACCEPTABLE', dtiBasis: 'WITH_EXISTING_INTEREST' },
       policy: POLICY_RESULT, risk: { available: false }, region: null,
     } } })
 
@@ -79,6 +79,7 @@ describe('대출 화면 → 정책 화면 연결', () => {
     await flush()
 
     expect(analyzeApi.analyze.mock.calls[0][0]).toMatchObject({
+      existingMonthlyInterest: 300000,
       housePrice: 400000000, householdAnnualIncome: 48000000, firstHome: true, newlywed: false, childCount: 0,
     })
     expect(container.textContent).toContain('내집마련 디딤돌대출')
@@ -87,14 +88,14 @@ describe('대출 화면 → 정책 화면 연결', () => {
     await act(async () => { detail.click() })
 
     const state = JSON.parse(container.querySelector('[data-testid="state"]').textContent)
-    expect(state.prefill).toMatchObject({ dsr: '0.2533', housePrice: '400000000', firstHome: 'true', income: '4000000' })
+    expect(state.prefill).toMatchObject({ dti: '0.3283', housePrice: '400000000', firstHome: 'true', income: '4000000' })
   })
 
   // 정책 화면은 넘어온 값으로 바로 판정을 요청함 (다시 입력하지 않음)
-  it('[TC-POL-304] 정책 화면은 대출 화면에서 넘어온 값(DSR 포함)으로 바로 판정을 요청하고 추천 결과를 보여 줌', async () => {
+  it('[TC-POL-304] 정책 화면은 대출 화면에서 넘어온 값(DTI 포함)으로 바로 판정을 요청하고 추천 결과를 보여 줌', async () => {
     policyApi.recommend.mockResolvedValue({ data: { data: POLICY_RESULT } })
     const prefill = {
-      income: '4000000', existingDebt: '', loanAmount: '200000000', dsr: '0.2533', propertyType: 'NONE', region: '부산',
+      income: '4000000', loanAmount: '200000000', dti: '0.3283', propertyType: 'NONE', region: '부산',
       housePrice: '400000000', householdAnnualIncome: '48000000', firstHome: 'true', newlywed: 'false', childCount: '0',
     }
 
@@ -109,7 +110,7 @@ describe('대출 화면 → 정책 화면 연결', () => {
 
     expect(policyApi.recommend).toHaveBeenCalledTimes(1)
     expect(policyApi.recommend.mock.calls[0][0]).toMatchObject({
-      income: 4000000, loanAmount: 200000000, dsr: 0.2533, housePrice: 400000000,
+      income: 4000000, loanAmount: 200000000, dti: 0.3283, housePrice: 400000000,
       householdAnnualIncome: 48000000, firstHome: true, newlywed: false, childCount: 0, region: '부산',
     })
     expect(container.textContent).toContain('두 상품 모두 조건을 충족합니다.')
@@ -118,7 +119,7 @@ describe('대출 화면 → 정책 화면 연결', () => {
   it('[TC-POL-306] 정책 판정 입력(생애최초·자녀 수)을 비우면 분석 요청을 보내지 않고 입력 안내를 보여 줌', async () => {
     localStorage.setItem('hfm_draft_loan', JSON.stringify({
       loanAmount: '200000000', annualInterestRate: '4.5', termMonths: '360', monthlyIncome: '4000000',
-      existingDebt: '', region: '부산', propertyType: 'NONE',
+      existingMonthlyInterest: '', region: '부산', propertyType: 'NONE',
       housePrice: '400000000', householdAnnualIncome: '48000000', firstHome: '', newlywed: 'false', childCount: '',
     }))
 

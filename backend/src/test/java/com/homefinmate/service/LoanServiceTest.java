@@ -1,7 +1,7 @@
 package com.homefinmate.service;
 
-import com.homefinmate.dto.loan.DsrRequest;
-import com.homefinmate.dto.loan.DsrResponse;
+import com.homefinmate.dto.loan.DtiRequest;
+import com.homefinmate.dto.loan.DtiResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.entity.LoanSimulation;
@@ -67,9 +67,9 @@ class LoanServiceTest {
         return req;
     }
 
-    // 3억, 4.5%, 30년, 월 소득 400만 => 월 1,520,055.93원, DSR 0.38
+    // 3억, 4.5%, 30년, 월 소득 400만 => 월 1,520,055.93원, DTI 0.38 (기존 대출 이자 없음)
     @Test
-    @DisplayName("[TC-LOAN-001] 원리금균등 월 상환액, 총이자, 총상환액, DSR")
+    @DisplayName("[TC-LOAN-001] 원리금균등 월 상환액, 총이자, 총상환액, DTI")
     void calculate_standardAmortization() {
         LoanCalculationResponse res = loanService.calculate(
                 request("300000000", "4.5", 360, "4000000"), "user@test.com");
@@ -77,8 +77,9 @@ class LoanServiceTest {
         assertThat(res.getMonthlyPayment()).isEqualByComparingTo("1520055.93");
         assertThat(res.getTotalInterest()).isEqualByComparingTo("247220134.80");
         assertThat(res.getTotalPayment()).isEqualByComparingTo("547220134.80");
-        assertThat(res.getDsr()).isEqualByComparingTo("0.3800");
-        assertThat(res.getDsrStatus()).isEqualTo("ACCEPTABLE");
+        assertThat(res.getDti()).isEqualByComparingTo("0.3800");
+        assertThat(res.getDtiStatus()).isEqualTo("ACCEPTABLE");
+        assertThat(res.getDtiBasis()).isEqualTo(DtiRule.WITH_EXISTING_INTEREST);
         assertThat(res.getSimulationId()).isEqualTo(100L);
         assertThat(res.getTraceId()).isEqualTo("trace-loan");
     }
@@ -125,20 +126,34 @@ class LoanServiceTest {
         LoanCalculationResponse res = loanService.compute(request("300000000", "4.5", 360, "4000000"));
 
         assertThat(res.getMonthlyPayment()).isEqualByComparingTo("1520055.93");
-        assertThat(res.getDsr()).isEqualByComparingTo("0.3800");
+        assertThat(res.getDti()).isEqualByComparingTo("0.3800");
         assertThat(res.getSimulationId()).isNull();
         org.mockito.Mockito.verifyNoInteractions(loanSimulationRepository, auditService);
     }
 
-    // 같은 대출, 월 소득 300만 => DSR 0.5067 > 0.43 => HIGH
+    // 같은 대출, 월 소득 250만 => DTI 0.6080 > 0.60 => HIGH
     @Test
-    @DisplayName("[TC-LOAN-002] DSR이 0.43을 넘으면 HIGH")
-    void calculate_dsrAboveThreshold_isHigh() {
+    @DisplayName("[TC-LOAN-002] DTI가 0.60을 넘으면 HIGH")
+    void calculate_dtiAboveThreshold_isHigh() {
         LoanCalculationResponse res = loanService.calculate(
-                request("300000000", "4.5", 360, "3000000"), "user@test.com");
+                request("300000000", "4.5", 360, "2500000"), "user@test.com");
 
-        assertThat(res.getDsr()).isEqualByComparingTo("0.5067");
-        assertThat(res.getDsrStatus()).isEqualTo("HIGH");
+        assertThat(res.getDti()).isEqualByComparingTo("0.6080");
+        assertThat(res.getDtiStatus()).isEqualTo("HIGH");
+    }
+
+    // 월 상환 1,520,055.93 + 기존 대출 월 이자 50만 = 2,020,055.93 ÷ 400만 => DTI
+    // 0.5050
+    @Test
+    @DisplayName("[TC-LOAN-010] 기존 대출 월 이자를 넣으면 DTI에 더해짐 (0.38 → 0.5050)")
+    void calculate_includesExistingMonthlyInterest() {
+        LoanCalculationRequest req = request("300000000", "4.5", 360, "4000000");
+        req.setExistingMonthlyInterest(new BigDecimal("500000"));
+
+        LoanCalculationResponse res = loanService.compute(req);
+
+        assertThat(res.getDti()).isEqualByComparingTo("0.5050");
+        assertThat(res.getDtiBasis()).isEqualTo(DtiRule.WITH_EXISTING_INTEREST);
     }
 
     // 1.2억, 3%, 10년 => 월 1,158,728.94원 (다른 조건에서도 공식이 맞는지)
@@ -149,7 +164,7 @@ class LoanServiceTest {
                 request("120000000", "3.0", 120, "5000000"), "user@test.com");
 
         assertThat(res.getMonthlyPayment()).isEqualByComparingTo("1158728.94");
-        assertThat(res.getDsr()).isEqualByComparingTo("0.2317");
+        assertThat(res.getDti()).isEqualByComparingTo("0.2317");
     }
 
     // 저장 내용: 토큰 이메일의 사용자 id, 입력값, 계산값
@@ -165,7 +180,8 @@ class LoanServiceTest {
         assertThat(saved.getUserId()).isEqualTo(7L);
         assertThat(saved.getInterestRate()).isEqualByComparingTo("4.5");
         assertThat(saved.getMonthlyPayment()).isEqualByComparingTo("1520055.93");
-        assertThat(saved.getDsr()).isEqualByComparingTo("0.3800");
+        assertThat(saved.getDti()).isEqualByComparingTo("0.3800");
+        assertThat(saved.getDtiBasis()).isEqualTo(DtiRule.WITH_EXISTING_INTEREST);
         assertThat(saved.getTermMonths()).isEqualTo(360);
         assertThat(saved.getTraceId()).isEqualTo("trace-loan");
         // 이용 기록도 남김
@@ -179,19 +195,20 @@ class LoanServiceTest {
         LoanSimulation high = LoanSimulation.builder()
                 .id(2L).userId(7L).loanAmount(new BigDecimal("300000000"))
                 .monthlyPayment(new BigDecimal("1520055.93")).termMonths(360)
-                .dsr(new BigDecimal("0.5067")).build();
+                .dti(new BigDecimal("0.6080")).build();
         LoanSimulation ok = LoanSimulation.builder()
                 .id(1L).userId(7L).loanAmount(new BigDecimal("120000000"))
                 .monthlyPayment(new BigDecimal("1158728.94")).termMonths(120)
-                .dsr(new BigDecimal("0.2317")).build();
+                .dti(new BigDecimal("0.2317")).dtiBasis(DtiRule.NEW_LOAN_ONLY).build();
         when(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(high, ok));
 
         List<LoanCalculationResponse> history = loanService.getHistory("user@test.com");
 
         assertThat(history).extracting(LoanCalculationResponse::getSimulationId).containsExactly(2L, 1L);
         assertThat(history.get(0).getTotalPayment()).isEqualByComparingTo("547220134.80");
-        assertThat(history.get(0).getDsrStatus()).isEqualTo("HIGH");
-        assertThat(history.get(1).getDsrStatus()).isEqualTo("ACCEPTABLE");
+        assertThat(history.get(0).getDtiStatus()).isEqualTo("HIGH");
+        assertThat(history.get(1).getDtiStatus()).isEqualTo("ACCEPTABLE");
+        assertThat(history.get(1).getDtiBasis()).isEqualTo(DtiRule.NEW_LOAN_ONLY);
     }
 
     // 없는 사용자: 빈 목록 (DB 조회 안 함)
@@ -204,40 +221,55 @@ class LoanServiceTest {
         verify(loanSimulationRepository, org.mockito.Mockito.never()).findByUserIdOrderByCreatedAtDesc(any());
     }
 
-    private DsrRequest dsrRequest(String debt, String income) {
-        DsrRequest req = new DsrRequest();
-        req.setMonthlyDebt(debt == null ? null : new BigDecimal(debt));
-        req.setGrossMonthlyIncome(income == null ? null : new BigDecimal(income));
-        req.setTraceId("trace-dsr");
+    private DtiRequest dtiRequest(String payment, String interest, String income) {
+        DtiRequest req = new DtiRequest();
+        req.setMonthlyPayment(payment == null ? null : new BigDecimal(payment));
+        req.setExistingMonthlyInterest(interest == null ? null : new BigDecimal(interest));
+        req.setMonthlyIncome(income == null ? null : new BigDecimal(income));
+        req.setTraceId("trace-dti");
         return req;
     }
 
-    // 월 상환 152만 / 소득 400만 => DSR 0.3800, ACCEPTABLE (저장 안 함)
+    // 월 상환 152만 / 소득 400만 => DTI 0.3800, ACCEPTABLE (저장 안 함)
     @Test
-    @DisplayName("[TC-LOAN-007] DSR 단독 계산: 0.43 이하면 ACCEPTABLE, 저장하지 않음")
-    void calculateDsr_belowThreshold() {
-        DsrResponse res = loanService.calculateDsr(dsrRequest("1520000", "4000000"));
+    @DisplayName("[TC-LOAN-007] DTI 단독 계산: 0.60 이하면 ACCEPTABLE, 저장하지 않음")
+    void calculateDti_belowThreshold() {
+        DtiResponse res = loanService.calculateDti(dtiRequest("1520000", null, "4000000"));
 
-        assertThat(res.getDsr()).isEqualByComparingTo("0.3800");
-        assertThat(res.getDsrStatus()).isEqualTo("ACCEPTABLE");
-        assertThat(res.getTraceId()).isEqualTo("trace-dsr");
+        assertThat(res.getDti()).isEqualByComparingTo("0.3800");
+        assertThat(res.getDtiStatus()).isEqualTo("ACCEPTABLE");
+        assertThat(res.getTraceId()).isEqualTo("trace-dti");
         verify(loanSimulationRepository, org.mockito.Mockito.never()).save(any());
     }
 
-    // 경계값 0.43 => ACCEPTABLE, 0.4301 => HIGH
+    // 경계값 0.60 => ACCEPTABLE, 0.6001 => HIGH
     @Test
-    @DisplayName("[TC-LOAN-008] DSR 경계값 0.43은 ACCEPTABLE, 넘으면 HIGH")
-    void calculateDsr_boundary() {
-        assertThat(loanService.calculateDsr(dsrRequest("430000", "1000000")).getDsrStatus()).isEqualTo("ACCEPTABLE");
-        assertThat(loanService.calculateDsr(dsrRequest("430100", "1000000")).getDsrStatus()).isEqualTo("HIGH");
+    @DisplayName("[TC-LOAN-008] DTI 경계값 0.60은 ACCEPTABLE, 넘으면 HIGH")
+    void calculateDti_boundary() {
+        assertThat(loanService.calculateDti(dtiRequest("600000", null, "1000000")).getDtiStatus())
+                .isEqualTo("ACCEPTABLE");
+        assertThat(loanService.calculateDti(dtiRequest("600100", null, "1000000")).getDtiStatus()).isEqualTo("HIGH");
     }
 
-    // 소득 0 => DSR 0
+    // 소득 0 => DTI 0
     @Test
-    @DisplayName("[TC-LOAN-009] ⚠️#64 소득이 0이면 DSR 0 (판단 불가인데 적정)")
-    void calculateDsr_zeroIncome() {
-        DsrResponse res = loanService.calculateDsr(dsrRequest("1000000", "0"));
+    @DisplayName("[TC-LOAN-009] ⚠️#64 소득이 0이면 DTI 0 (판단 불가인데 적정)")
+    void calculateDti_zeroIncome() {
+        DtiResponse res = loanService.calculateDti(dtiRequest("1000000", null, "0"));
 
-        assertThat(res.getDsr()).isEqualByComparingTo("0");
+        assertThat(res.getDti()).isEqualByComparingTo("0");
+    }
+
+    // 월 상환 100만만 보면 0.50(적정)이지만 기존 대출 월 이자 30만을 더하면 0.65(높음)
+    @Test
+    @DisplayName("[TC-LOAN-011] DTI 단독 계산에 기존 대출 월 이자를 더하면 판정이 바뀜 (0.50 → 0.65 HIGH)")
+    void calculateDti_existingInterestChangesStatus() {
+        assertThat(loanService.calculateDti(dtiRequest("1000000", null, "2000000")).getDtiStatus())
+                .isEqualTo("ACCEPTABLE");
+
+        DtiResponse res = loanService.calculateDti(dtiRequest("1000000", "300000", "2000000"));
+
+        assertThat(res.getDti()).isEqualByComparingTo("0.6500");
+        assertThat(res.getDtiStatus()).isEqualTo("HIGH");
     }
 }

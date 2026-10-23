@@ -15,7 +15,7 @@ public class ReportResponse {
     private Long userId;
     // 리포트 종류 (현재 SUMMARY만)
     private String reportType;
-    // 리포트 내용 (총 계산 수, 최근 계산, DSR 추이 등)
+    // 리포트 내용 (총 계산 수, 최근 계산, DTI 추이 등)
     private Map<String, Object> reportData;
     private LocalDateTime generatedAt;
     private String traceId;

@@ -15,8 +15,9 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + 1 AS n FROM perf_seed_digits a, perf_s
 WHERE n <= 999;
 
 -- 계산 기록: 관리자를 뺀 seed 사용자 1,000명 × 100건, 최근 1년에 흩어지게
-INSERT INTO loan_simulations (user_id, loan_amount, interest_rate, monthly_payment, total_interest, dsr, term_months, region, trace_id, created_at)
-SELECT u.id, 300000000, 4.5000, 1520055.93, 247220134.80, 0.2000 + (s.n % 40) / 100, 360, NULL,
+-- dsr 컬럼은 V2 마이그레이션(2026-10)에서 dti + dti_basis로 바뀜
+INSERT INTO loan_simulations (user_id, loan_amount, interest_rate, monthly_payment, total_interest, dti, dti_basis, term_months, region, trace_id, created_at)
+SELECT u.id, 300000000, 4.5000, 1520055.93, 247220134.80, 0.2000 + (s.n % 40) / 100, 'WITH_EXISTING_INTEREST', 360, NULL,
        CONCAT('perf-seed-loan-', u.id, '-', s.n),
        NOW(6) - INTERVAL (s.n * 3 + u.id % 3) DAY
 FROM users u

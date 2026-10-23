@@ -107,6 +107,19 @@
         </dependency>
 
         <!--
+        DB 변경 관리 (db/migration의 V1, V2 ... SQL을 순서대로 한 번씩 실행, 버전은 Spring Boot가 관리)
+        MySQL 8은 flyway-mysql이 따로 필요
+        -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
+        <!--
         외부 호출 서킷 브레이커
         -->
         <dependency>

@@ -2,7 +2,7 @@
 
 대상: `AuthService`, `AuthController`, `JwtUtil`, `JwtAuthFilter`, `SecurityConfig`
 
-- **공개 주소:** `/api/auth/**`, `/api/policy/**`, `/api/analysis/**`, `/api/loan/dsr`, `/actuator/health`, Swagger
+- **공개 주소:** `/api/auth/**`, `/api/policy/**`, `/api/analysis/**`, `/api/loan/dti`, `/actuator/health`, Swagger
 - **관리자 전용:** `/api/admin/**`
   - URL 규칙과 `AdminController`의 `@PreAuthorize`가 이중으로 막습니다.
 - **나머지 주소:** 로그인이 필요합니다.
@@ -24,7 +24,7 @@
 | TC-AUTH-013 | 경계 | 만료된 토큰                                                          | 무효                                                         | P1   | JwtUtilTest                                                                              |                                      |
 | TC-AUTH-014 | 보안 | 32바이트 미만 비밀키                                                 | 토큰 생성 거부                                               | P2   | JwtUtilTest                                                                              |                                      |
 | TC-AUTH-101 | 보안 | 토큰 없이 보호된 API 6개 (이력, 계산, 분석, 리포트, 관리자, metrics) | 401 + `{"status":"ERROR","message":"Unauthorized"}`          | P1   | SecurityAccessTest                                                                       |                                      |
-| TC-AUTH-102 | 정상 | 토큰 없이 공개 API (DSR, 정책 추천, health)                          | 200                                                          | P2   | SecurityAccessTest                                                                       |                                      |
+| TC-AUTH-102 | 정상 | 토큰 없이 공개 API (DTI, 정책 추천, health)                          | 200                                                          | P2   | SecurityAccessTest                                                                       |                                      |
 | TC-AUTH-103 | 보안 | USER 토큰으로 관리자 API 4개                                         | 403 "Access denied"                                          | P1   | SecurityAccessTest                                                                       |                                      |
 | TC-AUTH-104 | 정상 | ADMIN 토큰으로 관리자 API                                            | 200                                                          | P1   | SecurityAccessTest                                                                       |                                      |
 | TC-AUTH-105 | 보안 | 역할을 ADMIN으로 바꾼 변조 토큰으로 관리자 API                       | 401 (잘못된 토큰은 비로그인 취급)                            | P1   | SecurityAccessTest                                                                       |                                      |

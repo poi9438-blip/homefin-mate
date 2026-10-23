@@ -32,7 +32,7 @@ const PROPERTY_TYPES = [
 
 const INITIAL_FORM = {
   loanAmount: '', annualInterestRate: '', termMonths: '',
-  monthlyIncome: '', existingDebt: '', region: '', propertyType: 'NONE',
+  monthlyIncome: '', existingMonthlyInterest: '', region: '', propertyType: 'NONE',
   // 정책대출 판정용 선택 입력
   ...POLICY_INPUT_DEFAULTS,
 }
@@ -54,8 +54,8 @@ function validate(form) {
     errors.monthlyIncome = '월 소득을 입력해주세요.'
   else if (Number(form.monthlyIncome) <= 0)
     errors.monthlyIncome = '월 소득은 0보다 커야 합니다.'
-  if (form.existingDebt && Number(form.existingDebt) < 0)
-    errors.existingDebt = '기존 부채는 0 이상이어야 합니다.'
+  if (form.existingMonthlyInterest && Number(form.existingMonthlyInterest) < 0)
+    errors.existingMonthlyInterest = '기존 대출 월 이자는 0 이상이어야 합니다.'
   return { ...errors, ...validatePolicyInputs(form) }
 }
 
@@ -165,7 +165,8 @@ export default function LoanPage() {
         annualInterestRate: Number(form.annualInterestRate),
         termMonths:         Number(form.termMonths),
         monthlyIncome:      form.monthlyIncome ? Number(form.monthlyIncome) : undefined,
-        existingDebt:       form.existingDebt  ? Number(form.existingDebt)  : undefined,
+        // 기존 대출 월 이자 (비우면 0으로 계산)
+        existingMonthlyInterest: form.existingMonthlyInterest ? Number(form.existingMonthlyInterest) : undefined,
         region:             form.region        || undefined,
         propertyType:       form.propertyType  || 'NONE',
         ...policyInputPayload(form),
@@ -184,14 +185,13 @@ export default function LoanPage() {
   // 새 분석: 결과·단계 초기화, 임시 저장 삭제
   const handleNewAnalysis = () => { setResult(null); setStep(0); clearDraft() }
 
-  // 정책 화면으로 이동하며 입력값과 계산된 DSR 전달 (정책 화면에서 다시 입력하지 않게)
+  // 정책 화면으로 이동하며 입력값과 계산된 DTI 전달 (정책 화면에서 다시 입력하지 않게)
   const goPolicyDetail = () => navigate('/policy', {
     state: {
       prefill: {
         income: form.monthlyIncome,
-        existingDebt: form.existingDebt,
         loanAmount: form.loanAmount,
-        dsr: result?.loan?.dsr != null ? String(result.loan.dsr) : '',
+        dti: result?.loan?.dti != null ? String(result.loan.dti) : '',
         propertyType: form.propertyType || 'NONE',
         region: form.region,
         housePrice: form.housePrice,
@@ -208,7 +208,7 @@ export default function LoanPage() {
   const regionResult = result?.region
   const policyResult = result?.policy
 
-  const dsrStatusColor = loanResult?.dsrStatus === 'ACCEPTABLE'
+  const dtiStatusColor = loanResult?.dtiStatus === 'ACCEPTABLE'
     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
     : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
 
@@ -274,7 +274,7 @@ export default function LoanPage() {
             { name: 'annualInterestRate', label: '연 이자율 (%)',             placeholder: '예: 3.8',       required: true  },
             { name: 'termMonths',        label: '대출 기간 (개월)',           placeholder: '예: 360',       required: true  },
             { name: 'monthlyIncome',     label: '월 소득 (원)',               placeholder: '예: 4000000',   required: true  },
-            { name: 'existingDebt',      label: '기존 월 부채 상환액 (원)',   placeholder: '예: 0',         required: false },
+            { name: 'existingMonthlyInterest', label: '기존 대출 월 이자 (원)', placeholder: '예: 0 (없으면 비워두기)', required: false },
           ].map(({ name, label, placeholder, required }) => (
             <div key={name}>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -328,8 +328,8 @@ export default function LoanPage() {
         <div className="flex flex-col gap-4 max-w-2xl">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">대출 분석 결과</h2>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${dsrStatusColor}`}>
-              DSR: {loanResult.dsrStatus === 'ACCEPTABLE' ? '적정' : '초과'}
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${dtiStatusColor}`}>
+              DTI: {loanResult.dtiStatus === 'ACCEPTABLE' ? '적정' : '초과'}
             </span>
           </div>
 
@@ -338,8 +338,8 @@ export default function LoanPage() {
             <SummaryCard title="월 상환금"  value={`₩${Number(loanResult.monthlyPayment).toLocaleString()}`} icon="💳" />
             <SummaryCard title="총 이자"    value={`₩${Number(loanResult.totalInterest).toLocaleString()}`}  icon="📈" />
             <SummaryCard title="총 상환액"  value={`₩${Number(loanResult.totalPayment).toLocaleString()}`}   icon="🏦" />
-            <SummaryCard title="DSR"        value={`${(loanResult.dsr * 100).toFixed(1)}%`}                  icon="📊"
-              subtitle={loanResult.dsrStatus === 'ACCEPTABLE' ? '적정 범위 이내' : '높음 — 예산 검토 필요'} />
+            <SummaryCard title="DTI"        value={`${(loanResult.dti * 100).toFixed(1)}%`}                  icon="📊"
+              subtitle={loanResult.dtiStatus === 'ACCEPTABLE' ? '적정 범위 이내' : '높음 — 예산 검토 필요'} />
           </div>
 
           {/* 원금 vs 이자 / 소득 대비 부담 차트 */}
@@ -398,7 +398,7 @@ export default function LoanPage() {
           <RiskPanel risk={riskResult} />
           <RegionPanel region={regionResult} />
 
-          {/* 둘 중 추천 카드 → 정책 화면으로 입력값과 계산된 DSR을 넘겨 조건별 근거 보기 */}
+          {/* 둘 중 추천 카드 → 정책 화면으로 입력값과 계산된 DTI을 넘겨 조건별 근거 보기 */}
           <RecommendationCard policy={policyResult} onDetail={goPolicyDetail} />
 
           <button onClick={handleNewAnalysis}

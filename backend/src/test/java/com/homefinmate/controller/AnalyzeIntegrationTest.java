@@ -134,7 +134,7 @@ class AnalyzeIntegrationTest {
         }
 
         @Test
-        @DisplayName("[TC-ANLZ-103] ⚠️#83 분석 로그에 이메일·대출 금액·월 상환액·DSR이 평문으로 남음")
+        @DisplayName("[TC-ANLZ-103] ⚠️#83 분석 로그에 이메일·대출 금액·월 상환액·DTI가 평문으로 남음")
         void analyzeLogs_containPersonalAndFinancialData(CapturedOutput output) throws Exception {
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
@@ -143,7 +143,7 @@ class AnalyzeIntegrationTest {
                 assertThat(output.getOut())
                                 .contains("email=" + email)
                                 .contains("loanAmount=300000000")
-                                .contains("monthlyPayment=1520055.93 dsr=0.3800");
+                                .contains("monthlyPayment=1520055.93 dti=0.3800");
         }
 
         // 대출 화면 전체 입력으로 통합 분석 → 정책 추천 결과가 응답에 포함되는지 (실제 HTTP + DB)

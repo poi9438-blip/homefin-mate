@@ -1,11 +1,12 @@
 package com.homefinmate.dto.loan;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Data;
 
 import java.math.BigDecimal;
 
-// 대출 계산 요청 (원금, 연이율, 기간 필수 / 월 소득, 지역 선택)
+// 대출 계산 요청 (원금, 연이율, 기간 필수 / 월 소득, 기존 대출 월 이자, 지역 선택)
 @Data
 public class LoanCalculationRequest {
     // 대출 원금 (원)
@@ -20,8 +21,12 @@ public class LoanCalculationRequest {
     @NotNull
     private Integer termMonths;
 
-    // 월 소득 (선택, DSR 계산용)
+    // 월 소득 (선택, DTI 계산용)
     private BigDecimal monthlyIncome;
+
+    // 기존 대출 월 이자 (선택, 없으면 0, DTI 계산용)
+    @PositiveOrZero(message = "Existing monthly interest must be zero or more")
+    private BigDecimal existingMonthlyInterest;
 
     // 지역 (선택)
     private String region;

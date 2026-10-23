@@ -33,8 +33,9 @@ public class AnalyzeRequest {
     @Positive(message = "Monthly income must be positive")
     private BigDecimal monthlyIncome;
 
-    // 기존 월 부채 상환액 (선택, 정책 추천에만 사용)
-    private BigDecimal existingDebt;
+    // 기존 대출 월 이자 (선택, 없으면 0, DTI 계산에 사용)
+    @PositiveOrZero(message = "Existing monthly interest must be zero or more")
+    private BigDecimal existingMonthlyInterest;
 
     // 주택 보유 현황 (NONE: 무주택, OWN: 보유, RENT: 임차)
     private String propertyType;

@@ -58,6 +58,7 @@ class RiskWatchClientTest {
                                 .loanAmount(new BigDecimal("300000000"))
                                 .monthlyIncome(new BigDecimal("4000000"))
                                 .dsr(new BigDecimal("0.38"))
+                                .dti(new BigDecimal("0.505"))
                                 .region("부산")
                                 .houseOwnership("NONE")
                                 .sourceSystem("HOMEFIT_MATE")
@@ -81,6 +82,9 @@ class RiskWatchClientTest {
                                 .andExpect(header("X-Event-Version", "v1"))
                                 .andExpect(jsonPath("$.userId").value("7"))
                                 .andExpect(jsonPath("$.monthlyIncome").value(4000000))
+                                // [추천 주석] RiskWatch 호환: 예전 dsr과 새 dti를 함께 보냄
+                                .andExpect(jsonPath("$.dsr").value(0.38))
+                                .andExpect(jsonPath("$.dti").value(0.505))
                                 .andRespond(withSuccess(SUCCESS_BODY, MediaType.APPLICATION_JSON));
 
                 RiskEvaluationResponse res = client.evaluateRisk(request());

@@ -16,6 +16,7 @@ import {
   Legend,
 } from 'chart.js'
 import { loanApi } from '../api/loanApi'
+import { DTI_LIMIT, isNewLoanOnly, NEW_LOAN_ONLY_NOTE } from '../utils/dti'
 import { reportApi } from '../api/reportApi'
 import { analysisApi } from '../api/analysisApi'
 
@@ -31,7 +32,7 @@ const REGIONS = ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide', 'Darwin
 // 요약 기본값 (리포트 실패 시)
 const FALLBACK_SUMMARY = {
   totalSimulations: 0,
-  lastDsr: null,
+  lastDti: null,
   policyMatches: 0,
   riskLevel: 'UNKNOWN',
 }
@@ -70,26 +71,26 @@ function buildLoanAmountTrendData(history) {
   }
 }
 
-// DSR 추이 막대 (적정 초록 / 초과 빨강)
-function buildDsrTrendData(history) {
+// DTI 추이 막대 (적정 초록 / 초과 빨강)
+function buildDtiTrendData(history) {
   if (!history?.length) return null
   const recent = [...history].slice(0, 12).reverse()
   return {
     labels: recent.map((_, i) => `${i + 1}회차`),
     datasets: [{
-      label: 'DSR (%)',
-      data: recent.map(s => Number((s.dsr * 100).toFixed(1)) || 0),
+      label: 'DTI (%)',
+      data: recent.map(s => Number((s.dti * 100).toFixed(1)) || 0),
       backgroundColor: recent.map(s =>
-        s.dsrStatus === 'ACCEPTABLE' ? '#22c55e' : '#ef4444'
+        s.dtiStatus === 'ACCEPTABLE' ? '#22c55e' : '#ef4444'
       ),
     }],
   }
 }
 
-// DSR 적정/초과 비율 (전체 이력)
-function buildDsrStatusPieData(history) {
+// DTI 적정/초과 비율 (전체 이력)
+function buildDtiStatusPieData(history) {
   if (!history?.length) return null
-  const acceptable = history.filter(s => s.dsrStatus === 'ACCEPTABLE').length
+  const acceptable = history.filter(s => s.dtiStatus === 'ACCEPTABLE').length
   const exceeded   = history.length - acceptable
   if (acceptable === 0 && exceeded === 0) return null
   return {
@@ -172,15 +173,15 @@ export default function DashboardPage() {
 
   const paymentChartData    = buildPaymentTrendData(history)
   const loanAmountChartData = buildLoanAmountTrendData(history)
-  const dsrChartData        = buildDsrTrendData(history)
-  const dsrStatusPieData    = buildDsrStatusPieData(history)
+  const dtiChartData        = buildDtiTrendData(history)
+  const dtiStatusPieData    = buildDtiStatusPieData(history)
   const interestPieData     = buildInterestPieData(history)
 
   // 요약 카드 값 (리포트 값이 없으면 계산 이력으로 대체)
-  const lastDsrRaw     = summary?.lastDsr ?? (history?.length ? history[0].dsr : null)
-  const lastDsrDisplay = lastDsrRaw != null ? `${(lastDsrRaw * 100).toFixed(1)}%` : '—'
-  const lastDsrStatus  = lastDsrRaw != null
-    ? (lastDsrRaw <= 0.43 ? '적정 범위' : '높음 — 예산 검토 필요')
+  const lastDtiRaw     = summary?.lastDti ?? (history?.length ? history[0].dti : null)
+  const lastDtiDisplay = lastDtiRaw != null ? `${(lastDtiRaw * 100).toFixed(1)}%` : '—'
+  const lastDtiStatus  = lastDtiRaw != null
+    ? (lastDtiRaw <= DTI_LIMIT ? '적정 범위' : '높음 — 예산 검토 필요')
     : ''
 
   const riskLevel = summary?.riskLevel ?? 'UNKNOWN'
@@ -211,10 +212,10 @@ export default function DashboardPage() {
           icon="🏦"
         />
         <SummaryCard
-          title="최근 DSR"
-          value={lastDsrDisplay}
+          title="최근 DTI"
+          value={lastDtiDisplay}
           icon="📊"
-          subtitle={lastDsrStatus}
+          subtitle={lastDtiStatus}
         />
         <SummaryCard
           title="적합 정책 수"
@@ -293,21 +294,21 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* 2행: DSR 추이 + DSR 적정/초과 비율 */}
+          {/* 2행: DTI 추이 + DTI 적정/초과 비율 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {dsrChartData && (
-              <ChartCard title="시뮬레이션별 DSR (초록=적정 / 빨강=초과)">
-                <Bar data={dsrChartData}
+            {dtiChartData && (
+              <ChartCard title="시뮬레이션별 DTI (초록=적정 / 빨강=초과)">
+                <Bar data={dtiChartData}
                   options={{ ...CHART_OPTS,
-                    scales: { y: { max: 100, title: { display: true, text: 'DSR (%)' } } }
+                    scales: { y: { max: 100, title: { display: true, text: 'DTI (%)' } } }
                   }} />
               </ChartCard>
             )}
-            {dsrStatusPieData && (
-              <ChartCard title="DSR 적정 / 초과 비율">
+            {dtiStatusPieData && (
+              <ChartCard title="DTI 적정 / 초과 비율">
                 <div className="flex justify-center">
                   <div className="w-56 h-56">
-                    <Doughnut data={dsrStatusPieData}
+                    <Doughnut data={dtiStatusPieData}
                       options={{ ...CHART_OPTS,
                         plugins: { legend: { position: 'bottom' } }
                       }} />
@@ -355,7 +356,7 @@ export default function DashboardPage() {
                   <table className="w-full text-sm text-left">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700">
-                        {['대출 금액', '월 상환금', 'DSR', '상태'].map(h => (
+                        {['대출 금액', '월 상환금', 'DTI', '상태'].map(h => (
                           <th key={h} className="pb-2 pr-4 font-medium text-gray-500 dark:text-gray-400">{h}</th>
                         ))}
                       </tr>
@@ -365,14 +366,20 @@ export default function DashboardPage() {
                         <tr key={idx} className="border-b border-gray-100 dark:border-gray-800">
                           <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">₩{Number(s.loanAmount).toLocaleString()}</td>
                           <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">₩{Number(s.monthlyPayment).toLocaleString()}</td>
-                          <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">{(s.dsr * 100).toFixed(1)}%</td>
+                          <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">
+                            {(s.dti * 100).toFixed(1)}%
+                            {/* 전환 전 기록은 기존 대출 이자가 빠진 값이라 표시 */}
+                            {isNewLoanOnly(s) && (
+                              <span className="block text-xs text-gray-400 dark:text-gray-500">{NEW_LOAN_ONLY_NOTE}</span>
+                            )}
+                          </td>
                           <td className="py-2 pr-4">
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              s.dsrStatus === 'ACCEPTABLE'
+                              s.dtiStatus === 'ACCEPTABLE'
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                 : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                             }`}>
-                              {s.dsrStatus === 'ACCEPTABLE' ? '적정' : '초과'}
+                              {s.dtiStatus === 'ACCEPTABLE' ? '적정' : '초과'}
                             </span>
                           </td>
                         </tr>

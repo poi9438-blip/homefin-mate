@@ -24,7 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-// ReportService 요약 리포트 검증 (최근 계산, DSR 추이 5건, 안내 문구, 0건)
+// ReportService 요약 리포트 검증 (최근 계산, DTI 추이 5건, 안내 문구, 0건)
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
 
@@ -35,11 +35,12 @@ class ReportServiceTest {
     @InjectMocks
     ReportService reportService;
 
-    private LoanSimulation sim(long id, String dsr) {
+    private LoanSimulation sim(long id, String dti) {
         return LoanSimulation.builder().id(id).userId(7L)
                 .loanAmount(new BigDecimal("300000000"))
                 .monthlyPayment(new BigDecimal("1520055.93"))
-                .dsr(dsr == null ? null : new BigDecimal(dsr))
+                .dti(dti == null ? null : new BigDecimal(dti))
+                .dtiBasis(DtiRule.WITH_EXISTING_INTEREST)
                 .build();
     }
 
@@ -53,7 +54,7 @@ class ReportServiceTest {
 
     // 7건: 총 개수, 최근 계산, 추이 5건, 적정 안내
     @Test
-    @DisplayName("[TC-RPT-001] 계산 기록 요약: 총 개수, 최근 계산, DSR 추이 5건")
+    @DisplayName("[TC-RPT-001] 계산 기록 요약: 총 개수, 최근 계산, DTI 추이 5건")
     @SuppressWarnings("unchecked")
     void summary_withSimulations() {
         List<LoanSimulation> sims = LongStream.rangeClosed(1, 7).map(i -> 8 - i)
@@ -67,23 +68,23 @@ class ReportServiceTest {
         assertThat(res.getTraceId()).isEqualTo("hfm-report-1");
         assertThat(data.get("totalSimulations")).isEqualTo(7);
         assertThat(((Map<String, Object>) data.get("lastSimulation")).get("simulationId")).isEqualTo(7L);
-        assertThat((List<Map<String, Object>>) data.get("dsrTrend"))
+        assertThat((List<Map<String, Object>>) data.get("dtiTrend"))
                 .extracting(m -> m.get("simulationId")).containsExactly(7L, 6L, 5L, 4L, 3L);
-        assertThat((String) data.get("eligibilityHint")).startsWith("Your DSR is within");
-        assertThat(data.get("lastDsr")).isEqualTo(new BigDecimal("0.3800"));
+        assertThat((String) data.get("eligibilityHint")).startsWith("Your DTI is within");
+        assertThat(data.get("lastDti")).isEqualTo(new BigDecimal("0.3800"));
     }
 
-    // 최근 DSR 0.5067: HIGH, 경고 안내
+    // 최근 DTI 0.6080: HIGH, 경고 안내
     @Test
-    @DisplayName("[TC-RPT-002] 최근 DSR이 0.43을 넘으면 경고 안내")
+    @DisplayName("[TC-RPT-002] 최근 DTI가 0.60을 넘으면 경고 안내")
     @SuppressWarnings("unchecked")
     void summary_highDsr_warns() {
-        givenUserWith(List.of(sim(2, "0.5067"), sim(1, "0.2000")));
+        givenUserWith(List.of(sim(2, "0.6080"), sim(1, "0.2000")));
 
         Map<String, Object> data = reportService.generateSummary("user@test.com", null).getReportData();
 
-        assertThat(((Map<String, Object>) data.get("lastSimulation")).get("dsrStatus")).isEqualTo("HIGH");
-        assertThat((String) data.get("eligibilityHint")).startsWith("Your DSR is above");
+        assertThat(((Map<String, Object>) data.get("lastSimulation")).get("dtiStatus")).isEqualTo("HIGH");
+        assertThat((String) data.get("eligibilityHint")).startsWith("Your DTI is above");
     }
 
     // 기록 0건: 개수 0, 안내 메시지, 추이 없음
@@ -95,7 +96,7 @@ class ReportServiceTest {
         Map<String, Object> data = reportService.generateSummary("user@test.com", null).getReportData();
 
         assertThat(data.get("totalSimulations")).isEqualTo(0);
-        assertThat(data).containsKey("message").doesNotContainKeys("lastSimulation", "dsrTrend");
+        assertThat(data).containsKey("message").doesNotContainKeys("lastSimulation", "dtiTrend");
     }
 
     // 계산이 많아도 전체 조회 없이 COUNT + 최근 5건만 사용

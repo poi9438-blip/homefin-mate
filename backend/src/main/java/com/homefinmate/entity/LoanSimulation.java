@@ -42,9 +42,13 @@ public class LoanSimulation {
     @Column(name = "total_interest", precision = 15, scale = 2)
     private BigDecimal totalInterest;
 
-    // DSR (월 상환액 / 월 소득)
-    @Column(name = "dsr", precision = 5, scale = 4)
-    private BigDecimal dsr;
+    // DTI ((월 상환액 + 기존 대출 월 이자) / 월 소득)
+    @Column(name = "dti", precision = 5, scale = 4)
+    private BigDecimal dti;
+
+    // DTI 계산 기준 (DtiRule.NEW_LOAN_ONLY / WITH_EXISTING_INTEREST)
+    @Column(name = "dti_basis", length = 30)
+    private String dtiBasis;
 
     // 대출 기간 (개월)
     @Column(name = "term_months")
