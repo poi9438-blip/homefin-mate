@@ -1,8 +1,8 @@
 package com.homefinmate.controller;
 
 import com.homefinmate.common.ApiResponse;
-import com.homefinmate.dto.loan.DsrRequest;
-import com.homefinmate.dto.loan.DsrResponse;
+import com.homefinmate.dto.loan.DtiRequest;
+import com.homefinmate.dto.loan.DtiResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.service.LoanService;
@@ -31,11 +31,11 @@ public class LoanController {
         return ResponseEntity.ok(ApiResponse.success(response, request.getTraceId()));
     }
 
-    // [DSR 단독 계산 (로그인 불필요, 저장 안 함)
-    @PostMapping("/dsr")
-    public ResponseEntity<ApiResponse<DsrResponse>> calculateDsr(
-            @Valid @RequestBody DsrRequest request) {
-        DsrResponse response = loanService.calculateDsr(request);
+    // DTI 단독 계산 (로그인 불필요, 저장 안 함)
+    @PostMapping("/dti")
+    public ResponseEntity<ApiResponse<DtiResponse>> calculateDti(
+            @Valid @RequestBody DtiRequest request) {
+        DtiResponse response = loanService.calculateDti(request);
         return ResponseEntity.ok(ApiResponse.success(response, request.getTraceId()));
     }
 

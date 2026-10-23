@@ -239,14 +239,14 @@ public class PolicyService {
     }
 
     private PolicyCondition dtiCheck(PolicyRecommendationRequest r) {
-        if (r.getDsr() == null) {
-            return new PolicyCondition("DTI 60% 이내", Result.UNKNOWN, "DSR을 입력하지 않았습니다",
-                    "대출 계산 결과(DSR)를 넣으면 판정할 수 있습니다");
+        if (r.getDti() == null) {
+            return new PolicyCondition("DTI 60% 이내", Result.UNKNOWN, "DTI를 입력하지 않았습니다",
+                    "대출 계산 결과(DTI)를 넣으면 판정할 수 있습니다");
         }
-        String pct = r.getDsr().multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP) + "%";
-        boolean ok = r.getDsr().compareTo(DTI_LIMIT) <= 0;
+        String pct = r.getDti().multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP) + "%";
+        boolean ok = r.getDti().compareTo(DTI_LIMIT) <= 0;
         return new PolicyCondition("DTI 60% 이내", ok ? Result.MET : Result.NOT_MET,
-                "입력한 DSR " + pct + "로 대신 확인 (실제 DTI는 기존 대출 이자도 포함)",
+                "DTI " + pct + " ((신규 대출 월 상환액 + 기존 대출 월 이자) ÷ 월 소득)",
                 ok ? null : dtiHint(r));
     }
 
@@ -258,7 +258,7 @@ public class PolicyService {
                         : null;
         String target = monthly == null ? "월 소득의 60%"
                 : String.format("약 %,d원", monthly.multiply(DTI_LIMIT).setScale(0, RoundingMode.DOWN).longValue());
-        return "월 상환액을 " + target + " 이하로 낮추면 충족 (대출 금액을 줄이거나 기간을 늘리기)";
+        return "월 상환액과 기존 대출 월 이자의 합을 " + target + " 이하로 낮추면 충족 (대출 금액을 줄이거나 기간을 늘리기)";
     }
 
     // 범위 조건 피드백: 미충족 → 기준값으로 무엇을 바꾸면 되는지,

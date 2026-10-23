@@ -21,7 +21,7 @@ class PolicyServiceTest {
 
     private final PolicyService policyService = new PolicyService();
 
-    // 모든 정보를 넣은 기본 요청: 월 400만(연 4,800만), 무주택, 주택 4억, 대출 2억, DSR 30%, 부산, 가구 조건 해당
+    // 모든 정보를 넣은 기본 요청: 월 400만(연 4,800만), 무주택, 주택 4억, 대출 2억, DTI 30%, 부산, 가구 조건 해당
     // 없음
     private PolicyRecommendationRequest fullRequest() {
         PolicyRecommendationRequest r = new PolicyRecommendationRequest();
@@ -29,7 +29,7 @@ class PolicyServiceTest {
         r.setPropertyType("NONE");
         r.setHousePrice(new BigDecimal("400000000"));
         r.setLoanAmount(new BigDecimal("200000000"));
-        r.setDsr(new BigDecimal("0.30"));
+        r.setDti(new BigDecimal("0.30"));
         r.setRegion("부산");
         r.setFirstHome(false);
         r.setNewlywed(false);
@@ -137,10 +137,10 @@ class PolicyServiceTest {
     }
 
     @Test
-    @DisplayName("[TC-POL-206] DSR 60% 초과면 DTI 조건 미충족")
-    void highDsr_failsDti() {
+    @DisplayName("[TC-POL-206] DTI 60% 초과면 DTI 조건 미충족")
+    void highDti_failsDti() {
         PolicyRecommendationRequest r = fullRequest();
-        r.setDsr(new BigDecimal("0.61"));
+        r.setDti(new BigDecimal("0.61"));
 
         assertThat(condition(product(policyService.recommend(r), BOGEUMJARI), "DTI 60% 이내")).isEqualTo(Result.NOT_MET);
     }
@@ -296,7 +296,7 @@ class PolicyServiceTest {
     @DisplayName("[TC-POL-218] DTI 미충족이면 '월 상환액 약 2,400,000원 이하' 피드백 (월 소득 400만 × 60%)")
     void dtiNotMet_hintShowsMaxMonthlyPayment() {
         PolicyRecommendationRequest r = fullRequest();
-        r.setDsr(new BigDecimal("0.61"));
+        r.setDti(new BigDecimal("0.61"));
 
         assertThat(hint(product(policyService.recommend(r), BOGEUMJARI), "DTI 60% 이내"))
                 .contains("약 2,400,000원");

@@ -42,16 +42,16 @@ public class AnalyzeService {
                 loanReq.setAnnualInterestRate(request.getAnnualInterestRate());
                 loanReq.setTermMonths(request.getTermMonths());
                 loanReq.setMonthlyIncome(request.getMonthlyIncome());
+                loanReq.setExistingMonthlyInterest(request.getExistingMonthlyInterest());
                 loanReq.setRegion(request.getRegion());
                 loanReq.setTraceId(traceId);
                 LoanCalculationResponse loanResult = loanService.compute(loanReq);
 
-                // ② 정책 추천 (①의 DSR 사용)
+                // ② 정책 추천 (①의 DTI 사용)
                 PolicyRecommendationRequest policyReq = new PolicyRecommendationRequest();
                 policyReq.setIncome(request.getMonthlyIncome());
-                policyReq.setExistingDebt(request.getExistingDebt());
                 policyReq.setLoanAmount(request.getLoanAmount());
-                policyReq.setDsr(loanResult.getDsr());
+                policyReq.setDti(loanResult.getDti());
                 policyReq.setPropertyType(request.getPropertyType());
                 policyReq.setRegion(request.getRegion());
                 // 정책대출 판정용 입력 전달 (주택 가격, 부부합산 연소득, 가구 조건)
@@ -70,7 +70,10 @@ public class AnalyzeService {
                                 .userId(userIdStr)
                                 .loanAmount(request.getLoanAmount())
                                 .monthlyIncome(request.getMonthlyIncome())
-                                .dsr(loanResult.getDsr())
+                                // RiskWatch 호환: dsr은 예전 계산(기존 대출 이자 미포함), dti는 새 계산
+                                .dsr(DtiRule.calculate(loanResult.getMonthlyPayment(), null,
+                                                request.getMonthlyIncome()))
+                                .dti(loanResult.getDti())
                                 .region(request.getRegion())
                                 .houseOwnership(request.getPropertyType())
                                 .sourceSystem("HOMEFIT_MATE")
@@ -87,8 +90,8 @@ public class AnalyzeService {
 
                 // ⑤ 저장: 계산 기록 + 이용 기록을 한 트랜잭션으로 (외부 호출이 모두 끝난 뒤)
                 loanResult.setSimulationId(analyzeResultSaver.save(userId, loanReq, loanResult));
-                log.info("[{}] Analysis complete: dsr={} riskLevel={} riskAvailable={}",
-                                traceId, loanResult.getDsr(), riskResult.getRiskLevel(), riskResult.isAvailable());
+                log.info("[{}] Analysis complete: dti={} riskLevel={} riskAvailable={}",
+                                traceId, loanResult.getDti(), riskResult.getRiskLevel(), riskResult.isAvailable());
 
                 return AnalyzeResponse.builder()
                                 .loan(loanResult)

@@ -1,7 +1,7 @@
 package com.homefinmate.service;
 
-import com.homefinmate.dto.loan.DsrRequest;
-import com.homefinmate.dto.loan.DsrResponse;
+import com.homefinmate.dto.loan.DtiRequest;
+import com.homefinmate.dto.loan.DtiResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.entity.LoanSimulation;
@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
-// 대출 계산 (원리금균등 월 상환액, 총이자, DSR) 후 결과 저장
+// 대출 계산 (원리금균등 월 상환액, 총이자, DTI) 후 결과 저장
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -42,7 +42,7 @@ public class LoanService {
                 return result;
         }
 
-        // 계산만 (월 상환액/총이자/DSR, 저장 안 함, simulationId 없음)
+        // 계산만 (월 상환액/총이자/DTI, 저장 안 함, simulationId 없음)
         public LoanCalculationResponse compute(LoanCalculationRequest request) {
                 // 월 이율 = 연이율(%) / 1200 (소수 10자리)
                 BigDecimal monthlyRate = request.getAnnualInterestRate()
@@ -69,23 +69,22 @@ public class LoanService {
                                         .subtract(request.getLoanAmount());
                 }
 
-                // DSR = 월 상환액 / 월 소득 (소득 없으면 0)
-                BigDecimal dsr = BigDecimal.ZERO;
-                if (request.getMonthlyIncome() != null && request.getMonthlyIncome().compareTo(BigDecimal.ZERO) > 0) {
-                        dsr = monthlyPayment.divide(request.getMonthlyIncome(), 4, RoundingMode.HALF_UP);
-                }
+                // DTI = (월 상환액 + 기존 대출 월 이자) / 월 소득 (소득 없으면 0)
+                BigDecimal dti = DtiRule.calculate(monthlyPayment, request.getExistingMonthlyInterest(),
+                                request.getMonthlyIncome());
 
-                log.info("[{}] Loan calculated: loanAmount={} monthlyPayment={} dsr={}",
-                                request.getTraceId(), request.getLoanAmount(), monthlyPayment, dsr);
+                log.info("[{}] Loan calculated: loanAmount={} monthlyPayment={} dti={}",
+                                request.getTraceId(), request.getLoanAmount(), monthlyPayment, dti);
 
-                // 응답 (총상환액 = 월 상환액 * 개월 수, DSR 0.43 이하면 ACCEPTABLE)
+                // 응답 (총상환액 = 월 상환액 * 개월 수, DTI 0.60 이하면 ACCEPTABLE)
                 return LoanCalculationResponse.builder()
                                 .loanAmount(request.getLoanAmount())
                                 .monthlyPayment(monthlyPayment)
                                 .totalInterest(totalInterest)
                                 .totalPayment(monthlyPayment.multiply(BigDecimal.valueOf(request.getTermMonths())))
-                                .dsr(dsr)
-                                .dsrStatus(dsr.compareTo(BigDecimal.valueOf(0.43)) <= 0 ? "ACCEPTABLE" : "HIGH")
+                                .dti(dti)
+                                .dtiStatus(DtiRule.status(dti))
+                                .dtiBasis(DtiRule.WITH_EXISTING_INTEREST)
                                 .region(request.getRegion())
                                 .traceId(request.getTraceId())
                                 .build();
@@ -99,7 +98,8 @@ public class LoanService {
                                 .interestRate(request.getAnnualInterestRate())
                                 .monthlyPayment(result.getMonthlyPayment())
                                 .totalInterest(result.getTotalInterest())
-                                .dsr(result.getDsr())
+                                .dti(result.getDti())
+                                .dtiBasis(result.getDtiBasis())
                                 .termMonths(request.getTermMonths())
                                 .region(request.getRegion())
                                 .traceId(request.getTraceId())
@@ -122,32 +122,23 @@ public class LoanService {
                                                                 ? s.getMonthlyPayment().multiply(
                                                                                 BigDecimal.valueOf(s.getTermMonths()))
                                                                 : BigDecimal.ZERO)
-                                                .dsr(s.getDsr())
-                                                .dsrStatus(s.getDsr() != null
-                                                                && s.getDsr().compareTo(BigDecimal.valueOf(0.43)) <= 0
-                                                                                ? "ACCEPTABLE"
-                                                                                : "HIGH")
+                                                .dti(s.getDti())
+                                                .dtiStatus(DtiRule.status(s.getDti()))
+                                                .dtiBasis(s.getDtiBasis())
                                                 .region(s.getRegion())
                                                 .traceId(s.getTraceId())
                                                 .build())
                                 .toList();
         }
 
-        // DSR 단독 계산 (저장 안 함, 소득 없으면 0)
-        public DsrResponse calculateDsr(DsrRequest request) {
-                BigDecimal dsr = BigDecimal.ZERO;
-                if (request.getGrossMonthlyIncome() != null &&
-                                request.getGrossMonthlyIncome().compareTo(BigDecimal.ZERO) > 0) {
-                        dsr = request.getMonthlyDebt()
-                                        .divide(request.getGrossMonthlyIncome(), 4, RoundingMode.HALF_UP);
-                }
+        // DTI 단독 계산 (저장 안 함, 소득 없으면 0)
+        public DtiResponse calculateDti(DtiRequest request) {
+                BigDecimal dti = DtiRule.calculate(request.getMonthlyPayment(),
+                                request.getExistingMonthlyInterest(), request.getMonthlyIncome());
 
-                // 0.43 이하면 ACCEPTABLE
-                String status = dsr.compareTo(BigDecimal.valueOf(0.43)) <= 0 ? "ACCEPTABLE" : "HIGH";
-
-                return DsrResponse.builder()
-                                .dsr(dsr)
-                                .dsrStatus(status)
+                return DtiResponse.builder()
+                                .dti(dti)
+                                .dtiStatus(DtiRule.status(dti))
                                 .traceId(request.getTraceId())
                                 .build();
         }

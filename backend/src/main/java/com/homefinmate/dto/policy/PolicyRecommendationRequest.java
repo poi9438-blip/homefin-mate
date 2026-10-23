@@ -5,21 +5,18 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-// 정책 추천 요청 (소득, 기존 부채, 대출 금액, DSR, 주택 보유, 지역, 주택 가격·가구 조건)
+// 정책 추천 요청 (소득, 대출 금액, DTI, 주택 보유, 지역, 주택 가격·가구 조건)
 @Data
 public class PolicyRecommendationRequest {
     // 월 소득 (income 또는 monthlyIncome)
     @JsonAlias("monthlyIncome")
     private BigDecimal income;
 
-    // 기존 부채
-    private BigDecimal existingDebt;
-
     // 대출 금액
     private BigDecimal loanAmount;
 
-    // DSR (%)
-    private BigDecimal dsr;
+    // DTI (0~1, 대출 계산 결과의 dti)
+    private BigDecimal dti;
 
     // 주택 보유 현황 (NONE, OWN, RENT)
     private String propertyType;

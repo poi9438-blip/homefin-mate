@@ -48,8 +48,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/policy/**").permitAll()
                         // 지역 분석 API는 로그인 없이 허용
                         .requestMatchers("/api/analysis/**").permitAll()
-                        // DSR 단독 계산은 로그인 없이 허용
-                        .requestMatchers("/api/loan/dsr").permitAll()
+                        // DTI 단독 계산은 로그인 없이 허용
+                        .requestMatchers("/api/loan/dti").permitAll()
                         // 관리자 API는 ADMIN만
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/actuator/health").permitAll()

@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// 대출 계산·DSR API 입력 경계 통합 테스트
+// 대출 계산·DTI API 입력 경계 통합 테스트
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -84,19 +84,19 @@ class LoanApiValidationTest {
     }
 
     @Test
-    @DisplayName("[TC-LOAN-105] ⚠️#74#4 DSR 999% 초과는 저장 실패, 응답에 SQL문 노출")
-    void dsrOverflow_saveFails_andLeaksSql() throws Exception {
+    @DisplayName("[TC-LOAN-105] ⚠️#74#4 DTI 999% 초과는 저장 실패, 응답에 SQL문 노출")
+    void dtiOverflow_saveFails_andLeaksSql() throws Exception {
         postJson("/api/loan/calculate",
                 "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":360,\"monthlyIncome\":100000}")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("DSR")));
+                .andExpect(jsonPath("$.message").value(containsString("DTI")));
     }
 
     @Test
-    @DisplayName("[TC-LOAN-106] ⚠️#6#4 DSR API에 부채가 없으면 400 + 내부 클래스 이름 노출")
-    void dsrMissingDebt_leaksInternalMessage() throws Exception {
-        postJson("/api/loan/dsr", "{\"grossMonthlyIncome\":1000000}")
+    @DisplayName("[TC-LOAN-106] ⚠️#6#4 DTI API에 월 상환액이 없으면 400 + 내부 메시지 노출")
+    void dtiMissingPayment_leaksInternalMessage() throws Exception {
+        postJson("/api/loan/dti", "{\"monthlyIncome\":1000000}")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("DsrRequest.getMonthlyDebt()")));
+                .andExpect(jsonPath("$.message").value(containsString("monthlyPayment")));
     }
 }
