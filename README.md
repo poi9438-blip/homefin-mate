@@ -2,7 +2,7 @@
 
 주택담보대출을 계획할 수 있도록 돕고 맞춤 정책을 추천해주는 서비스
 
-사용자가 대출 조건을 입력하면 월 상환액과 DSR(총부채원리금상환비율)을 계산하고
+사용자가 대출 조건을 입력하면 월 상환액과 DTI(총부채상환비율)를 계산하고
 받을 수 있는 정책을 추천하며 계산 이력을 저장해 대시보드와 리포트로 보여줍니다.
 
 > 이 저장소는 직접 만든 HomeFin Mate를 **처음부터 다시 구현하며 문제를 찾아 개선한 기록**입니다.
@@ -14,7 +14,7 @@
 ## 주요 기능
 
 - [x] 회원가입 / 로그인 (JWT 인증, 소득 AES-256-GCM 암호화 저장)
-- [x] 대출 계산 (원리금 균등상환, DSR)
+- [x] 대출 계산 (원리금 균등상환, DTI = (월 상환액 + 기존 대출 월 이자) ÷ 월 소득)
 - [x] 정책 추천 (점수 기반 상위 3개)
 - [x] 외부 시스템 연동 (RiskWatch 위험 평가, 타임아웃·재시도 + 서킷 브레이커 + fallback)
 - [x] 지역 부동산 분석 (Python 서비스)
@@ -101,6 +101,8 @@ docker compose up -d --build
 | http://localhost:8100/swagger-ui.html | 백엔드 API 문서        |
 | http://localhost:8200/docs            | Python 서비스 API 문서 |
 
+DB 테이블은 백엔드가 시작할 때 Flyway(`backend/src/main/resources/db/migration`)가 만들고 바꿉니다. 테이블을 바꿀 때는 기존 파일을 고치지 말고 다음 버전 파일(`V3__설명.sql`)을 추가합니다. Flyway 도입 전에 만든 DB는 V1을 건너뛰고 V2부터 실행합니다.
+
 ### 2. 로컬 개발 실행
 
 코드를 고치면서 확인할 때 씁니다. MySQL만 Docker로 띄우고, 나머지 세 개는 **각각 다른 터미널에서 저장소 루트 기준으로** 실행합니다.
@@ -185,7 +187,7 @@ main에서 CI가 성공하면 [`.github/workflows/release.yml`](.github/workflow
 | POST   | `/api/auth/logout`                                                             | -      | 로그아웃 (서버 동작 없음, 토큰은 프론트에서 삭제) |
 | POST   | `/api/loan/calculate`                                                          | 로그인 | 대출 계산 + 저장                                  |
 | GET    | `/api/loan/history`                                                            | 로그인 | 내 계산 이력                                      |
-| POST   | `/api/loan/dsr`                                                                | -      | DSR 단독 계산 (저장 안 함)                        |
+| POST   | `/api/loan/dti`                                                                | -      | DTI 단독 계산 (저장 안 함)                        |
 | POST   | `/api/policy/recommend`                                                        | -      | 정책 추천 (상위 3개)                              |
 | GET    | `/api/analysis/region`                                                         | -      | 지역 분석 (Python 서비스 호출)                    |
 | POST   | `/api/analyze`                                                                 | 로그인 | 통합 분석 (대출 → 정책 → 위험 → 지역)             |

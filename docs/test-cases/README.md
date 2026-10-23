@@ -8,7 +8,7 @@
 | [auth.md](auth.md)               | 회원가입, 로그인, JWT, 인가     | TC-AUTH                     |
 | [api-errors.md](api-errors.md)   | 공통 응답·오류 형식             | TC-ERR                      |
 | [data.md](data.md)               | 저장소, 사용자 간 데이터 분리   | TC-DATA                     |
-| [loan.md](loan.md)               | 대출 계산, DSR                  | TC-LOAN                     |
+| [loan.md](loan.md)               | 대출 계산, DTI                  | TC-LOAN                     |
 | [encryption.md](encryption.md)   | 소득 암호화                     | TC-ENC                      |
 | [policy.md](policy.md)           | 정책 추천                       | TC-POL                      |
 | [integration.md](integration.md) | RiskWatch, 지역 분석, 통합 분석 | TC-RISK, TC-REGION, TC-ANLZ |
