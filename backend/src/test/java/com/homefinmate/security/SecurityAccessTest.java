@@ -175,4 +175,21 @@ class SecurityAccessTest {
                 mockMvc.perform(get("/actuator/health"))
                                 .andExpect(header().string("X-Trace-Id", startsWith("hfm-")));
         }
+
+        // 비밀번호 틀림·없는 이메일 모두 401 + 같은 메시지 (계정 존재 여부를 응답으로 구분할 수 없음)
+        @Test
+        @DisplayName("[TC-AUTH-111] 로그인 실패는 비밀번호 틀림·없는 이메일 모두 401 + 같은 메시지 (#88)")
+        void loginFailure_returns401WithSameMessage() throws Exception {
+                String email = ApiTestSupport.uniqueEmail("login-401");
+                api.signupAndLogin(email);
+
+                mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                                .content(api.json(Map.of("email", email, "password", "wrong-pass"))))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.message").value("Invalid credentials"));
+                mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                                .content(api.json(Map.of("email", "nobody-" + email, "password", "wrong-pass"))))
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.message").value("Invalid credentials"));
+        }
 }

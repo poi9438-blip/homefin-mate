@@ -1,5 +1,7 @@
 package com.homefinmate;
 
+import com.homefinmate.common.BusinessException;
+import org.springframework.http.HttpStatus;
 import com.homefinmate.dto.auth.LoginRequest;
 import com.homefinmate.dto.auth.LoginResponse;
 import com.homefinmate.dto.auth.SignupRequest;
@@ -149,8 +151,9 @@ class AuthServiceTest {
         when(passwordEncoder.matches("wrongpass", "hashed")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login(req))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Invalid credentials");
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Invalid credentials")
+                .extracting("status").isEqualTo(HttpStatus.UNAUTHORIZED);
 
         ArgumentCaptor<LoginFailureLog> captor = ArgumentCaptor.forClass(LoginFailureLog.class);
         verify(loginFailureLogRepository).save(captor.capture());
@@ -172,8 +175,9 @@ class AuthServiceTest {
         when(userRepository.findByEmail("nobody@test.com")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.login(req))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Invalid credentials");
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Invalid credentials")
+                .extracting("status").isEqualTo(HttpStatus.UNAUTHORIZED);
 
         ArgumentCaptor<LoginFailureLog> captor = ArgumentCaptor.forClass(LoginFailureLog.class);
         verify(loginFailureLogRepository).save(captor.capture());
