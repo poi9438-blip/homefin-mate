@@ -22,11 +22,15 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
-// 401(인증 만료) 응답이면 토큰 삭제 후 로그인 화면으로 이동
+// 토큰 만료로 처리하지 않을 요청 (로그인 실패 401은 화면에서 문구로 보여 줌)
+const SKIP_401_REDIRECT = ["/auth/login"];
+
+// 401(인증 만료) 응답이면 토큰 삭제 후 로그인 화면으로 이동 (로그인 요청은 제외)
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isLoginRequest = SKIP_401_REDIRECT.includes(error.config?.url);
+    if (error.response?.status === 401 && !isLoginRequest) {
       removeToken();
       // 컴포넌트 밖이라 useNavigate 대신 페이지 이동 (상태 초기화 효과)
       window.location.href = "/login";

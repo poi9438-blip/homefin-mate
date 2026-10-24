@@ -62,6 +62,18 @@ describe("axiosInstance", () => {
     expect(window.location.href).toBe("/login");
   });
 
+  // 로그인 실패(401)는 토큰 만료가 아니라서 토큰·화면을 그대로 두고 오류만 넘김
+  it("[TC-WEB-210] 로그인 요청의 401은 토큰을 지우지 않고 이동하지 않음 (화면이 오류 문구 표시)", async () => {
+    localStorage.setItem("hfm_token", "other-token");
+    axiosInstance.defaults.adapter = respondWith(401);
+
+    const error = await axiosInstance.post("/auth/login", {}).catch((e) => e);
+
+    expect(error.response.status).toBe(401);
+    expect(localStorage.getItem("hfm_token")).toBe("other-token");
+    expect(window.location.href).toBe("/dashboard");
+  });
+
   it("[TC-WEB-206] 500 응답이면 토큰을 유지하고 이동하지 않음", async () => {
     localStorage.setItem("hfm_token", "jwt-token");
     axiosInstance.defaults.adapter = respondWith(500);
