@@ -11,10 +11,9 @@ router = APIRouter()
     response_model=RegionAnalysisResponse,
     summary="지역 부동산 시장 분석",
     description=(
-        "지정한 지역의 부동산 시장 데이터를 돌려줍니다. "
-        "호주 도시(Sydney, Melbourne, Brisbane, Perth, Adelaide, Darwin, Hobart)와 "
-        "한국 도시(서울, 부산, 대구, 인천, 광주)를 지원합니다. "
-        "목록에 없는 지역은 기본 시장 데이터를 돌려줍니다. "
+        "지정한 지역의 예시 시장 데이터를 돌려줍니다 (실제 시세 아님, sample=true). "
+        "서울, 부산, 대구, 인천, 광주를 지원합니다. "
+        "목록에 없는 지역은 404를 돌려줍니다. "
         "X-Trace-Id 헤더를 보내면 같은 값이 응답의 trace_id로 전달됩니다."
     ),
 )

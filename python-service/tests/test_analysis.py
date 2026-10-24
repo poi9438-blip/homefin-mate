@@ -12,7 +12,7 @@ def test_health():
     assert response.json() == {"status": "ok", "service": "python-analysis-service"}
 
 
-# [TC-REGION-003] 부산: 등록된 값 그대로, snake_case 필드
+# [TC-REGION-003] 부산: 등록된 값 그대로, snake_case 필드, 예시 데이터 표시(sample)
 def test_busan_returns_registered_values():
     response = client.get("/analysis/region", params={"region": "부산"})
     assert response.status_code == 200
@@ -21,15 +21,16 @@ def test_busan_returns_registered_values():
         "average_price": 540000.0,
         "growth_rate": 0.072,
         "risk_score": 2.3,
+        "sample": True,
         "trace_id": None,
     }
 
 
-# [TC-REGION-004] 대소문자, 앞뒤 공백 무시 (region은 입력값 그대로 돌려줌)
-def test_case_and_whitespace_insensitive():
-    data = client.get("/analysis/region", params={"region": " Sydney "}).json()
-    assert data["average_price"] == 1200000.0
-    assert data["region"] == " Sydney "
+# [TC-REGION-004] 앞뒤 공백 무시 (region은 입력값 그대로 돌려줌)
+def test_whitespace_insensitive():
+    data = client.get("/analysis/region", params={"region": " 부산 "}).json()
+    assert data["average_price"] == 540000.0
+    assert data["region"] == " 부산 "
 
 
 # [TC-REGION-005] X-Trace-Id 헤더 값을 응답 trace_id로 돌려줌
@@ -44,12 +45,9 @@ def test_missing_region_returns_422():
     response = client.get("/analysis/region")
     assert response.status_code == 422
 
-# TODO: 수정 필요
-# [TC-REGION-007] 없는 지역(오타)도 default 값으로 200, 대체 여부 표시 없음
-def test_unknown_region_silently_uses_default():
-    response = client.get("/analysis/region", params={"region": "부상"})
-    assert response.status_code == 200
-    data = response.json()
-    assert data["region"] == "부상"
-    assert data["average_price"] == 750000.0
-    assert set(data.keys()) == {"region", "average_price", "growth_rate", "risk_score", "trace_id"}
+# [TC-REGION-007] 없는 지역(오타 "부상", 예전 호주 도시 "Sydney")은 404, 다른 지역 값으로 대체하지 않음
+def test_unknown_region_returns_404():
+    for region in ["부상", "Sydney"]:
+        response = client.get("/analysis/region", params={"region": region})
+        assert response.status_code == 404
+        assert "average_price" not in response.json()
