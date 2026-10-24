@@ -12,6 +12,7 @@
 | TC-WEB-204 | 정상 | 토큰이 있을 때 API 요청                                           | `Authorization: Bearer <토큰>`, `X-Trace-Id` 헤더                                 | P1   | src/api/axiosInstance.test.js              | #3             |
 | TC-WEB-205 | 보안 | 401 응답                                                          | 토큰 삭제 + /login 이동                                                           | P1   | src/api/axiosInstance.test.js              |                |
 | TC-WEB-206 | 예외 | 500 응답                                                          | 토큰 유지, 이동 안 함                                                             | P2   | src/api/axiosInstance.test.js              |                |
+| TC-WEB-210 | 정상 | 로그인 요청(`/auth/login`)의 401 응답                             | 토큰 유지, 화면 이동 없음 (로그인 화면이 오류 문구 표시)                          | P2   | src/api/axiosInstance.test.js              | #88            |
 | TC-WEB-207 | 정상 | 리포트 DTI 추이 표에 전환 전 기록(NEW_LOAN_ONLY)과 새 기록이 섞임 | 전환 전 기록에만 "기존 대출 이자 미포함" 표시, 기준 문구 DTI 60%                  | P2   | src/pages/ReportPage.test.jsx              |                |
 | TC-WEB-208 | 정상 | 지역 분석 표시: 예시 데이터 / 없는 지역 / 연결 실패               | 예시 데이터는 ₩ 없이 "예시 데이터 · 실제 시세 아님", 분석 불가는 숫자 없이 이유만 | P2   | src/components/RegionSummary.test.jsx      | #66            |
 | TC-WEB-209 | 예외 | 화면 오류 문구: 500 / 연결 실패 / 400                             | 500·연결 실패는 화면의 한국어 안내, 400은 서버 검증 메시지                        | P2   | src/utils/errorMessage.test.js             | #4             |
