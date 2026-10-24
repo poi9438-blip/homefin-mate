@@ -242,8 +242,7 @@ class SecurityAccessTest {
                                 .andExpect(status().isForbidden());
         }
 
-        // [학습] 예전에는 토큰의 역할을 믿어서, DB에서 ADMIN을 회수해도 같은 토큰으로 24시간 동안 관리자 API를 쓸 수 있었음
-        // [추천 주석] DB에서 ADMIN → USER로 바꾸면 같은 토큰으로 다음 요청부터 관리자 API 403
+        // DB에서 ADMIN → USER로 바꾸면 같은 토큰으로 다음 요청부터 관리자 API 403
         @Test
         @DisplayName("[TC-AUTH-114] DB에서 ADMIN 권한을 회수하면 기존 토큰으로 다음 요청부터 관리자 API 403 (#44)")
         void revokedAdmin_isDeniedImmediately() throws Exception {
@@ -259,7 +258,7 @@ class SecurityAccessTest {
                                 .andExpect(status().isForbidden());
         }
 
-        // [추천 주석] 토큰은 유효해도 DB에서 사용자가 지워졌으면 인증하지 않음
+        // 토큰은 유효해도 DB에서 사용자가 지워졌으면 인증하지 않음
         @Test
         @DisplayName("[TC-AUTH-115] 삭제된 사용자의 토큰은 보호된 API에서 401")
         void deletedUserToken_returns401() throws Exception {
@@ -271,8 +270,7 @@ class SecurityAccessTest {
                                 .andExpect(status().isUnauthorized());
         }
 
-        // [학습] 브라우저는 다른 출처로 요청하기 전에 OPTIONS(사전 요청)로 허용 여부를 물어봄 → 그 응답으로 확인
-        // [추천 주석] 화면 주소(localhost:3100)는 허용, 다른 출처는 403 (예전에는 모든 출처 + credentials 허용)
+        // 화면 주소(localhost:3100)는 허용, 다른 출처는 403 (예전에는 모든 출처 + credentials 허용)
         @Test
         @DisplayName("[TC-AUTH-116] CORS: 화면 주소는 허용, 다른 출처의 사전 요청은 403, credentials 허용 안 함 (#28)")
         void cors_allowsOnlyConfiguredOrigin() throws Exception {
@@ -290,7 +288,7 @@ class SecurityAccessTest {
                                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
         }
 
-        // [추천 주석] Swagger UI·API 문서는 기본 꺼짐 (SWAGGER_ENABLED=true일 때만)
+        // Swagger UI·API 문서는 기본 꺼짐 (SWAGGER_ENABLED=true일 때만)
         @Test
         @DisplayName("[TC-AUTH-117] Swagger UI·API 문서는 기본 설정에서 404 (#80)")
         void swagger_isDisabledByDefault() throws Exception {
