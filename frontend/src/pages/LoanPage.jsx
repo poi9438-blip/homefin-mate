@@ -15,6 +15,7 @@ import { RecommendationCard } from '../components/PolicyRecommendation'
 import RegionSummary from '../components/RegionSummary'
 import { REGIONS } from '../utils/regions'
 import { POLICY_INPUT_DEFAULTS, policyInputPayload, validatePolicyInputs } from '../utils/policyInput'
+import { errorMessage } from '../utils/errorMessage'
 
 // 대출 시뮬레이터 화면 (통합 분석: 대출 + 정책 + 위험 평가 + 지역)
 // 도넛 차트에 필요한 chart.js 부품 등록
@@ -145,7 +146,7 @@ export default function LoanPage() {
       setResult(res.data.data)
       setStep(2)
     } catch (err) {
-      const msg = err.response?.data?.message || '분석에 실패했습니다. 다시 시도해주세요.'
+      const msg = errorMessage(err, '분석에 실패했습니다. 다시 시도해주세요.')
       setError(msg)
       setStep(0)
     } finally {

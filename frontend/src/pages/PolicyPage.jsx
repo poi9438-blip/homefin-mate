@@ -7,6 +7,7 @@ import PolicyInputs from '../components/PolicyInputs'
 import { REGIONS } from '../utils/regions'
 import { EligibilityBadge, RecommendationCard } from '../components/PolicyRecommendation'
 import { POLICY_INPUT_DEFAULTS, numOrUndefined, policyInputPayload, validatePolicyInputs } from '../utils/policyInput'
+import { errorMessage } from '../utils/errorMessage'
 
 // 정책 추천 화면 (입력 => 추천 => 정책 카드)
 
@@ -105,7 +106,7 @@ export default function PolicyPage() {
       })
       setResult(res.data.data)
     } catch (err) {
-      setError(err.response?.data?.message || '추천에 실패했습니다. 다시 시도해주세요.')
+      setError(errorMessage(err, '추천에 실패했습니다. 다시 시도해주세요.'))
     } finally {
       setLoading(false)
     }

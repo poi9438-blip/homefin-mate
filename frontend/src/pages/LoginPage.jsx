@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../api/authApi'
 import { setToken, setUser } from '../utils/auth'
+import { errorMessage } from '../utils/errorMessage'
 
 // 로그인 화면
 export default function LoginPage() {
@@ -25,7 +26,7 @@ export default function LoginPage() {
       setUser({ email, role })
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.message || '로그인에 실패했습니다.')
+      setError(errorMessage(err, '로그인에 실패했습니다.'))
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../api/authApi'
+import { errorMessage } from '../utils/errorMessage'
 
 // 회원가입 화면
 
@@ -45,7 +46,7 @@ export default function SignupPage() {
       await authApi.signup(form)
       navigate('/login')
     } catch (err) {
-      setError(err.response?.data?.message || '회원가입에 실패했습니다.')
+      setError(errorMessage(err, '회원가입에 실패했습니다.'))
     } finally {
       setLoading(false)
     }

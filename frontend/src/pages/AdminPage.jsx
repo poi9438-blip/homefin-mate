@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { adminApi } from '../api/adminApi'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
+import { errorMessage } from '../utils/errorMessage'
 
 // 관리자 화면 탭
 const TABS = ['감사 로그', '로그인 실패', '사용자 활동', '연동 실패']
@@ -94,7 +95,7 @@ export default function AdminPage() {
       else                     res = await adminApi.getIntegrationFailures()
       setData(prev => ({ ...prev, [key]: res.data.data ?? [] }))
     } catch (err) {
-      setErrors(prev => ({ ...prev, [key]: err.response?.data?.message || '데이터를 불러오는데 실패했습니다.' }))
+      setErrors(prev => ({ ...prev, [key]: errorMessage(err, '데이터를 불러오는데 실패했습니다.') }))
     } finally {
       setLoading(prev => ({ ...prev, [key]: false }))
     }
