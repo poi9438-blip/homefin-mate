@@ -31,7 +31,7 @@ public class LoanSimulation {
     private BigDecimal loanAmount;
 
     // 연이율 (%)
-    @Column(name = "interest_rate", nullable = false, precision = 5, scale = 4)
+    @Column(name = "interest_rate", nullable = false, precision = 6, scale = 4)
     private BigDecimal interestRate;
 
     // 월 상환액 (원리금균등)
@@ -43,7 +43,7 @@ public class LoanSimulation {
     private BigDecimal totalInterest;
 
     // DTI ((월 상환액 + 기존 대출 월 이자) / 월 소득)
-    @Column(name = "dti", precision = 5, scale = 4)
+    @Column(name = "dti", precision = 7, scale = 4)
     private BigDecimal dti;
 
     // DTI 계산 기준 (DtiRule.NEW_LOAN_ONLY / WITH_EXISTING_INTEREST)

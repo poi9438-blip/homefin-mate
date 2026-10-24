@@ -1,5 +1,6 @@
 package com.homefinmate.dto.analyze;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -17,9 +18,10 @@ public class AnalyzeRequest {
     @Positive(message = "Loan amount must be greater than 0")
     private BigDecimal loanAmount;
 
-    // 연이율 (%, 필수, 0보다 커야 함)
+    // 연이율 (%, 필수, 0보다 크고 99.9999 이하, 저장 컬럼 DECIMAL(6,4))
     @NotNull(message = "Annual interest rate is required")
     @Positive(message = "Annual interest rate must be greater than 0")
+    @DecimalMax(value = "99.9999", message = "Annual interest rate must be 99.9999 or less")
     private BigDecimal annualInterestRate;
 
     // 대출 기간 (개월, 필수, 1~600)
