@@ -1,5 +1,8 @@
 package com.homefinmate;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import java.time.LocalDateTime;
+import static org.mockito.ArgumentMatchers.eq;
 import com.homefinmate.common.BusinessException;
 import org.springframework.http.HttpStatus;
 import com.homefinmate.dto.auth.LoginRequest;
@@ -184,5 +187,72 @@ class AuthServiceTest {
         assertThat(captor.getValue().getEmail()).isEqualTo("nobody@test.com");
         assertThat(captor.getValue().getReason()).isEqualTo("User not found");
         verify(passwordEncoder, never()).matches(anyString(), anyString());
+    }
+
+    private LoginRequest loginRequest(String email, String password) {
+        LoginRequest req = new LoginRequest();
+        req.setEmail(email);
+        req.setPassword(password);
+        req.setTraceId("trace-lock");
+        return req;
+    }
+
+    // 최근 15분 실패 5번이면 429, 거절도 "Too many attempts"로 기록, 비밀번호 확인 안 함
+    @Test
+    @DisplayName("[TC-AUTH-015] 최근 15분 실패가 5번이면 429 (비밀번호 확인 전에 거절, 거절도 기록)")
+    void login_tooManyRecentFailures_returns429() {
+        when(loginFailureLogRepository.countByEmailAndReasonInAndCreatedAtAfter(eq("user@test.com"), any(), any()))
+                .thenReturn(5L);
+
+        assertThatThrownBy(() -> authService.login(loginRequest("user@test.com", "password123")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Too many login attempts")
+                .extracting("status").isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+
+        ArgumentCaptor<LoginFailureLog> captor = ArgumentCaptor.forClass(LoginFailureLog.class);
+        verify(loginFailureLogRepository).save(captor.capture());
+        assertThat(captor.getValue().getReason()).isEqualTo("Too many attempts");
+        verifyNoInteractions(userRepository, passwordEncoder, jwtUtil);
+    }
+
+    // 4번까지는 평소처럼 확인 (기준: 15분 전 이후, 센 이유는 없는 이메일, 비밀번호 틀림)
+    @Test
+    @DisplayName("[TC-AUTH-016] 최근 실패가 4번이면 평소처럼 로그인 확인 (15분 기준, 센 이유 2가지)")
+    void login_belowLimit_checksPasswordAsUsual() {
+        when(loginFailureLogRepository.countByEmailAndReasonInAndCreatedAtAfter(eq("user@test.com"), any(), any()))
+                .thenReturn(4L);
+        User user = User.builder().id(1L).email("user@test.com").password("hashed").role(Role.USER).build();
+        when(userRepository.findByEmail("user@test.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
+        when(jwtUtil.generateToken("user@test.com", "USER")).thenReturn("jwt");
+
+        LocalDateTime before = LocalDateTime.now();
+        assertThat(authService.login(loginRequest("user@test.com", "password123")).getToken()).isEqualTo("jwt");
+
+        ArgumentCaptor<java.util.Collection<String>> reasons = ArgumentCaptor.forClass(java.util.Collection.class);
+        ArgumentCaptor<LocalDateTime> after = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(loginFailureLogRepository).countByEmailAndReasonInAndCreatedAtAfter(
+                eq("user@test.com"), reasons.capture(), after.capture());
+        assertThat(reasons.getValue()).containsExactlyInAnyOrder("User not found", "Incorrect password");
+        assertThat(after.getValue()).isBetween(before.minusMinutes(15).minusSeconds(5),
+                before.minusMinutes(15).plusSeconds(5));
+    }
+
+    // 저장 중 unique 위반이면 이메일 중복과 같은 업무 오류(400)
+    @Test
+    @DisplayName("[TC-AUTH-017] 동시 가입으로 저장 중 unique 위반이면 400 \"Email already registered\" (500 아님)")
+    void signup_uniqueViolationOnSave_returnsDuplicateEmail() {
+        SignupRequest req = new SignupRequest();
+        req.setEmail("race@test.com");
+        req.setPassword("password123");
+        when(userRepository.existsByEmail("race@test.com")).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+        when(userRepository.save(any()))
+                .thenThrow(new DataIntegrityViolationException("Duplicate entry 'race@test.com'"));
+
+        assertThatThrownBy(() -> authService.signup(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Email already registered")
+                .extracting("status").isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }
