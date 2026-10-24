@@ -69,7 +69,7 @@ public class AuthService {
                             .reason("User not found")
                             .traceId(request.getTraceId())
                             .build());
-                    return new RuntimeException("Invalid credentials");
+                    return new BusinessException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
                 });
 
         // 비밀번호 불일치: 실패 기록 후 예외
@@ -80,8 +80,8 @@ public class AuthService {
                     .traceId(request.getTraceId())
                     .build());
             // 이메일/비밀번호 중 무엇이 틀렸는지 알려주지 않음 (계정 존재 여부 노출 방지)
-            // 로그인 실패는 401이 아닌 400: 화면의 401 처리(토큰 삭제 후 로그인 화면 이동)와 겹치지 않게
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid credentials");
+            // 로그인 실패는 401 (없는 이메일·비밀번호 틀림 모두 같은 응답)
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
         // 토큰 발급 (subject=email, roles=[role])
