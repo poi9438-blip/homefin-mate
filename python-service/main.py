@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from routers import analysis
 
 # Python 지역 분석 서비스 (포트 8200, 문서 /docs)
@@ -15,14 +14,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS 허용 (현재 모든 출처)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS 설정 없음 (브라우저에서 직접 호출하지 않는 내부 서비스)
 
 # 지역 분석 라우터 등록 (/analysis)
 app.include_router(analysis.router, prefix="/analysis", tags=["지역 분석"])

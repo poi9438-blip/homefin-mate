@@ -51,3 +51,14 @@ def test_unknown_region_returns_404():
         response = client.get("/analysis/region", params={"region": region})
         assert response.status_code == 404
         assert "average_price" not in response.json()
+
+
+# [TC-REGION-011] CORS 허용 헤더 없음 (다른 출처의 브라우저 요청을 허용하지 않음, #62)
+def test_no_cors_headers_for_browser_origin():
+    response = client.get("/analysis/region", params={"region": "부산"},
+                          headers={"Origin": "https://evil.example"})
+    assert response.status_code == 200
+    assert "access-control-allow-origin" not in response.headers
+    preflight = client.options("/analysis/region",
+                               headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"})
+    assert "access-control-allow-origin" not in preflight.headers
