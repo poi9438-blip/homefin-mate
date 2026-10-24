@@ -72,14 +72,14 @@ class FlywayMigrationTest {
 
     // 새로 띄운 DB: V1(테이블 생성) → V2(DTI 전환) 순서로 실행
     @Test
-    @DisplayName("[TC-DATA-008] 빈 DB는 V1·V2·V3를 차례로 실행해 dti·dti_basis 컬럼이 있고 dsr 컬럼은 없음")
+    @DisplayName("[TC-DATA-008] 빈 DB는 V1~V4를 차례로 실행해 dti·dti_basis 컬럼이 있고 dsr 컬럼은 없음")
     void emptyDb_runsAllMigrations() throws Exception {
         String url = newDbUrl();
         try (Connection conn = DriverManager.getConnection(url, "sa", "");
                 Statement st = conn.createStatement()) {
             MigrateResult result = flyway(url, null).migrate();
 
-            assertThat(result.migrationsExecuted).isEqualTo(3);
+            assertThat(result.migrationsExecuted).isEqualTo(4);
             assertThat(loanSimulationColumns(st)).contains("dti", "dti_basis").doesNotContain("dsr");
         }
     }
@@ -98,7 +98,7 @@ class FlywayMigrationTest {
                     + " values (7, 300000000, 10.5000, 15.2006, 'WITH_EXISTING_INTEREST')";
             assertThatThrownBy(() -> st.execute(wide)).isInstanceOf(SQLException.class);
 
-            MigrateResult result = flyway(url, null).migrate();
+            MigrateResult result = flyway(url, "3").migrate();
 
             assertThat(result.migrationsExecuted).isEqualTo(1);
             st.execute(wide);

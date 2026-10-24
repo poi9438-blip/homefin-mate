@@ -14,8 +14,13 @@ import com.homefinmate.security.JwtUtil;
 import com.homefinmate.security.Role;
 import com.homefinmate.util.EncryptionUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
 
 // 회원가입/로그인
 @Service
@@ -28,6 +33,13 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final EncryptionUtil encryptionUtil;
     private final AuditService auditService;
+
+    // 로그인 시도 제한: 15분 안에 5번 실패하면 잠시 막음
+    static final int MAX_LOGIN_FAILURES = 5;
+    static final Duration LOGIN_FAILURE_WINDOW = Duration.ofMinutes(15);
+    // 시도 횟수로 세는 실패 이유 (막혀서 거절된 시도는 세지 않음)
+    static final List<String> COUNTED_FAILURE_REASONS = List.of("User not found", "Incorrect password");
+    static final String TOO_MANY_ATTEMPTS_REASON = "Too many attempts";
 
     // 회원가입: 이메일 중복 확인 => 비밀번호 해시 => 저장
     public SignupResponse signup(SignupRequest request) {
@@ -49,7 +61,13 @@ public class AuthService {
                 .encryptedIncome(encryptedIncome)
                 .build();
 
-        User saved = userRepository.save(user);
+        // 동시 가입으로 unique 제약에 걸리면 이메일 중복과 같은 응답
+        User saved;
+        try {
+            saved = userRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Email already registered");
+        }
 
         return SignupResponse.builder()
                 .userId(saved.getId())
@@ -61,6 +79,18 @@ public class AuthService {
 
     // 로그인: 사용자 확인 => 비밀번호 비교 => JWT 발급 (실패 시 실패 기록 저장)
     public LoginResponse login(LoginRequest request) {
+        // 최근 실패가 많으면 비밀번호 확인 전에 막음 (거절된 시도도 기록, 횟수에는 안 셈)
+        long recentFailures = loginFailureLogRepository.countByEmailAndReasonInAndCreatedAtAfter(
+                request.getEmail(), COUNTED_FAILURE_REASONS, LocalDateTime.now().minus(LOGIN_FAILURE_WINDOW));
+        if (recentFailures >= MAX_LOGIN_FAILURES) {
+            loginFailureLogRepository.save(LoginFailureLog.builder()
+                    .email(request.getEmail())
+                    .reason(TOO_MANY_ATTEMPTS_REASON)
+                    .traceId(request.getTraceId())
+                    .build());
+            throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts. Try again later");
+        }
+
         // 없는 이메일: 실패 기록 후 예외
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> {

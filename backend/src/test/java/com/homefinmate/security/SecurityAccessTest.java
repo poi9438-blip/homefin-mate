@@ -1,5 +1,7 @@
 package com.homefinmate.security;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.homefinmate.support.ApiTestSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -191,5 +193,43 @@ class SecurityAccessTest {
                                 .content(api.json(Map.of("email", "nobody-" + email, "password", "wrong-pass"))))
                                 .andExpect(status().isUnauthorized())
                                 .andExpect(jsonPath("$.message").value("Invalid credentials"));
+        }
+
+        // 실제 HTTP: 5번 틀리면 6번째는 비밀번호가 맞아도 429, 다른 이메일은 영향 없음
+        @Test
+        @DisplayName("[TC-AUTH-112] 같은 이메일로 5번 틀리면 맞는 비밀번호도 429, 다른 이메일은 정상 로그인 (#79)")
+        void fiveFailures_thenLocked_otherEmailUnaffected() throws Exception {
+                String email = ApiTestSupport.uniqueEmail("lock");
+                String other = ApiTestSupport.uniqueEmail("lock-other");
+                api.signupAndLogin(email);
+                api.signupAndLogin(other);
+                for (int i = 0; i < 5; i++) {
+                        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                                        .content(api.json(Map.of("email", email, "password", "wrong-pass"))))
+                                        .andExpect(status().isUnauthorized());
+                }
+
+                mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                                .content(api.json(Map.of("email", email, "password", ApiTestSupport.TEST_PASSWORD))))
+                                .andExpect(status().isTooManyRequests())
+                                .andExpect(jsonPath("$.message").value("Too many login attempts. Try again later"));
+                mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                                .content(api.json(Map.of("email", other, "password", ApiTestSupport.TEST_PASSWORD))))
+                                .andExpect(status().isOk());
+        }
+
+        // 서명은 맞지만 역할(roles)이 없는 토큰은 인증하지 않음 (예전에는 "ROLE_" 권한으로 통과)
+        @Test
+        @DisplayName("[TC-AUTH-113] 서명은 맞지만 역할이 없는 토큰은 보호된 API에서 401 (#81)")
+        void tokenWithoutRole_returns401() throws Exception {
+                String noRole = Jwts.builder()
+                                .subject("user@test.com")
+                                .issuedAt(new java.util.Date())
+                                .expiration(new java.util.Date(System.currentTimeMillis() + 60_000))
+                                .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
+                                .compact();
+
+                mockMvc.perform(get("/api/loan/history").header("Authorization", bearer(noRole)))
+                                .andExpect(status().isUnauthorized());
         }
 }
