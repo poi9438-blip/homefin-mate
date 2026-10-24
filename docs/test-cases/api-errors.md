@@ -2,16 +2,25 @@
 
 대상: `ApiResponse`, `GlobalExceptionHandler`. 모든 API는 `{status, message, data, traceId}` 형식으로 응답합니다.
 
-| ID         | 분류 | 확인 내용                     | 기대 결과                                     | 위험 | 자동화                                      | 관련                       |
-| ---------- | ---- | ----------------------------- | --------------------------------------------- | ---- | ------------------------------------------- | -------------------------- |
-| TC-ERR-001 | 정상 | 성공 응답 JSON                | status SUCCESS, message OK, data, traceId     | P3   | ApiResponseTest                             |                            |
-| TC-ERR-002 | 정상 | 오류 응답 JSON                | null 필드(data, traceId) 제외                 | P3   | ApiResponseTest                             |                            |
-| TC-ERR-003 | 예외 | 컨트롤러에서 RuntimeException | 400 + 공통 오류 형식                          | P2   | GlobalExceptionHandlerTest                  |                            |
-| TC-ERR-004 | 보안 | SQL문이 담긴 예외 메시지      | ⚠️ 현재 응답에 그대로 노출. 기대: 일반 메시지 | P1   | GlobalExceptionHandlerTest                  | #4                         |
-| TC-ERR-005 | 예외 | 없는 주소                     | 404 "Not Found"                               | P3   | GlobalExceptionHandlerTest                  |                            |
-| TC-ERR-006 | 예외 | 지원하지 않는 메서드          | 405 "Method Not Allowed"                      | P3   | GlobalExceptionHandlerTest                  |                            |
-| TC-ERR-007 | 보안 | 체크 예외(IOException)        | 500 + 내부 메시지 숨김                        | P2   | GlobalExceptionHandlerTest                  |                            |
-| TC-ERR-301 | 예외 | 서버 오류 발생 시 서버 로그   | 원인과 traceId가 로그에 남음 (현재 없음)      | P2   | 자동화 안 함: 수정 시 로그 출력 테스트 추가 | #46                        |
-| TC-ERR-302 | 예외 | 검증 실패 메시지 언어         | API마다 같은 언어 (현재 영어·한국어 혼재)     | P3   | 자동화 안 함: 정책 결정 전                  | #75, 확인 필요 (응답 언어) |
+- **공개하는 오류:** 입력 검증(400, 필드 이름 + 메시지), 업무 오류(`BusinessException`의 상태 코드 + 메시지), Spring 표준 오류(404·405 등), 권한 거부(403)
+- **숨기는 오류:** 그 밖의 예외는 500 + "Internal server error"만 응답하고, 원인은 서버 ERROR 로그에 남깁니다.
+- **traceId:** 오류 응답 본문에도 요청의 traceId를 넣습니다. 같은 값이 응답 헤더 `X-Trace-Id`와 서버 로그 줄에도 있어서, 사용자가 받은 번호로 로그를 찾을 수 있습니다.
+- **화면:** 5xx·연결 실패는 화면마다 정한 한국어 안내, 4xx는 서버 메시지를 보여 줍니다 (`utils/errorMessage.js`).
 
-실제 API에서 SQL·내부 클래스 이름이 노출되는 경우는 [loan.md](loan.md)의 TC-LOAN-104~106에서 HTTP 요청으로 확인합니다.
+| ID         | 분류 | 확인 내용                                           | 기대 결과                                                | 위험 | 자동화                     | 관련                       |
+| ---------- | ---- | --------------------------------------------------- | -------------------------------------------------------- | ---- | -------------------------- | -------------------------- |
+| TC-ERR-001 | 정상 | 성공 응답 JSON                                      | status SUCCESS, message OK, data, traceId                | P3   | ApiResponseTest            |                            |
+| TC-ERR-002 | 정상 | 오류 응답 JSON                                      | null 필드(data, traceId) 제외                            | P3   | ApiResponseTest            |                            |
+| TC-ERR-003 | 예외 | 업무 오류(`BusinessException`, 예: 이메일 중복)     | 지정한 상태 코드 + 메시지 그대로                         | P2   | GlobalExceptionHandlerTest |                            |
+| TC-ERR-004 | 보안 | 예상 못 한 예외 (SQL문이 담긴 메시지 포함)          | 500 + "Internal server error", 원래 메시지 숨김          | P1   | GlobalExceptionHandlerTest | #4                         |
+| TC-ERR-005 | 예외 | 없는 주소                                           | 404 "Not Found"                                          | P3   | GlobalExceptionHandlerTest |                            |
+| TC-ERR-006 | 예외 | 지원하지 않는 메서드                                | 405 "Method Not Allowed"                                 | P3   | GlobalExceptionHandlerTest |                            |
+| TC-ERR-007 | 보안 | 체크 예외(IOException)                              | 500 + 내부 메시지 숨김                                   | P2   | GlobalExceptionHandlerTest |                            |
+| TC-ERR-008 | 예외 | 예상 못 한 예외의 서버 로그                         | 예외 종류·메시지가 ERROR 로그로 남음 (로그 줄에 traceId) | P2   | GlobalExceptionHandlerTest | #46                        |
+| TC-ERR-009 | 보안 | 권한 거부(`AccessDeniedException`, `@PreAuthorize`) | 403 "Forbidden"                                          | P2   | GlobalExceptionHandlerTest | #84                        |
+| TC-ERR-010 | 예외 | 깨진 JSON 본문                                      | 400 "Malformed request body", 파서 메시지 숨김           | P3   | GlobalExceptionHandlerTest |                            |
+| TC-ERR-011 | 정상 | 오류 응답 본문의 traceId                            | 요청의 traceId(MDC)가 본문에 들어감 (예전에는 빠짐)      | P3   | GlobalExceptionHandlerTest |                            |
+| TC-ERR-012 | 정상 | 실제 요청(필터 경유)의 오류 응답                    | 보낸 `X-Trace-Id`가 응답 헤더와 본문 traceId에 같은 값   | P2   | LoanApiValidationTest      |                            |
+| TC-ERR-302 | 예외 | 검증 실패 메시지 언어                               | API마다 같은 언어 (현재 영어·한국어 혼재)                | P3   | 자동화 안 함: 정책 결정 전 | #75, 확인 필요 (응답 언어) |
+
+실제 API의 입력 오류 응답은 [loan.md](loan.md)의 TC-LOAN-101~108에서 HTTP 요청으로 확인합니다.

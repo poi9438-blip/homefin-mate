@@ -9,6 +9,7 @@ import { isNewLoanOnly, NEW_LOAN_ONLY_NOTE } from '../utils/dti'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import ChartCard from '../components/ChartCard'
+import { errorMessage } from '../utils/errorMessage'
 
 // 막대·도넛 차트에 필요한 chart.js 부품 등록
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
@@ -61,7 +62,7 @@ export default function ReportPage() {
       const res = await reportApi.getSummary()
       setSummary(res.data.data ?? res.data)
     } catch (err) {
-      setError(err.response?.data?.message || '리포트를 불러오는데 실패했습니다.')
+      setError(errorMessage(err, '리포트를 불러오는데 실패했습니다.'))
     } finally {
       setLoading(false)
     }

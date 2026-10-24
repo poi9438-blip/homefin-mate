@@ -1,25 +1,36 @@
 package com.homefinmate.config;
 
 import com.homefinmate.common.ApiResponse;
+import com.homefinmate.common.BusinessException;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.stream.Collectors;
 
 // 전역 예외 처리: 모든 Controller의 예외를 ApiResponse 에러 형식으로 변환
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    // 오류 응답 본문에도 traceId를 넣어 사용자가 받은 번호로 서버 로그를 찾을 수 있게 함
+    private String traceId() {
+        return MDC.get("traceId");
+    }
 
-    // 실행 중 예외
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ApiResponse<Void>> handleRuntime(RuntimeException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(ex.getMessage(), null));
+    // 업무 오류: 지정한 상태 코드 + 공개 메시지
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusiness(BusinessException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(ApiResponse.error(ex.getMessage(), traceId()));
     }
 
     // 입력값 검증 실패
@@ -29,7 +40,28 @@ public class GlobalExceptionHandler {
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .collect(Collectors.joining(", "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(message, null));
+                .body(ApiResponse.error(message, traceId()));
+    }
+
+    // 요청 본문을 읽을 수 없음 (깨진 JSON, 타입이 다른 값)
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("Malformed request body", traceId()));
+    }
+
+    // 주소·쿼리 값의 타입이 맞지 않음 (예: 숫자 자리에 글자)
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("Invalid parameter: " + ex.getName(), traceId()));
+    }
+
+    // 권한 없음은 403
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error("Forbidden", traceId()));
     }
 
     // 그 외 모든 예외
@@ -41,9 +73,11 @@ public class GlobalExceptionHandler {
             HttpStatus status = HttpStatus.resolve(statusCode.value());
             String message = (status != null) ? status.getReasonPhrase() : "Error";
             return ResponseEntity.status(statusCode)
-                    .body(ApiResponse.error(message, null));
+                    .body(ApiResponse.error(message, traceId()));
         }
+        // 예상 못 한 오류: 원인은 서버 로그에만, 응답은 500 + 일반 메시지
+        log.error("Unhandled exception: {}", ex.toString(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Internal server error", null));
+                .body(ApiResponse.error("Internal server error", traceId()));
     }
 }
