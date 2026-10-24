@@ -272,4 +272,14 @@ class LoanServiceTest {
         assertThat(res.getDti()).isEqualByComparingTo("0.6500");
         assertThat(res.getDtiStatus()).isEqualTo("HIGH");
     }
+
+    // 월 상환 152만 ÷ 소득 1원 = 1,520,000 → 상한 999.9999로 자르고 판정 HIGH
+    @Test
+    @DisplayName("[TC-LOAN-012] DTI가 상한(999.9999)을 넘으면 999.9999로 자르고 HIGH")
+    void calculateDti_capsAtMax() {
+        DtiResponse res = loanService.calculateDti(dtiRequest("1520000", null, "1"));
+
+        assertThat(res.getDti()).isEqualByComparingTo("999.9999");
+        assertThat(res.getDtiStatus()).isEqualTo("HIGH");
+    }
 }

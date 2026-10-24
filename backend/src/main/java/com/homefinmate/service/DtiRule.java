@@ -9,6 +9,9 @@ public final class DtiRule {
     // 앱 판정 기준: DTI 60% 이하면 ACCEPTABLE
     public static final BigDecimal LIMIT = new BigDecimal("0.60");
 
+    // 저장·응답 상한 999.9999 (99,999%, dti 컬럼 DECIMAL(7,4)의 최대값)
+    public static final BigDecimal MAX = new BigDecimal("999.9999");
+
     // 계산 기준: 신규 대출 월 상환액만 (DTI 전환 전 DSR 값을 옮긴 기록)
     public static final String NEW_LOAN_ONLY = "NEW_LOAN_ONLY";
     // 계산 기준: 신규 대출 월 상환액 + 기존 대출 월 이자
@@ -17,14 +20,14 @@ public final class DtiRule {
     private DtiRule() {
     }
 
-    // DTI 계산 (소수 4자리, 기존 대출 월 이자가 없으면 0, 소득이 없으면 0 ⚠️#64)
+    // DTI 계산 (소수 4자리, 기존 대출 월 이자가 없으면 0, 소득이 없으면 0 ⚠️#64, 상한 MAX)
     public static BigDecimal calculate(BigDecimal monthlyPayment, BigDecimal existingMonthlyInterest,
             BigDecimal monthlyIncome) {
         if (monthlyIncome == null || monthlyIncome.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
         BigDecimal interest = existingMonthlyInterest != null ? existingMonthlyInterest : BigDecimal.ZERO;
-        return monthlyPayment.add(interest).divide(monthlyIncome, 4, RoundingMode.HALF_UP);
+        return monthlyPayment.add(interest).divide(monthlyIncome, 4, RoundingMode.HALF_UP).min(MAX);
     }
 
     // 60% 이하면 ACCEPTABLE, 넘거나 값이 없으면 HIGH

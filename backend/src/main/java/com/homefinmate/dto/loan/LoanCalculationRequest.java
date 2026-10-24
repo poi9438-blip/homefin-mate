@@ -1,5 +1,6 @@
 package com.homefinmate.dto.loan;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Data;
@@ -13,8 +14,9 @@ public class LoanCalculationRequest {
     @NotNull
     private BigDecimal loanAmount;
 
-    // 연이율 (%)
+    // 연이율 (%, 99.9999 이하)
     @NotNull
+    @DecimalMax(value = "99.9999", message = "Annual interest rate must be 99.9999 or less")
     private BigDecimal annualInterestRate;
 
     // 대출 기간 (개월)
