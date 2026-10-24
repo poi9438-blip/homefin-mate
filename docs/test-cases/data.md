@@ -13,8 +13,9 @@
 | TC-DATA-005 | 정상 | 사용자별 계산 이력                                                       | 최신순, 다른 사용자 id는 빈 결과                                                          | P2   | LoanSimulationRepositoryTest      |         |
 | TC-DATA-006 | 정상 | 사용자별 계산 수와 최근 5건                                              | 내 기록만 COUNT, 최신순 5건                                                               | P2   | LoanSimulationRepositoryTest      | #51     |
 | TC-DATA-007 | 정상 | Flyway 이력이 없는 기존 DB(ddl-auto로 만든 DB)에 dsr 기록이 있을 때 시작 | V1은 건너뛰고 V2 실행: dsr 값을 dti로 옮기고 기준 NEW_LOAN_ONLY, dsr 컬럼 삭제            | P1   | FlywayMigrationTest               |         |
-| TC-DATA-008 | 정상 | 빈 DB로 시작                                                             | V1·V2·V3 차례로 실행, dti·dti_basis 컬럼 있음, dsr 컬럼 없음                              | P2   | FlywayMigrationTest               |         |
+| TC-DATA-008 | 정상 | 빈 DB로 시작                                                             | V1~V4 차례로 실행, dti·dti_basis 컬럼 있음, dsr 컬럼 없음                                 | P2   | FlywayMigrationTest               |         |
 | TC-DATA-009 | 경계 | V2까지 적용된 DB(기록 있음)에 V3 실행                                    | 기존 값 그대로, V3 전에는 실패하던 연이율 10.5%·DTI 15.2006 저장 가능                     | P1   | FlywayMigrationTest               | #1, #74 |
+| TC-DATA-010 | 정상 | 로그인 실패 수 조회 (시도 제한용)                                        | 같은 이메일·센 이유(없는 이메일·비밀번호 틀림)·15분 안의 기록만 셈                        | P2   | LoginFailureLogRepositoryTest     | #79     |
 | TC-DATA-101 | 보안 | A가 계산 저장 후 A·B가 각각 이력·리포트 조회                             | A는 1건, B는 0건                                                                          | P1   | UserDataIsolationTest             |         |
 | TC-DATA-102 | 보안 | B가 본문에 A의 userId를 넣어 계산                                        | B 이름으로 저장, A 이력은 비어 있음                                                       | P1   | UserDataIsolationTest             |         |
 | TC-DATA-103 | 정상 | ADMIN이 연동 실패 조회 API 호출                                          | 연동 실패 기록만, 100건 이하                                                              | P2   | AdminApiTest                      | #45     |
