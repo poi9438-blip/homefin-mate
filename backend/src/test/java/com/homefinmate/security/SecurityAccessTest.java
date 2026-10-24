@@ -1,5 +1,8 @@
 package com.homefinmate.security;
 
+import com.homefinmate.entity.User;
+import com.homefinmate.repository.UserRepository;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,6 +48,8 @@ class SecurityAccessTest {
         ObjectMapper objectMapper;
         @Autowired
         JwtUtil jwtUtil;
+        @Autowired
+        UserRepository userRepository;
 
         @Value("${app.jwt.secret}")
         String jwtSecret;
@@ -102,7 +107,7 @@ class SecurityAccessTest {
         @Test
         @DisplayName("[TC-AUTH-104] ADMIN 토큰이면 관리자 API 200")
         void adminApi_withAdminToken_returns200() throws Exception {
-                String adminToken = jwtUtil.generateToken("admin@test.com", "ADMIN");
+                String adminToken = ApiTestSupport.adminToken(userRepository, jwtUtil);
 
                 mockMvc.perform(get("/api/admin/audit-logs").header("Authorization", bearer(adminToken)))
                                 .andExpect(status().isOk())
@@ -218,18 +223,76 @@ class SecurityAccessTest {
                                 .andExpect(status().isOk());
         }
 
-        // 서명은 맞지만 역할(roles)이 없는 토큰은 인증하지 않음 (예전에는 "ROLE_" 권한으로 통과)
+        // 역할 없는 토큰: DB의 USER 권한으로 인증(사용자 API 200, 관리자 API 403), 빈 "ROLE_" 권한 없음
         @Test
-        @DisplayName("[TC-AUTH-113] 서명은 맞지만 역할이 없는 토큰은 보호된 API에서 401 (#81)")
-        void tokenWithoutRole_returns401() throws Exception {
+        @DisplayName("[TC-AUTH-113] 역할이 없는 토큰도 권한은 DB 기준: 사용자 API 200, 관리자 API 403 (#81)")
+        void tokenWithoutRole_usesDbRole() throws Exception {
+                String email = ApiTestSupport.uniqueEmail("no-role");
+                api.signupAndLogin(email);
                 String noRole = Jwts.builder()
-                                .subject("user@test.com")
+                                .subject(email)
                                 .issuedAt(new java.util.Date())
                                 .expiration(new java.util.Date(System.currentTimeMillis() + 60_000))
                                 .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
                                 .compact();
 
                 mockMvc.perform(get("/api/loan/history").header("Authorization", bearer(noRole)))
+                                .andExpect(status().isOk());
+                mockMvc.perform(get("/api/admin/audit-logs").header("Authorization", bearer(noRole)))
+                                .andExpect(status().isForbidden());
+        }
+
+        // DB에서 ADMIN → USER로 바꾸면 같은 토큰으로 다음 요청부터 관리자 API 403
+        @Test
+        @DisplayName("[TC-AUTH-114] DB에서 ADMIN 권한을 회수하면 기존 토큰으로 다음 요청부터 관리자 API 403 (#44)")
+        void revokedAdmin_isDeniedImmediately() throws Exception {
+                String adminToken = ApiTestSupport.adminToken(userRepository, jwtUtil);
+                mockMvc.perform(get("/api/admin/audit-logs").header("Authorization", bearer(adminToken)))
+                                .andExpect(status().isOk());
+
+                User admin = userRepository.findByEmail(jwtUtil.extractEmail(adminToken)).orElseThrow();
+                admin.setRole(Role.USER);
+                userRepository.save(admin);
+
+                mockMvc.perform(get("/api/admin/audit-logs").header("Authorization", bearer(adminToken)))
+                                .andExpect(status().isForbidden());
+        }
+
+        // 토큰은 유효해도 DB에서 사용자가 지워졌으면 인증하지 않음
+        @Test
+        @DisplayName("[TC-AUTH-115] 삭제된 사용자의 토큰은 보호된 API에서 401")
+        void deletedUserToken_returns401() throws Exception {
+                String email = ApiTestSupport.uniqueEmail("deleted");
+                String token = api.signupAndLogin(email);
+                userRepository.delete(userRepository.findByEmail(email).orElseThrow());
+
+                mockMvc.perform(get("/api/loan/history").header("Authorization", bearer(token)))
                                 .andExpect(status().isUnauthorized());
+        }
+
+        // 화면 주소(localhost:3100)는 허용, 다른 출처는 403 (예전에는 모든 출처 + credentials 허용)
+        @Test
+        @DisplayName("[TC-AUTH-116] CORS: 화면 주소는 허용, 다른 출처의 사전 요청은 403, credentials 허용 안 함 (#28)")
+        void cors_allowsOnlyConfiguredOrigin() throws Exception {
+                mockMvc.perform(options("/api/loan/calculate")
+                                .header("Origin", "http://localhost:3100")
+                                .header("Access-Control-Request-Method", "POST")
+                                .header("Access-Control-Request-Headers", "authorization,content-type"))
+                                .andExpect(status().isOk())
+                                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3100"))
+                                .andExpect(header().doesNotExist("Access-Control-Allow-Credentials"));
+                mockMvc.perform(options("/api/loan/calculate")
+                                .header("Origin", "https://evil.example")
+                                .header("Access-Control-Request-Method", "POST"))
+                                .andExpect(status().isForbidden())
+                                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+        }
+
+        // Swagger UI·API 문서는 기본 꺼짐 (SWAGGER_ENABLED=true일 때만)
+        @Test
+        @DisplayName("[TC-AUTH-117] Swagger UI·API 문서는 기본 설정에서 404 (#80)")
+        void swagger_isDisabledByDefault() throws Exception {
+                mockMvc.perform(get("/api-docs")).andExpect(status().isNotFound());
+                mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isNotFound());
         }
 }

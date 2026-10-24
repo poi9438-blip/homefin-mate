@@ -1,5 +1,9 @@
 package com.homefinmate.support;
 
+import com.homefinmate.entity.User;
+import com.homefinmate.repository.UserRepository;
+import com.homefinmate.security.JwtUtil;
+import com.homefinmate.security.Role;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
@@ -39,6 +43,13 @@ public final class ApiTestSupport {
                 .content(json(Map.of("email", email, "password", TEST_PASSWORD))))
                 .andReturn();
         return read(login).path("data").path("token").asText();
+    }
+
+    // DB에 ADMIN 사용자를 저장하고 그 사용자의 토큰 반환
+    public static String adminToken(UserRepository userRepository, JwtUtil jwtUtil) {
+        String email = uniqueEmail("admin");
+        userRepository.save(User.builder().email(email).password("not-used").role(Role.ADMIN).build());
+        return jwtUtil.generateToken(email, "ADMIN");
     }
 
     public String json(Object body) throws Exception {

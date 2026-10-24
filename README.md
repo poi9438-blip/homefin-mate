@@ -95,11 +95,11 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-| 주소                                  | 내용                   |
-| ------------------------------------- | ---------------------- |
-| http://localhost:3100                 | 화면 (nginx)           |
-| http://localhost:8100/swagger-ui.html | 백엔드 API 문서        |
-| http://localhost:8200/docs            | Python 서비스 API 문서 |
+| 주소                                  | 내용                                                     |
+| ------------------------------------- | -------------------------------------------------------- |
+| http://localhost:3100                 | 화면 (nginx)                                             |
+| http://localhost:8100/swagger-ui.html | 백엔드 API 문서 (`.env`에 `SWAGGER_ENABLED=true`일 때만) |
+| http://localhost:8200/docs            | Python 서비스 API 문서                                   |
 
 DB 테이블은 백엔드가 시작할 때 Flyway(`backend/src/main/resources/db/migration`)가 만들고 바꿉니다. 테이블을 바꿀 때는 기존 파일을 고치지 말고 다음 버전 파일(예: `V4__설명.sql`)을 추가합니다. Flyway 도입 전에 만든 DB는 V1을 건너뛰고 V2부터 실행합니다.
 

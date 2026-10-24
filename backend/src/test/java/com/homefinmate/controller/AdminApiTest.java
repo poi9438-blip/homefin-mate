@@ -1,5 +1,7 @@
 package com.homefinmate.controller;
 
+import com.homefinmate.repository.UserRepository;
+import com.homefinmate.support.ApiTestSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.homefinmate.entity.AuditLog;
@@ -36,6 +38,8 @@ class AdminApiTest {
         JwtUtil jwtUtil;
         @Autowired
         AuditLogRepository auditLogRepository;
+        @Autowired
+        UserRepository userRepository;
 
         @Test
         @DisplayName("[TC-DATA-103] 관리자 연동 실패 조회는 연동 실패 기록만, 100건 이하로 응답")
@@ -47,7 +51,7 @@ class AdminApiTest {
                                 .action("LOGIN_SUCCESS").traceId(marker).build());
 
                 String body = mockMvc.perform(get("/api/admin/integration-failures")
-                                .header("Authorization", bearer(jwtUtil.generateToken("admin@test.com", "ADMIN"))))
+                                .header("Authorization", bearer(ApiTestSupport.adminToken(userRepository, jwtUtil))))
                                 .andExpect(status().isOk())
                                 .andReturn().getResponse().getContentAsString();
 
