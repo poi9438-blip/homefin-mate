@@ -9,14 +9,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.math.BigDecimal;
 import java.net.URI;
 
-// Python 지역 분석 호출 (실패 시 Java fallback 데이터)
+// Python 지역 분석 호출 (실패 시 숫자 없이 '분석 불가'로 응답)
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -27,13 +27,14 @@ public class AnalysisService {
     @Value("${app.python-service.base-url:http://localhost:8200}")
     private String pythonServiceBaseUrl;
 
-    // 지역 분석 조회 (성공: Python 결과, 실패: fallback)
+    // 지역 분석 조회 (성공: Python 결과, 없는 지역·연결 실패: 분석 불가)
     public RegionAnalysisResponse getRegionAnalysis(String region, String traceId) {
         try {
             // 요청 주소 (base-url + /analysis/region?region=...)
             URI uri = UriComponentsBuilder
                     .fromHttpUrl(pythonServiceBaseUrl + "/analysis/region")
                     .queryParam("region", region)
+                    .encode()
                     .build().toUri();
 
             // traceId 헤더 전달
@@ -54,38 +55,23 @@ public class AnalysisService {
                         body.getGrowthRate(), body.getRiskScore());
                 return body;
             }
+        } catch (HttpClientErrorException.NotFound e) {
+            // Python에 데이터가 없는 지역 (오타 포함)
+            log.info("[{}] Region analysis not available for region '{}'", traceId, region);
+            return unavailable(region, "UNSUPPORTED_REGION", traceId);
         } catch (RestClientException e) {
-            // 호출 실패: 경고 로그 후 fallback
-            log.warn("[{}] Python service unavailable for region '{}' — using fallback: {}",
-                    traceId, region, e.getMessage());
+            // 호출 실패: 경고 로그 후 분석 불가
+            log.warn("[{}] Python service unavailable for region '{}': {}", traceId, region, e.getMessage());
         }
-        return buildFallback(region, traceId);
+        return unavailable(region, "SERVICE_UNAVAILABLE", traceId);
     }
 
-    // fallback 데이터 (예시 데이터)
-    private RegionAnalysisResponse buildFallback(String region, String traceId) {
-        String key = region != null ? region.toLowerCase().trim() : "";
-        return switch (key) {
-            case "sydney" -> resp(region, 1_200_000, 0.038, 2.8, traceId);
-            case "melbourne" -> resp(region, 950_000, 0.042, 3.0, traceId);
-            case "brisbane" -> resp(region, 750_000, 0.061, 2.5, traceId);
-            case "perth" -> resp(region, 680_000, 0.055, 2.9, traceId);
-            case "adelaide" -> resp(region, 620_000, 0.048, 3.1, traceId);
-            case "서울" -> resp(region, 1_100_000, 0.025, 3.5, traceId);
-            case "부산" -> resp(region, 480_000, 0.058, 2.6, traceId);
-            case "대구" -> resp(region, 380_000, 0.052, 2.8, traceId);
-            case "인천" -> resp(region, 450_000, 0.047, 3.0, traceId);
-            default -> resp(region, 750_000, 0.045, 3.2, traceId);
-        };
-    }
-
-    // 응답 객체 만들기 (double => BigDecimal)
-    private RegionAnalysisResponse resp(String region, double price, double growth, double risk, String traceId) {
+    // 분석 불가 응답 (값은 비워 둠, 지어낸 숫자를 보내지 않음)
+    private RegionAnalysisResponse unavailable(String region, String reason, String traceId) {
         return RegionAnalysisResponse.builder()
                 .region(region)
-                .averagePrice(BigDecimal.valueOf(price))
-                .growthRate(BigDecimal.valueOf(growth))
-                .riskScore(BigDecimal.valueOf(risk))
+                .available(false)
+                .unavailableReason(reason)
                 .traceId(traceId)
                 .build();
     }
