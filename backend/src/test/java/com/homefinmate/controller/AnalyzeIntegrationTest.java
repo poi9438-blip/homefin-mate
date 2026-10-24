@@ -110,26 +110,27 @@ class AnalyzeIntegrationTest {
         }
 
         @Test
-        @DisplayName("[TC-ANLZ-102] 분석 중간(정책 추천)에 실패하면 실패 응답, 계산 기록 0건 (#5)")
+        @DisplayName("[TC-ANLZ-102] 분석 중간(정책 추천)에 실패하면 500 실패 응답, 계산 기록 0건 (#5)")
         void failureBeforeSave_responseFails_andNothingSaved() throws Exception {
                 doThrow(new IllegalStateException("policy failure for test")).when(policyService).recommend(any());
 
+                // 서버 오류라 500 (예전에는 400)
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
-                                .andExpect(status().isBadRequest());
+                                .andExpect(status().isInternalServerError());
 
                 assertThat(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(userId())).isEmpty();
         }
 
         @Test
-        @DisplayName("[TC-ANLZ-104] 저장 중 이용 기록 저장이 실패하면 계산 기록도 함께 취소 (#5)")
+        @DisplayName("[TC-ANLZ-104] 저장 중 이용 기록 저장이 실패하면 500, 계산 기록도 함께 취소 (#5)")
         void failureDuringSave_rollsBackSimulationAndActivity() throws Exception {
                 doThrow(new IllegalStateException("activity save failure for test"))
                                 .when(auditService).logActivity(any(), eq("UNIFIED_ANALYSIS"), any());
 
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
-                                .andExpect(status().isBadRequest());
+                                .andExpect(status().isInternalServerError());
 
                 assertThat(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(userId())).isEmpty();
                 assertThat(userActivityLogRepository.findByUserIdOrderByCreatedAtDesc(userId())).isEmpty();

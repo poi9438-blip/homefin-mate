@@ -1,7 +1,9 @@
 package com.homefinmate.dto.loan;
 
 import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Data;
 
@@ -10,17 +12,21 @@ import java.math.BigDecimal;
 // 대출 계산 요청 (원금, 연이율, 기간 필수 / 월 소득, 기존 대출 월 이자, 지역 선택)
 @Data
 public class LoanCalculationRequest {
-    // 대출 원금 (원)
-    @NotNull
+    // 대출 원금 (원, 0보다 커야 함)
+    @NotNull(message = "Loan amount is required")
+    @Positive(message = "Loan amount must be greater than 0")
     private BigDecimal loanAmount;
 
     // 연이율 (%, 99.9999 이하)
-    @NotNull
+    @NotNull(message = "Annual interest rate is required")
+    @PositiveOrZero(message = "Annual interest rate must be zero or more")
     @DecimalMax(value = "99.9999", message = "Annual interest rate must be 99.9999 or less")
     private BigDecimal annualInterestRate;
 
-    // 대출 기간 (개월)
-    @NotNull
+    // 대출 기간 (개월, 1~600)
+    @NotNull(message = "Loan term is required")
+    @Positive(message = "Term must be at least 1 month")
+    @Max(value = 600, message = "Term cannot exceed 600 months")
     private Integer termMonths;
 
     // 월 소득 (선택, DTI 계산용)

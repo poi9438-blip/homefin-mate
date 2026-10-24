@@ -1,5 +1,7 @@
 package com.homefinmate.service;
 
+import com.homefinmate.common.BusinessException;
+import org.springframework.http.HttpStatus;
 import com.homefinmate.dto.auth.LoginRequest;
 import com.homefinmate.dto.auth.LoginResponse;
 import com.homefinmate.dto.auth.SignupRequest;
@@ -30,7 +32,7 @@ public class AuthService {
     // 회원가입: 이메일 중복 확인 => 비밀번호 해시 => 저장
     public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Email already registered");
         }
 
         // 소득(선택) 있으면 AES로 암호화
@@ -78,7 +80,8 @@ public class AuthService {
                     .traceId(request.getTraceId())
                     .build());
             // 이메일/비밀번호 중 무엇이 틀렸는지 알려주지 않음 (계정 존재 여부 노출 방지)
-            throw new RuntimeException("Invalid credentials");
+            // 로그인 실패는 401이 아닌 400: 화면의 401 처리(토큰 삭제 후 로그인 화면 이동)와 겹치지 않게
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid credentials");
         }
 
         // 토큰 발급 (subject=email, roles=[role])
