@@ -84,7 +84,7 @@ class AnalyzeIntegrationTest {
         }
 
         @Test
-        @DisplayName("[TC-ANLZ-101] 외부 서비스가 모두 죽어도 200, 위험 평가는 available=false, 계산 1건 저장, 연동 실패 감사 기록")
+        @DisplayName("[TC-ANLZ-101] 외부 서비스가 모두 죽어도 200, 위험 평가·지역 분석은 available=false(지역 값 없음), 계산 1건 저장, 연동 실패 감사 기록")
         void externalServicesDown_returns200WithFallback_andPersists() throws Exception {
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
@@ -92,6 +92,8 @@ class AnalyzeIntegrationTest {
                                 .andExpect(jsonPath("$.data.loan.monthlyPayment").value(1520055.93))
                                 .andExpect(jsonPath("$.data.risk.available").value(false))
                                 .andExpect(jsonPath("$.data.region.region").value("부산"))
+                                .andExpect(jsonPath("$.data.region.available").value(false))
+                                .andExpect(jsonPath("$.data.region.averagePrice").doesNotExist())
                                 .andExpect(jsonPath("$.traceId").value(traceId));
 
                 assertThat(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(userId()))

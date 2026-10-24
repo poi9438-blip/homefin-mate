@@ -4,6 +4,7 @@ import { policyApi } from '../api/policyApi'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import PolicyInputs from '../components/PolicyInputs'
+import { REGIONS } from '../utils/regions'
 import { EligibilityBadge, RecommendationCard } from '../components/PolicyRecommendation'
 import { POLICY_INPUT_DEFAULTS, numOrUndefined, policyInputPayload, validatePolicyInputs } from '../utils/policyInput'
 
@@ -17,7 +18,6 @@ const PROPERTY_TYPES = [
 ]
 
 // 지역 선택지 (수도권 여부 판단용)
-const REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '기타 지역']
 
 // 입력값 검증 (월 소득, 대출 금액, DTI 0~1, 정책 판정 입력 모두 필수)
 function validate(form) {

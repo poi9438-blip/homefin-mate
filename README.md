@@ -62,7 +62,7 @@ homefin-mate/
 ```
 브라우저 ──▶ frontend(:3100) ──/api──▶ backend(:8100) ──▶ MySQL(:3310)
                                           │
-                                          ├──▶ python-service(:8200)   지역 분석 (실패 시 fallback)
+                                          ├──▶ python-service(:8200)   지역 분석 (예시 데이터, 실패 시 분석 불가)
                                           └──▶ RiskWatch(:8120)        위험 평가 (재시도 후 fallback)
 ```
 
