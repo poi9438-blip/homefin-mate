@@ -1,5 +1,6 @@
 package com.homefinmate.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import com.homefinmate.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -36,7 +37,8 @@ public class SecurityConfig {
                 // CSRF 보호 끄기
                 .csrf(AbstractHttpConfigurer::disable)
 
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> {
+                })
 
                 // JWT 기반 인증을 사용해서 서버 세션을 사용하지 않는 구조 (STATELESS)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -86,15 +88,16 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // TODO: 출처 제한하도록 수정할 것
-    // CORS 허용 규칙 - 지금은 일단 모든 출처 허용
+    // CORS: 설정한 출처(CORS_ALLOWED_ORIGINS)만 허용, 쿠키 전송 허용 안 함
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Trace-Id"));
+        config.setExposedHeaders(List.of("X-Trace-Id"));
+        config.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

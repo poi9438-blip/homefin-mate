@@ -50,6 +50,15 @@ public class JwtUtil {
         return "";
     }
 
+    // 유효한 토큰이면 이메일, 아니면 null (서명·만료·형식을 한 번에 확인)
+    public String validEmail(String token) {
+        try {
+            return parseClaims(token).getSubject();
+        } catch (JwtException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     // 토큰 유효성 검사 (서명, 만료, 형식)
     public boolean validateToken(String token) {
         try {

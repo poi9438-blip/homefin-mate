@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.homefinmate.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -38,17 +40,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         try {
             String token = extractToken(request);
-            if (StringUtils.hasText(token) && jwtUtil.validateToken(token)) {
-                String email = jwtUtil.extractEmail(token);
-                String role = jwtUtil.extractRole(token);
-
-                // 인증 정보 등록 (principal=email, 권한=ROLE_ + role), 역할 없는 토큰은 인증 안 함
-                if (StringUtils.hasText(role)) {
+            // 유효한 토큰의 이메일로 사용자를 찾아 DB의 역할로 인증 (사용자가 없으면 인증 안 함)
+            String email = StringUtils.hasText(token) ? jwtUtil.validEmail(token) : null;
+            if (email != null) {
+                userRepository.findByEmail(email).ifPresent(user -> {
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            email, null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                            user.getEmail(), null,
+                            List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
+                });
             }
             filterChain.doFilter(request, response);
         } finally {
