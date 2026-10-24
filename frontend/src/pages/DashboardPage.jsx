@@ -19,15 +19,14 @@ import { loanApi } from '../api/loanApi'
 import { DTI_LIMIT, isNewLoanOnly, NEW_LOAN_ONLY_NOTE } from '../utils/dti'
 import { reportApi } from '../api/reportApi'
 import { analysisApi } from '../api/analysisApi'
+import RegionSummary from '../components/RegionSummary'
+import { REGIONS } from '../utils/regions'
 
 // 꺾은선,막대,도넛 차트에 필요한 chart.js 부품 등록
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
   BarElement, ArcElement, Title, Tooltip, Legend
 )
-
-const REGIONS = ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide', 'Darwin', 'Hobart',
-                 '서울', '부산', '대구', '인천', '광주']
 
 // 요약 기본값 (리포트 실패 시)
 const FALLBACK_SUMMARY = {
@@ -242,7 +241,7 @@ export default function DashboardPage() {
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="">— 선택하세요 —</option>
-              {REGIONS.map(r => <option key={r} value={r.toLowerCase()}>{r}</option>)}
+              {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
           <button
@@ -255,25 +254,8 @@ export default function DashboardPage() {
         </div>
         {regionError && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{regionError}</p>}
         {regionData && (
-          <div className="mt-4 grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400">평균 가격</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white">
-                ₩{Number(regionData.averagePrice ?? regionData.average_price).toLocaleString()}
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400">성장률</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white">
-                {(Number(regionData.growthRate ?? regionData.growth_rate) * 100).toFixed(1)}%
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400">시장 리스크</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white">
-                {Number(regionData.riskScore ?? regionData.risk_score).toFixed(1)}
-              </p>
-            </div>
+          <div className="mt-4">
+            <RegionSummary data={regionData} />
           </div>
         )}
       </div>

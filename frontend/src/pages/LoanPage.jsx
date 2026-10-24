@@ -12,6 +12,8 @@ import ChartCard from '../components/ChartCard'
 import StepGuide from '../components/StepGuide'
 import PolicyInputs from '../components/PolicyInputs'
 import { RecommendationCard } from '../components/PolicyRecommendation'
+import RegionSummary from '../components/RegionSummary'
+import { REGIONS } from '../utils/regions'
 import { POLICY_INPUT_DEFAULTS, policyInputPayload, validatePolicyInputs } from '../utils/policyInput'
 
 // 대출 시뮬레이터 화면 (통합 분석: 대출 + 정책 + 위험 평가 + 지역)
@@ -21,9 +23,6 @@ ChartJS.register(ArcElement, Tooltip, Legend)
 // 진행 단계
 const steps = ['정보 입력', '분석 중', '결과 확인']
 
-// 지역 선택지
-const REGIONS = ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide', 'Darwin', 'Hobart',
-                 '서울', '부산', '대구', '인천', '광주']
 const PROPERTY_TYPES = [
   { value: 'NONE', label: '무주택' },
   { value: 'OWN',  label: '기존 주택 보유자' },
@@ -94,41 +93,13 @@ function RiskPanel({ risk }) {
   )
 }
 
-// 지역 분석 패널 (평균 가격, 성장률, 시장 리스크)
+// 지역 분석 패널 (예시 평균 가격, 성장률, 시장 리스크 / 분석 불가면 이유)
 function RegionPanel({ region }) {
   if (!region) return null
-  if (region.unavailable) {
-    return (
-      <div className="bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-xl p-5">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          지역 분석 서비스가 일시적으로 이용 불가합니다. 대출 및 리스크 결과에는 영향이 없습니다.
-        </p>
-      </div>
-    )
-  }
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
       <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">지역 분석 — {region.region}</h3>
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">평균 가격</p>
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            ₩{Number(region.averagePrice ?? region.average_price).toLocaleString()}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">성장률</p>
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            {(Number(region.growthRate ?? region.growth_rate) * 100).toFixed(1)}%
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">시장 리스크</p>
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            {Number(region.riskScore ?? region.risk_score).toFixed(1)}
-          </p>
-        </div>
-      </div>
+      <RegionSummary data={region} />
     </div>
   )
 }
@@ -298,7 +269,7 @@ export default function LoanPage() {
             <select name="region" value={form.region} onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
               <option value="">— 지역 선택 —</option>
-              {REGIONS.map(r => <option key={r} value={r.toLowerCase()}>{r}</option>)}
+              {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
 
