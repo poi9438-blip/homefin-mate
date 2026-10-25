@@ -37,7 +37,27 @@ export function setUser(user) {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
-// 토큰이 있으면 로그인 상태로 간주 (만료 여부는 서버가 판단)
+// 토큰의 만료 시각(ms), 읽을 수 없으면 null
+export function tokenExpiresAt(token) {
+  try {
+    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const { exp } = JSON.parse(
+      atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, "=")),
+    );
+    return typeof exp === "number" ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+// 토큰이 있고 만료 시각이 지나지 않았으면 로그인 상태 (만료 토큰은 삭제, 최종 판단은 서버)
 export function isAuthenticated() {
-  return !!getToken();
+  const token = getToken();
+  if (!token) return false;
+  const expiresAt = tokenExpiresAt(token);
+  if (expiresAt !== null && expiresAt <= Date.now()) {
+    removeToken();
+    return false;
+  }
+  return true;
 }

@@ -18,7 +18,8 @@ axiosInstance.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  config.headers["X-Trace-Id"] = generateTraceId();
+  // 헤더 traceId = 본문 traceId (본문에 없으면 새로 생성)
+  config.headers["X-Trace-Id"] = config.data?.traceId || generateTraceId();
   return config;
 });
 

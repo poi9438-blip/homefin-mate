@@ -55,7 +55,6 @@ const FAILURE_COLS = [
   // 이메일 대신 HMAC 값 (#33)
   { key: 'emailHash', label: '이메일 (해시)' },
   { key: 'reason',    label: '원인' },
-  { key: 'ipAddress', label: 'IP' },
   { key: 'traceId',   label: '트레이스 ID' },
   { key: 'createdAt', label: '시간', render: v => v ? new Date(v).toLocaleString() : '—' },
 ]
@@ -83,15 +82,20 @@ export default function AdminPage() {
   const [loading, setLoading] = useState({})
   const [errors, setErrors]   = useState({})
 
-  const fetchTab = async (tabIndex) => {
+  // 로그인 실패 검색: 입력 중인 값 / 실제로 검색한 값 (비우면 최근 100건 전체)
+  const [failureEmail, setFailureEmail] = useState('')
+  const [failureQuery, setFailureQuery] = useState('')
+
+  // 탭 데이터 불러오기 (처음 한 번, force면 항상 다시, 로그인 실패는 검색어 기준)
+  const fetchTab = async (tabIndex, { force = false, email = failureQuery } = {}) => {
     const key = ['audit', 'failures', 'activity', 'integrations'][tabIndex]
-    if (data[key] !== null) return
+    if (!force && data[key] !== null) return
     setLoading(prev => ({ ...prev, [key]: true }))
     setErrors(prev => ({ ...prev, [key]: '' }))
     try {
       let res
       if (tabIndex === 0)      res = await adminApi.getAuditLogs()
-      else if (tabIndex === 1) res = await adminApi.getLoginFailures()
+      else if (tabIndex === 1) res = email ? await adminApi.searchLoginFailures(email) : await adminApi.getLoginFailures()
       else if (tabIndex === 2) res = await adminApi.getUserActivity()
       else                     res = await adminApi.getIntegrationFailures()
       setData(prev => ({ ...prev, [key]: res.data.data ?? [] }))
@@ -135,26 +139,42 @@ export default function AdminPage() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">{TABS[activeTab]}</h2>
           
-          <button onClick={() => {
-            const k = ['audit', 'failures', 'activity', 'integrations'][activeTab]
-            setData(prev => ({ ...prev, [k]: null }))
-            fetchTab(activeTab)
-          }}
+          <button onClick={() => fetchTab(activeTab, { force: true })}
             className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-3 py-1 border border-gray-200 dark:border-gray-700 rounded-lg">
             새로고침
           </button>
         </div>
 
         {isLoading && <LoadingState message="로딩 중..." />}
-        {errorMsg && <ErrorState message={errorMsg} onRetry={() => {
-          setData(prev => ({ ...prev, [key]: null }))
-          fetchTab(activeTab)
-        }} />}
+        {errorMsg && <ErrorState message={errorMsg} onRetry={() => fetchTab(activeTab, { force: true })} />}
+
+        {/* 로그인 실패 이메일 검색 (서버가 HMAC으로 바꿔 검색, 비우면 전체) */}
+        {activeTab === 1 && (
+          <form className="flex flex-wrap gap-2 mb-4" onSubmit={e => {
+            e.preventDefault()
+            const email = failureEmail.trim()
+            setFailureQuery(email)
+            fetchTab(1, { force: true, email })
+          }}>
+            <input type="email" value={failureEmail} onChange={e => setFailureEmail(e.target.value)}
+              placeholder="이메일로 검색" aria-label="로그인 실패 이메일 검색"
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+            <button type="submit" className="px-3 py-1.5 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg">검색</button>
+            {failureQuery && (
+              <button type="button" onClick={() => {
+                setFailureEmail('')
+                setFailureQuery('')
+                fetchTab(1, { force: true, email: '' })
+              }} className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg">전체 보기</button>
+            )}
+          </form>
+        )}
 
         {!isLoading && !errorMsg && (
           <>
             {activeTab === 0 && <Table columns={AUDIT_COLS}       rows={rows} emptyMessage="감사 로그가 없습니다." />}
-            {activeTab === 1 && <Table columns={FAILURE_COLS}     rows={rows} emptyMessage="로그인 실패 기록이 없습니다." />}
+            {activeTab === 1 && <Table columns={FAILURE_COLS}     rows={rows}
+              emptyMessage={failureQuery ? `${failureQuery}의 로그인 실패 기록이 없습니다.` : '로그인 실패 기록이 없습니다.'} />}
             {activeTab === 2 && <Table columns={ACTIVITY_COLS}    rows={rows} emptyMessage="사용자 활동 기록이 없습니다." />}
             {activeTab === 3 && <Table columns={INTEGRATION_COLS} rows={rows} emptyMessage="연동 실패 기록이 없습니다." />}
           </>

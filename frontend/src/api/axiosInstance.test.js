@@ -83,4 +83,20 @@ describe("axiosInstance", () => {
     expect(localStorage.getItem("hfm_token")).toBe("jwt-token");
     expect(window.location.href).toBe("/dashboard");
   });
+
+  // 본문에 traceId가 있으면 헤더도 같은 값, 없으면 새로 만든 hfm- 값
+  it("[TC-WEB-217] 본문에 traceId가 있으면 X-Trace-Id 헤더도 같은 값, 없으면 새 hfm- 값 (#3)", async () => {
+    const seen = {};
+    axiosInstance.defaults.adapter = respondWith(200, seen);
+
+    await axiosInstance.post("/loan/calculate", {
+      loanAmount: 1,
+      traceId: "hfm-body-trace",
+    });
+    expect(seen.headers["X-Trace-Id"]).toBe("hfm-body-trace");
+
+    await axiosInstance.get("/loan/history");
+    expect(seen.headers["X-Trace-Id"]).toMatch(/^hfm-/);
+    expect(seen.headers["X-Trace-Id"]).not.toBe("hfm-body-trace");
+  });
 });
