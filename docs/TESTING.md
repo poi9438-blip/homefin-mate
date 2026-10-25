@@ -71,14 +71,14 @@ HomeFin Mate의 모든 모듈에 공통으로 적용하는 테스트 기준입�
 저장소 루트 기준입니다.
 
 ```bash
-cd backend && mvn test                                               # 1. 백엔드 (+ JaCoCo: target/site/jacoco/index.html)
+cd backend && ./mvnw test                                             # 1. 백엔드 (+ JaCoCo: target/site/jacoco/index.html)
 cd python-service && python -m pytest -q --junitxml=test-results/pytest.xml   # 2. Python (가상환경 활성화 후)
 cd frontend && npm test                                              # 3. 프론트 (결과: test-results/junit.xml)
 python scripts/tc_status.py                                          # 4. 명세 ↔ 테스트 ↔ 결과 대조
 ```
 
-- 특정 클래스만 돌릴 때: `mvn test -Dtest=SecurityAccessTest`
-- **제품 코드를 바꿔 가며 확인했다면 `target`을 지우고 다시 빌드합니다**(`rm -rf target && mvn test`). 이전 빌드 결과물이 남아 엉뚱한 결과가 나온 적이 있습니다.
+- 특정 클래스만 돌릴 때: `./mvnw test -Dtest=SecurityAccessTest`
+- **제품 코드를 바꿔 가며 확인했다면 `target`을 지우고 다시 빌드합니다**(`rm -rf target && ./mvnw test`). 이전 빌드 결과물이 남아 엉뚱한 결과가 나온 적이 있습니다.
 - CI(GitHub Actions)는 PR과 main push마다 1~4를 실행합니다. 4에서 불일치·실패·미실행이 있으면 실패합니다.
 
 ## 7. 실패 분석과 재검증
