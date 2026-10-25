@@ -13,6 +13,9 @@ RUN mvn package -DskipTests -q
 # 2단계: JRE로 jar 실행
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+# 실행 전용 사용자 (root 아님)
+RUN addgroup -S app && adduser -S app -G app
+COPY --from=build --chown=app:app /app/target/*.jar app.jar
+USER app
 EXPOSE 8100
 ENTRYPOINT ["java", "-jar", "app.jar"]
