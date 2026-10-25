@@ -1,12 +1,15 @@
 package com.homefinmate.controller;
 
 import com.homefinmate.common.ApiResponse;
+import com.homefinmate.dto.admin.LoginFailureSearchRequest;
 import com.homefinmate.entity.AuditLog;
 import com.homefinmate.entity.LoginFailureLog;
 import com.homefinmate.entity.UserActivityLog;
 import com.homefinmate.repository.AuditLogRepository;
 import com.homefinmate.repository.LoginFailureLogRepository;
 import com.homefinmate.repository.UserActivityLogRepository;
+import com.homefinmate.util.EmailHasher;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +27,7 @@ public class AdminController {
         private final AuditLogRepository auditLogRepository;
         private final LoginFailureLogRepository loginFailureLogRepository;
         private final UserActivityLogRepository userActivityLogRepository;
+        private final EmailHasher emailHasher;
 
         // 감사 기록 최근 100건
         @GetMapping("/audit-logs")
@@ -35,11 +39,21 @@ public class AdminController {
                 return ResponseEntity.ok(ApiResponse.success(logs, traceId));
         }
 
-        // 로그인 실패 최근 100건 (시도한 이메일 포함)
+        // 로그인 실패 최근 100건 (이메일은 HMAC 값)
         @GetMapping("/login-failures")
         public ResponseEntity<ApiResponse<List<LoginFailureLog>>> getLoginFailures(
                         @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
                 List<LoginFailureLog> logs = loginFailureLogRepository.findTop100ByOrderByCreatedAtDesc();
+                return ResponseEntity.ok(ApiResponse.success(logs, traceId));
+        }
+
+        // 이메일로 로그인 실패 검색 (입력 이메일 → HMAC, 최근 100건)
+        @PostMapping("/login-failures/search")
+        public ResponseEntity<ApiResponse<List<LoginFailureLog>>> searchLoginFailures(
+                        @Valid @RequestBody LoginFailureSearchRequest request,
+                        @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+                List<LoginFailureLog> logs = loginFailureLogRepository
+                                .findTop100ByEmailHashOrderByCreatedAtDesc(emailHasher.hash(request.getEmail()));
                 return ResponseEntity.ok(ApiResponse.success(logs, traceId));
         }
 
