@@ -1,9 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
-// Vite 설정: React 플러그인, 개발 서버 포트 3100
+// Vite 설정: React·Tailwind 플러그인, 개발 서버 포트 3100
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 3100,
     // /api 요청을 백엔드(8100)로 전달 (개발용 프록시)

@@ -135,7 +135,7 @@ export default function AdminPage() {
         ))}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-xs">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">{TABS[activeTab]}</h2>
           

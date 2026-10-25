@@ -1,5 +1,5 @@
 # 1단계: Vite로 정적 파일 빌드
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
 # 의존성 설치 (캐시 활용)

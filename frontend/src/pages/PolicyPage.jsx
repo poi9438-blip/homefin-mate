@@ -121,7 +121,7 @@ export default function PolicyPage() {
         </p>
       </div>
 
-      <div className="max-w-lg bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="max-w-lg bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xs border border-gray-100 dark:border-gray-700">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -129,7 +129,7 @@ export default function PolicyPage() {
             </label>
             <input type="number" name="income" value={form.income} onChange={handleChange}
               placeholder="예: 4500000"
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${fieldErrors.income ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`} />
+              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${fieldErrors.income ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`} />
             {fieldErrors.income && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.income}</p>}
           </div>
 
@@ -139,7 +139,7 @@ export default function PolicyPage() {
             </label>
             <input type="number" name="loanAmount" value={form.loanAmount} onChange={handleChange}
               placeholder="예: 250000000"
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${fieldErrors.loanAmount ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`} />
+              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${fieldErrors.loanAmount ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`} />
             {fieldErrors.loanAmount && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.loanAmount}</p>}
           </div>
 
@@ -152,14 +152,14 @@ export default function PolicyPage() {
             </label>
             <input type="number" name="dti" value={form.dti} onChange={handleChange}
               placeholder="예: 0.35" step="0.01" min="0" max="1"
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${fieldErrors.dti ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`} />
+              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${fieldErrors.dti ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`} />
             {fieldErrors.dti && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.dti}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">주택 보유 현황</label>
             <select name="propertyType" value={form.propertyType} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500">
               {PROPERTY_TYPES.map(pt => (
                 <option key={pt.value} value={pt.value}>{pt.label}</option>
               ))}
@@ -169,7 +169,7 @@ export default function PolicyPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">지역</label>
             <select name="region" value={form.region} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500">
               {REGIONS.map(r => (
                 <option key={r} value={r}>{r}</option>
               ))}
@@ -201,7 +201,7 @@ export default function PolicyPage() {
           <div className="flex flex-col gap-3">
             {result.recommendedPolicies?.map((policy, idx) => (
               <div key={idx}
-                className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+                className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-xs">
                 <div className="flex items-start justify-between gap-3 mb-1">
                   <h3 className="font-semibold text-gray-900 dark:text-white">{policy.name}</h3>
                   <EligibilityBadge eligibility={policy.eligibility} />

@@ -31,7 +31,7 @@
 | 구분     | 기술                                                                                             |
 | -------- | ------------------------------------------------------------------------------------------------ |
 | Backend  | Java 17, Spring Boot 3.2, Spring Data JPA, Spring Security, JWT(jjwt 0.12), Resilience4j         |
-| Frontend | React 18, Vite 5, Tailwind CSS 3, React Router 6, axios, Chart.js                                |
+| Frontend | React 18, Vite 8, Tailwind CSS 4, React Router 7, axios, Chart.js (Node 22.12 이상)              |
 | Python   | FastAPI, Pydantic, Uvicorn                                                                       |
 | Database | MySQL 8 (테스트는 H2 메모리 DB)                                                                  |
 | Test     | JUnit 5, Mockito, AssertJ, MockRestServiceServer, JaCoCo, pytest, Vitest                         |

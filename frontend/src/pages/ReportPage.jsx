@@ -19,7 +19,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tool
 // 제목이 있는 흰색 구역
 function Section({ title, children }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-xs">
       <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">{title}</h3>
       {children}
     </div>

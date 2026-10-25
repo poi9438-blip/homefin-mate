@@ -26,7 +26,7 @@ export function RecommendationCard({ policy, onDetail }) {
   const recommended = policy.recommendedPolicies?.find(p => p.name === policy.recommendedProduct)
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-xs">
       <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">정책대출 추천</h3>
 
       {recommended ? (
