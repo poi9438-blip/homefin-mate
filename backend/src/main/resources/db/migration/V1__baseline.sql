@@ -1,6 +1,4 @@
--- [학습] 파일 이름 규칙: V<버전>__<설명>.sql (밑줄 2개). 한 번 실행된 파일은 고치면 안 됨
---        (Flyway가 파일 체크섬을 저장해 두고, 바뀌면 시작할 때 오류). 바꿀 게 있으면 새 버전 파일을 추가
--- [추천 주석] Flyway 도입 전 스키마 (ddl-auto: update가 만들던 그대로, Hibernate MySQLDialect로 뽑음)
+-- Flyway 도입 전 스키마 (ddl-auto: update가 만들던 그대로, Hibernate MySQLDialect로 뽑음)
 -- 이미 테이블이 있는 DB는 이 파일을 실행하지 않고 버전 1로 표시만 함 (baseline-on-migrate)
 
 create table audit_logs (

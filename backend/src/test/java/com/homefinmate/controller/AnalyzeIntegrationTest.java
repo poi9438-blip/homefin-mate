@@ -84,12 +84,12 @@ class AnalyzeIntegrationTest {
         }
 
         @Test
-        @DisplayName("[TC-ANLZ-101] 외부 서비스가 모두 죽어도 200, 위험 평가·지역 분석은 available=false(지역 값 없음), 계산 1건 저장, 연동 실패 감사 기록")
+        @DisplayName("[TC-ANLZ-101] 외부 서비스가 모두 죽어도 200, 위험 평가·지역 분석은 available=false(지역 값 없음), 계산 1건·이용 기록 1줄 저장, 연동 실패 감사 기록")
         void externalServicesDown_returns200WithFallback_andPersists() throws Exception {
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.data.loan.monthlyPayment").value(1520055.93))
+                                .andExpect(jsonPath("$.data.loan.monthlyPayment").value(1520056))
                                 .andExpect(jsonPath("$.data.risk.available").value(false))
                                 .andExpect(jsonPath("$.data.region.region").value("부산"))
                                 .andExpect(jsonPath("$.data.region.available").value(false))
@@ -101,7 +101,8 @@ class AnalyzeIntegrationTest {
                                 .satisfies(sim -> assertThat(sim.getTraceId()).isEqualTo(traceId));
                 assertThat(userActivityLogRepository.findByUserIdOrderByCreatedAtDesc(userId()))
                                 .extracting(UserActivityLog::getAction)
-                                .contains("UNIFIED_ANALYSIS");
+                                // 통합 분석 1번에 이용 기록 1줄 (#57)
+                                .containsExactly("UNIFIED_ANALYSIS");
                 assertThat(auditLogRepository.findAll())
                                 .filteredOn(log -> traceId.equals(log.getTraceId()))
                                 .singleElement()
@@ -147,10 +148,11 @@ class AnalyzeIntegrationTest {
                 assertThat(output.getOut())
                                 .doesNotContain(email)
                                 .doesNotContain("300000000")
-                                .doesNotContain("1520055.93")
-                                .doesNotContain("0.3800")
+                                .doesNotContain("1520056")
+                                .doesNotContain("0.3801")
                                 .contains("userId=" + userId())
                                 .contains("dtiStatus=ACCEPTABLE");
+
         }
 
         // 대출 화면 전체 입력으로 통합 분석 → 정책 추천 결과가 응답에 포함되는지 (실제 HTTP + DB)

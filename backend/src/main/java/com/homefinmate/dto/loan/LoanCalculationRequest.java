@@ -9,7 +9,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
-// 대출 계산 요청 (원금, 연이율, 기간 필수 / 월 소득, 기존 대출 월 이자, 지역 선택)
+// 대출 계산 요청 (원금, 연이율, 기간, 월 소득 필수 / 기존 대출 월 이자, 지역 선택)
 @Data
 public class LoanCalculationRequest {
     // 대출 원금 (원, 0보다 커야 함)
@@ -29,7 +29,9 @@ public class LoanCalculationRequest {
     @Max(value = 600, message = "Term cannot exceed 600 months")
     private Integer termMonths;
 
-    // 월 소득 (선택, DTI 계산용)
+    // 월 소득 (필수, DTI 계산용)
+    @NotNull(message = "Monthly income is required")
+    @Positive(message = "Monthly income must be positive")
     private BigDecimal monthlyIncome;
 
     // 기존 대출 월 이자 (선택, 없으면 0, DTI 계산용)

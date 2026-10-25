@@ -1,5 +1,6 @@
 package com.homefinmate.service;
 
+import com.homefinmate.common.BusinessException;
 import com.homefinmate.dto.loan.DtiRequest;
 import com.homefinmate.dto.loan.DtiResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
@@ -9,6 +10,7 @@ import com.homefinmate.repository.LoanSimulationRepository;
 import com.homefinmate.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,12 +31,9 @@ public class LoanService {
         // 대출 계산 API: 계산 => 저장(계산 기록 + 이용 기록을 한 트랜잭션으로) => 응답
         @Transactional
         public LoanCalculationResponse calculate(LoanCalculationRequest request, String email) {
+                // 토큰 이메일 => 사용자 id (못 찾으면 401, #58)
+                Long userId = requireUserId(email);
                 LoanCalculationResponse result = compute(request);
-
-                // 토큰 이메일 => 사용자 id
-                Long userId = userRepository.findByEmail(email)
-                                .map(u -> u.getId())
-                                .orElse(null);
 
                 result.setSimulationId(saveSimulation(userId, request, result));
                 // 대출 계산 이용 기록
@@ -42,16 +41,21 @@ public class LoanService {
                 return result;
         }
 
+        // 토큰 이메일의 사용자 id (토큰 발급 뒤 삭제된 사용자면 401)
+        private Long requireUserId(String email) {
+                return userRepository.findByEmail(email).map(u -> u.getId())
+                                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "User not found"));
+        }
+
         // 계산만 (월 상환액/총이자/DTI, 저장 안 함, simulationId 없음)
         public LoanCalculationResponse compute(LoanCalculationRequest request) {
                 // 월 이율 = 연이율(%) / 1200 (소수 10자리)
                 BigDecimal monthlyRate = request.getAnnualInterestRate()
                                 .divide(BigDecimal.valueOf(1200), 10, RoundingMode.HALF_UP);
+                BigDecimal months = BigDecimal.valueOf(request.getTermMonths());
 
-                BigDecimal monthlyPayment = BigDecimal.ZERO;
-                BigDecimal totalInterest = BigDecimal.ZERO;
-
-                // 이율이 0보다 클 때만 공식 적용 (0%는 상환액 0)
+                BigDecimal monthlyPayment;
+                BigDecimal totalInterest;
                 if (monthlyRate.compareTo(BigDecimal.ZERO) > 0) {
                         // (1+r)^n
                         BigDecimal onePlusRpowN = BigDecimal.ONE.add(monthlyRate)
@@ -59,29 +63,31 @@ public class LoanService {
                         // (1+r)^-n = 1 / (1+r)^n
                         BigDecimal reciprocal = BigDecimal.ONE
                                         .divide(onePlusRpowN, 10, RoundingMode.HALF_UP);
-                        // M = P * r / (1 - (1+r)^-n)
+                        // M = P * r / (1 - (1+r)^-n), 원 단위 반올림 (#87)
                         monthlyPayment = request.getLoanAmount()
                                         .multiply(monthlyRate)
-                                        .divide(BigDecimal.ONE.subtract(reciprocal), 2, RoundingMode.HALF_UP);
+                                        .divide(BigDecimal.ONE.subtract(reciprocal), 0, RoundingMode.HALF_UP);
                         // 총이자 = 월 상환액 * 개월 수 - 원금
-                        totalInterest = monthlyPayment
-                                        .multiply(BigDecimal.valueOf(request.getTermMonths()))
-                                        .subtract(request.getLoanAmount());
+                        totalInterest = monthlyPayment.multiply(months).subtract(request.getLoanAmount());
+                } else {
+                        // 무이자: 월 상환액 = 원금 / 개월 수 (원 단위 반올림), 이자 0 (#34)
+                        monthlyPayment = request.getLoanAmount().divide(months, 0, RoundingMode.HALF_UP);
+                        totalInterest = BigDecimal.ZERO;
                 }
 
-                // DTI = (월 상환액 + 기존 대출 월 이자) / 월 소득 (소득 없으면 0)
+                // DTI = (월 상환액 + 기존 대출 월 이자) / 월 소득 (소득은 요청 검증에서 필수, #64)
                 BigDecimal dti = DtiRule.calculate(monthlyPayment, request.getExistingMonthlyInterest(),
                                 request.getMonthlyIncome());
 
                 // 금액·DTI는 로그에 남기지 않고 판정만 (#83)
                 log.info("[{}] Loan calculated: dtiStatus={}", request.getTraceId(), DtiRule.status(dti));
 
-                // 응답 (총상환액 = 월 상환액 * 개월 수, DTI 0.60 이하면 ACCEPTABLE)
+                // 응답 (총상환액 = 원금 + 총이자, DTI 0.60 이하면 ACCEPTABLE)
                 return LoanCalculationResponse.builder()
                                 .loanAmount(request.getLoanAmount())
                                 .monthlyPayment(monthlyPayment)
                                 .totalInterest(totalInterest)
-                                .totalPayment(monthlyPayment.multiply(BigDecimal.valueOf(request.getTermMonths())))
+                                .totalPayment(request.getLoanAmount().add(totalInterest))
                                 .dti(dti)
                                 .dtiStatus(DtiRule.status(dti))
                                 .dtiBasis(DtiRule.WITH_EXISTING_INTEREST)
@@ -118,9 +124,9 @@ public class LoanService {
                                                 .loanAmount(s.getLoanAmount())
                                                 .monthlyPayment(s.getMonthlyPayment())
                                                 .totalInterest(s.getTotalInterest())
-                                                .totalPayment(s.getMonthlyPayment() != null && s.getTermMonths() != null
-                                                                ? s.getMonthlyPayment().multiply(
-                                                                                BigDecimal.valueOf(s.getTermMonths()))
+                                                // 총상환액 = 원금 + 총이자 (계산 응답과 같은 방식)
+                                                .totalPayment(s.getTotalInterest() != null
+                                                                ? s.getLoanAmount().add(s.getTotalInterest())
                                                                 : BigDecimal.ZERO)
                                                 .dti(s.getDti())
                                                 .dtiStatus(DtiRule.status(s.getDti()))
@@ -131,7 +137,7 @@ public class LoanService {
                                 .toList();
         }
 
-        // DTI 단독 계산 (저장 안 함, 소득 없으면 0)
+        // DTI 단독 계산 (저장 안 함)
         public DtiResponse calculateDti(DtiRequest request) {
                 BigDecimal dti = DtiRule.calculate(request.getMonthlyPayment(),
                                 request.getExistingMonthlyInterest(), request.getMonthlyIncome());
