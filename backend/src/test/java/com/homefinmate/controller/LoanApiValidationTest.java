@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import static com.homefinmate.support.ApiTestSupport.bearer;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -56,15 +57,15 @@ class LoanApiValidationTest {
         @DisplayName("[TC-LOAN-102] 기간 601개월·음수 원금·음수 연이율은 대출 계산·통합 분석 모두 400 + 필드 이름 (#82 해결)")
         void upperBoundAndSignValidation_rejected() throws Exception {
                 postJson("/api/loan/calculate",
-                                "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":601}")
+                                "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":601,\"monthlyIncome\":4000000}")
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.message").value(containsString("termMonths")));
                 postJson("/api/loan/calculate",
-                                "{\"loanAmount\":-1000000,\"annualInterestRate\":4.5,\"termMonths\":12}")
+                                "{\"loanAmount\":-1000000,\"annualInterestRate\":4.5,\"termMonths\":12,\"monthlyIncome\":4000000}")
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.message").value(containsString("loanAmount")));
                 postJson("/api/loan/calculate",
-                                "{\"loanAmount\":1000000,\"annualInterestRate\":-1,\"termMonths\":12}")
+                                "{\"loanAmount\":1000000,\"annualInterestRate\":-1,\"termMonths\":12,\"monthlyIncome\":4000000}")
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.message").value(containsString("annualInterestRate")));
 
@@ -81,7 +82,7 @@ class LoanApiValidationTest {
         @DisplayName("[TC-LOAN-103] 기간 0개월이면 400 + 검증 메시지 (\"/ by zero\" 아님, #6 해결)")
         void zeroTerm_rejectedByValidation() throws Exception {
                 postJson("/api/loan/calculate",
-                                "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":0}")
+                                "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":0,\"monthlyIncome\":4000000}")
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.message").value("termMonths: Term must be at least 1 month"));
         }
@@ -91,14 +92,14 @@ class LoanApiValidationTest {
         @DisplayName("[TC-LOAN-104] 연이율 10%도 200으로 계산·저장")
         void interestRateTenPercent_isSaved() throws Exception {
                 postJson("/api/loan/calculate",
-                                "{\"loanAmount\":300000000,\"annualInterestRate\":10,\"termMonths\":360}")
+                                "{\"loanAmount\":300000000,\"annualInterestRate\":10,\"termMonths\":360,\"monthlyIncome\":4000000}")
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.data.simulationId").isNumber());
         }
 
         @Test
-        // 월 상환 1,520,055.93 ÷ 소득 10만 = DTI 15.2006 (1520%)도 저장되고 HIGH (dti
-        // DECIMAL(7,4))
+        // 월 상환 1,520,056 ÷ 소득 10만 = DTI 15.20056 → 15.2006 (1520%)도 저장되고 HIGH
+        // (dti DECIMAL(7,4))
         @DisplayName("[TC-LOAN-105] 소득 10만(DTI 1520%)도 200으로 저장, 판정 HIGH (#74 해결)")
         void largeDti_isSavedAsHigh() throws Exception {
                 postJson("/api/loan/calculate",
@@ -114,7 +115,7 @@ class LoanApiValidationTest {
         @DisplayName("[TC-LOAN-107] 연이율 100%는 대출 계산·통합 분석 모두 400 + annualInterestRate (저장 시도 없음)")
         void interestRateOver99_returns400() throws Exception {
                 postJson("/api/loan/calculate",
-                                "{\"loanAmount\":300000000,\"annualInterestRate\":100,\"termMonths\":360}")
+                                "{\"loanAmount\":300000000,\"annualInterestRate\":100,\"termMonths\":360,\"monthlyIncome\":4000000}")
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.message").value(containsString("annualInterestRate")));
                 postJson("/api/analyze", "{\"loanAmount\":300000000,\"annualInterestRate\":100,\"termMonths\":360,"
@@ -147,6 +148,24 @@ class LoanApiValidationTest {
                                                 .value("monthlyIncome: Monthly income must be positive"));
         }
 
+        // 대출 계산 API도 소득이 없거나 0이면 400 (DTI API·통합 분석 API와 같은 기준)
+        @Test
+        @DisplayName("[TC-LOAN-109] 대출 계산 API에 소득이 없거나 0이면 400 + monthlyIncome, 저장 안 함 (#64 해결)")
+        void calculateWithoutIncome_rejected() throws Exception {
+                postJson("/api/loan/calculate",
+                                "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":360}")
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.message").value("monthlyIncome: Monthly income is required"));
+                postJson("/api/loan/calculate",
+                                "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":360,\"monthlyIncome\":0}")
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.message")
+                                                .value("monthlyIncome: Monthly income must be positive"));
+                mockMvc.perform(get("/api/loan/history").header("Authorization", bearer(token)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.data").isEmpty());
+        }
+
         // 오류 응답에서도 헤더와 본문의 traceId가 같음 (사용자가 본 번호로 서버 로그 검색 가능)
         @Test
         @DisplayName("[TC-ERR-012] 실제 요청의 오류 응답: 보낸 X-Trace-Id가 응답 헤더와 본문 traceId에 같은 값으로 들어감")
@@ -154,7 +173,7 @@ class LoanApiValidationTest {
                 mockMvc.perform(post("/api/loan/calculate").header("Authorization", bearer(token))
                                 .header("X-Trace-Id", "hfm-err-trace-2")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":0}"))
+                                .content("{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":0,\"monthlyIncome\":4000000}"))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(header().string("X-Trace-Id", "hfm-err-trace-2"))
                                 .andExpect(jsonPath("$.traceId").value("hfm-err-trace-2"));

@@ -23,7 +23,7 @@ public class LoanSimulation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 계산한 사용자 id
+    // 계산한 사용자 id (users.id 외래키, 사용자 삭제 시 함께 삭제, V6)
     @Column(name = "user_id", nullable = false)
     private Long userId;
 

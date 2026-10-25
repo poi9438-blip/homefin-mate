@@ -3,6 +3,8 @@ package com.homefinmate.repository;
 import com.homefinmate.support.PersonalDataJpaConfig;
 import org.springframework.context.annotation.Import;
 import com.homefinmate.entity.LoanSimulation;
+import com.homefinmate.security.Role;
+import com.homefinmate.entity.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LoanSimulationRepositoryTest {
         @Autowired
         private LoanSimulationRepository loanSimulationRepository;
+        @Autowired
+        private UserRepository userRepository;
+
+        // 테스트 사용자 저장 후 id 반환 (계산 기록 user_id 외래키)
+        private Long newUserId(String email) {
+                return userRepository.save(User.builder().email(email).password("hashed-password").role(Role.USER)
+                                .build()).getId();
+        }
 
         private LoanSimulation newSimulation(Long userId, String loanAmount, String interestRate) {
                 return LoanSimulation.builder()
@@ -35,17 +45,19 @@ class LoanSimulationRepositoryTest {
         @Test
         @DisplayName("[TC-DATA-005] 사용자별 이력은 최신순, findTop은 가장 최근 1건")
         void history_isNewestFirst_andTopIsLatest() throws InterruptedException {
-                loanSimulationRepository.save(newSimulation(1L, "100000000", "4.5"));
+                Long me = newUserId("me@test.com");
+                Long other = newUserId("other@test.com");
+                loanSimulationRepository.save(newSimulation(me, "100000000", "4.5"));
                 Thread.sleep(10);
-                loanSimulationRepository.save(newSimulation(1L, "200000000", "4.5"));
+                loanSimulationRepository.save(newSimulation(me, "200000000", "4.5"));
                 Thread.sleep(10);
-                loanSimulationRepository.save(newSimulation(2L, "999000000", "4.5"));
+                loanSimulationRepository.save(newSimulation(other, "999000000", "4.5"));
 
-                List<LoanSimulation> history = loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(1L);
+                List<LoanSimulation> history = loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(me);
 
                 assertThat(history).extracting(s -> s.getLoanAmount().intValue())
                                 .containsExactly(200_000_000, 100_000_000);
-                assertThat(loanSimulationRepository.findTopByUserIdOrderByCreatedAtDesc(1L))
+                assertThat(loanSimulationRepository.findTopByUserIdOrderByCreatedAtDesc(me))
                                 .isPresent()
                                 .get()
                                 .extracting(s -> s.getLoanAmount().intValue())
@@ -57,14 +69,16 @@ class LoanSimulationRepositoryTest {
         @Test
         @DisplayName("[TC-DATA-006] 사용자별 계산 수(COUNT)와 최근 5건(최신순)")
         void countAndTop5_perUser() throws InterruptedException {
+                Long me = newUserId("me@test.com");
+                Long other = newUserId("other@test.com");
                 for (int i = 1; i <= 7; i++) {
-                        loanSimulationRepository.save(newSimulation(1L, String.valueOf(i * 1_000_000), "4.5"));
+                        loanSimulationRepository.save(newSimulation(me, String.valueOf(i * 1_000_000), "4.5"));
                         Thread.sleep(5);
                 }
-                loanSimulationRepository.save(newSimulation(2L, "999000000", "4.5"));
+                loanSimulationRepository.save(newSimulation(other, "999000000", "4.5"));
 
-                assertThat(loanSimulationRepository.countByUserId(1L)).isEqualTo(7);
-                assertThat(loanSimulationRepository.findTop5ByUserIdOrderByCreatedAtDesc(1L))
+                assertThat(loanSimulationRepository.countByUserId(me)).isEqualTo(7);
+                assertThat(loanSimulationRepository.findTop5ByUserIdOrderByCreatedAtDesc(me))
                                 .extracting(sim -> sim.getLoanAmount().intValue())
                                 .containsExactly(7_000_000, 6_000_000, 5_000_000, 4_000_000, 3_000_000);
                 assertThat(loanSimulationRepository.countByUserId(99L)).isZero();
@@ -78,7 +92,8 @@ class LoanSimulationRepositoryTest {
         @DisplayName("[TC-DATA-011] DTI는 DB에 암호문으로 저장되고, 엔티티로 읽으면 원래 값 (#31)")
         void dti_isEncryptedInDb_andDecryptedOnRead() {
                 LoanSimulation saved = loanSimulationRepository.save(LoanSimulation.builder()
-                                .userId(7L).loanAmount(new BigDecimal("300000000")).interestRate(new BigDecimal("4.5"))
+                                .userId(newUserId("me@test.com")).loanAmount(new BigDecimal("300000000"))
+                                .interestRate(new BigDecimal("4.5"))
                                 .termMonths(360).dti(new BigDecimal("0.3800")).build());
                 entityManager.flush();
                 entityManager.clear();

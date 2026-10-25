@@ -1,5 +1,6 @@
 package com.homefinmate.service;
 
+import com.homefinmate.common.BusinessException;
 import com.homefinmate.dto.analysis.RegionAnalysisResponse;
 import com.homefinmate.dto.analyze.AnalyzeRequest;
 import com.homefinmate.dto.analyze.AnalyzeResponse;
@@ -23,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -171,5 +173,18 @@ class AnalyzeServiceTest {
         assertThat(policyReq.getValue().getFirstHome()).isTrue();
         assertThat(policyReq.getValue().getNewlywed()).isFalse();
         assertThat(policyReq.getValue().getChildCount()).isEqualTo(1);
+    }
+
+    // 토큰의 사용자가 DB에 없으면 외부 호출 없이 401
+    @Test
+    @DisplayName("[TC-ANLZ-006] 토큰의 사용자가 DB에 없으면 401 업무 오류, 계산·정책·RiskWatch·지역 분석·저장 모두 호출 안 함 (#58)")
+    void analyze_unknownUser_unauthorizedBeforeExternalCalls() {
+        when(userRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> analyzeService.analyze(request("부산"), "ghost@test.com"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED));
+
+        verifyNoInteractions(loanService, policyService, riskWatchClient, analysisService, analyzeResultSaver);
     }
 }

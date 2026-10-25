@@ -20,14 +20,14 @@ public final class DtiRule {
     private DtiRule() {
     }
 
-    // DTI 계산 (소수 4자리, 기존 대출 월 이자가 없으면 0, 소득이 없으면 0 ⚠️#64, 상한 MAX)
+    // DTI 계산 (소수 4자리 올림, 기존 대출 월 이자가 없으면 0, 상한 MAX, 소득은 0보다 커야 함)
     public static BigDecimal calculate(BigDecimal monthlyPayment, BigDecimal existingMonthlyInterest,
             BigDecimal monthlyIncome) {
         if (monthlyIncome == null || monthlyIncome.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ZERO;
+            throw new IllegalArgumentException("Monthly income must be positive");
         }
         BigDecimal interest = existingMonthlyInterest != null ? existingMonthlyInterest : BigDecimal.ZERO;
-        return monthlyPayment.add(interest).divide(monthlyIncome, 4, RoundingMode.HALF_UP).min(MAX);
+        return monthlyPayment.add(interest).divide(monthlyIncome, 4, RoundingMode.CEILING).min(MAX);
     }
 
     // 60% 이하면 ACCEPTABLE, 넘거나 값이 없으면 HIGH

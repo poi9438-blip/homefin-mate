@@ -18,8 +18,7 @@ public class AnalyzeResultSaver {
     @Transactional
     public Long save(Long userId, LoanCalculationRequest loanRequest, LoanCalculationResponse loanResult) {
         Long simulationId = loanService.saveSimulation(userId, loanRequest, loanResult);
-        // ⚠️ 원본 그대로 둔 문제 (수정 목록 #57): 통합 분석 1번에 이용 기록이 2줄 남음
-        auditService.logActivity(userId, "LOAN_CALCULATION", loanRequest.getTraceId());
+        // 통합 분석 이용 기록 1줄 (대출 계산 API의 LOAN_CALCULATION과 구분)
         auditService.logActivity(userId, "UNIFIED_ANALYSIS", loanRequest.getTraceId());
         return simulationId;
     }
