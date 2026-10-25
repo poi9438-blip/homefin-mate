@@ -29,7 +29,8 @@ describe("auth 저장소", () => {
     expect(getUser()).toBeNull();
   });
 
-  it("[TC-WEB-203] ⚠️#43 로그아웃해도 입력 임시 저장(월 소득 등)은 남음", () => {
+  // 로그아웃하면 입력 임시 저장(월 소득 등)도 함께 삭제, 다른 저장 값은 그대로
+  it("[TC-WEB-203] 로그아웃하면 입력 임시 저장(월 소득 등)도 삭제 (#43 해결)", () => {
     setToken("jwt-token");
     localStorage.setItem(
       "hfm_draft_loan",
@@ -39,10 +40,11 @@ describe("auth 저장소", () => {
       }),
     );
 
+    localStorage.setItem("hfm_theme", "dark");
+
     removeToken();
 
-    expect(
-      JSON.parse(localStorage.getItem("hfm_draft_loan")).monthlyIncome,
-    ).toBe("4000000");
+    expect(localStorage.getItem("hfm_draft_loan")).toBeNull();
+    expect(localStorage.getItem("hfm_theme")).toBe("dark");
   });
 });
