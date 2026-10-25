@@ -6,7 +6,7 @@ Claude Code가 이 저장소에서 작업할 때 따르는 규칙입니다. 테�
 
 - `backend/`: Spring Boot 3.2, Java 17
 - `python-service/`: FastAPI
-- `frontend/`: React 18, Vite 5
+- `frontend/`: React 18, Vite 8, Tailwind 4, Vitest 5 (Node 22.12 이상)
 - 결함 목록: [docs/known-issues.md](docs/known-issues.md). 번호(#1~)로 부르며, 고칠 때 상태와 PR 칸을 갱신합니다.
 - 테스트 명세: [docs/test-cases/](docs/test-cases/README.md). ID는 `TC-영역-번호`입니다.
 
