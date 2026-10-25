@@ -1,5 +1,6 @@
 package com.homefinmate.entity;
 
+import com.homefinmate.util.EncryptedDecimalConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -43,7 +44,9 @@ public class LoanSimulation {
     private BigDecimal totalInterest;
 
     // DTI ((월 상환액 + 기존 대출 월 이자) / 월 소득)
-    @Column(name = "dti", precision = 7, scale = 4)
+    // DTI는 암호문으로 저장 (소득 역산 방지 #31, 읽을 때 자동 복호화)
+    @Convert(converter = EncryptedDecimalConverter.class)
+    @Column(name = "dti_encrypted")
     private BigDecimal dti;
 
     // DTI 계산 기준 (DtiRule.NEW_LOAN_ONLY / WITH_EXISTING_INTEREST)

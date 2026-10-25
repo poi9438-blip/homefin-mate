@@ -1,5 +1,7 @@
 package com.homefinmate.repository;
 
+import com.homefinmate.support.PersonalDataJpaConfig;
+import org.springframework.context.annotation.Import;
 import com.homefinmate.entity.AuditLog;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 // 감사 기록 최신 100건 조회, 연동 실패 필터 검증
 @DataJpaTest
+@Import(PersonalDataJpaConfig.class)
 @ActiveProfiles("test")
 class AuditLogRepositoryTest {
 

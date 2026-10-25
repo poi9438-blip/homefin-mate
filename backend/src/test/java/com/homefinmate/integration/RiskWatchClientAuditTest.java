@@ -1,5 +1,6 @@
 package com.homefinmate.integration;
 
+import com.homefinmate.support.PersonalDataJpaConfig;
 import com.homefinmate.dto.risk.RiskEvaluationRequest;
 import com.homefinmate.repository.AuditLogRepository;
 import com.homefinmate.service.AuditService;
@@ -27,7 +28,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 // RiskWatch 실패 사유가 감사 기록에 실제로 저장되는지
 @DataJpaTest
 @ActiveProfiles("test")
-@Import(AuditService.class)
+@Import({ AuditService.class, PersonalDataJpaConfig.class })
 class RiskWatchClientAuditTest {
 
     private static final String URL = "http://riskwatch.test/api/v1/risk/evaluate";

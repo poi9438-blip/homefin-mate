@@ -73,8 +73,8 @@ public class LoanService {
                 BigDecimal dti = DtiRule.calculate(monthlyPayment, request.getExistingMonthlyInterest(),
                                 request.getMonthlyIncome());
 
-                log.info("[{}] Loan calculated: loanAmount={} monthlyPayment={} dti={}",
-                                request.getTraceId(), request.getLoanAmount(), monthlyPayment, dti);
+                // 금액·DTI는 로그에 남기지 않고 판정만 (#83)
+                log.info("[{}] Loan calculated: dtiStatus={}", request.getTraceId(), DtiRule.status(dti));
 
                 // 응답 (총상환액 = 월 상환액 * 개월 수, DTI 0.60 이하면 ACCEPTABLE)
                 return LoanCalculationResponse.builder()
