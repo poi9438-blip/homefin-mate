@@ -1,0 +1,5 @@
+# Keep this file ASCII-only (see requirements.txt).
+# Local tests and CI: runtime dependencies + test tools (TestClient needs httpx).
+-r requirements.txt
+pytest==7.4.4
+httpx==0.26.0

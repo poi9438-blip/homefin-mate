@@ -10,12 +10,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 주 색상 (blue 계열)
+        // 주 색상 (Tailwind blue 계열)
         primary: {
           50: "#eff6ff",
+          300: "#93c5fd",
+          400: "#60a5fa",
           500: "#3b82f6",
           600: "#2563eb",
           700: "#1d4ed8",
+          900: "#1e3a8a",
         },
       },
     },

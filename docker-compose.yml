@@ -12,9 +12,9 @@ services:
       MYSQL_USER: ${MYSQL_USER:-hfmuser}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD를 .env에 설정하세요}
 
-    # 호스트 3310 => 컨테이너 3306 (포트 충돌 방지)
+    # 호스트 127.0.0.1:3310 => 컨테이너 3306 (이 PC에서만 접속)
     ports:
-      - "3310:3306"
+      - "127.0.0.1:3310:3306"
 
     # DB 데이터 영구 저장
     volumes:
@@ -33,14 +33,15 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: homefinmate-backend
+    # 화면(nginx)을 거치지 않는 직접 호출은 이 PC에서만 (개발용 Vite 프록시·curl)
     ports:
-      - "8100:8100"
+      - "127.0.0.1:8100:8100"
     environment:
       SERVER_PORT: 8100
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-homefinmate}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-      DB_USERNAME: ${MYSQL_USER:-hfmuser}
+      MYSQL_USER: ${MYSQL_USER:-hfmuser}
       # 비밀값 (.env 필수, 기본값 없음)
-      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD를 .env에 설정하세요}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD를 .env에 설정하세요}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET을 .env에 설정하세요}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY를 .env에 설정하세요}
@@ -55,6 +56,13 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    # 백엔드 준비 상태 확인 (/actuator/health가 UP이면 healthy)
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8100/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   # Python 지역 분석 서비스 (8200)
   python-service:
@@ -63,9 +71,15 @@ services:
       dockerfile: Dockerfile
     container_name: homefinmate-python
     ports:
-      - "8200:8200"
+      - "127.0.0.1:8200:8200"
     environment:
       ENV: ${ENV:-development}
+    # Python 서비스 준비 상태 확인
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8200/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # 프론트 nginx (호스트 3100 => 80)
   frontend:
@@ -73,11 +87,15 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: homefinmate-frontend
+    # 화면 주소 3100 => nginx 8080 (root 없이 실행하는 nginx)
     ports:
-      - "3100:80"
+      - "3100:8080"
+    # 백엔드·Python 서비스가 준비된 뒤 시작
     depends_on:
-      - backend
-      - python-service
+      backend:
+        condition: service_healthy
+      python-service:
+        condition: service_healthy
 
 volumes:
   mysql_data:

@@ -43,7 +43,7 @@ class LoanSimulationRepositoryTest {
 
         // 다른 사용자 것은 안 섞임
         @Test
-        @DisplayName("[TC-DATA-005] 사용자별 이력은 최신순, findTop은 가장 최근 1건")
+        @DisplayName("[TC-DATA-005] 사용자별 이력은 최신순, 다른 사용자·없는 사용자 기록은 섞이지 않음")
         void history_isNewestFirst_andTopIsLatest() throws InterruptedException {
                 Long me = newUserId("me@test.com");
                 Long other = newUserId("other@test.com");
@@ -57,12 +57,9 @@ class LoanSimulationRepositoryTest {
 
                 assertThat(history).extracting(s -> s.getLoanAmount().intValue())
                                 .containsExactly(200_000_000, 100_000_000);
-                assertThat(loanSimulationRepository.findTopByUserIdOrderByCreatedAtDesc(me))
-                                .isPresent()
-                                .get()
-                                .extracting(s -> s.getLoanAmount().intValue())
-                                .isEqualTo(200_000_000);
-                assertThat(loanSimulationRepository.findTopByUserIdOrderByCreatedAtDesc(99L)).isEmpty();
+                assertThat(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(other))
+                                .extracting(s -> s.getLoanAmount().intValue()).containsExactly(999_000_000);
+                assertThat(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(99L)).isEmpty();
         }
 
         // 사용자별 계산 수와 최근 5건(최신순)

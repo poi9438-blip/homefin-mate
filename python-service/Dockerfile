@@ -6,8 +6,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 실행 전용 사용자 (root 아님)
+RUN useradd --system --no-create-home app
+
 # 서비스 코드 복사
-COPY . .
+COPY --chown=app:app . .
+USER app
 EXPOSE 8200
 
 # uvicorn으로 8200 포트 실행

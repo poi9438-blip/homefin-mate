@@ -12,11 +12,6 @@ spring:
     username: sa
     password:
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    # application.yml의 MySQLDialect를 H2Dialect로 덮어쓰기 (같은 키여야 덮어써짐)
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
     hibernate:
       # 운영과 같이 Flyway가 테이블을 만듦 (마이그레이션 SQL도 테스트됨)
       # 엔티티 확인(validate)은 끔: H2는 users.role의 enum 컬럼을 varchar로 기대해서 MySQL과 결과가 다름

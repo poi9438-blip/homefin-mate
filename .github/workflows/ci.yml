@@ -28,7 +28,8 @@ jobs:
           java-version: "17"
           cache: maven
       # 테스트 + JaCoCo 리포트 (test 단계에서 생성)
-      - run: mvn -B test
+      # Maven Wrapper로 정해진 Maven 버전(3.9.9) 사용 (#16)
+      - run: ./mvnw -B test
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -48,8 +49,10 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: python-service/requirements.txt
-      - run: pip install -r requirements.txt
+          cache-dependency-path: |
+            python-service/requirements.txt
+            python-service/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
       - run: python -m pytest -q --junitxml=test-results/pytest.xml
       - uses: actions/upload-artifact@v4
         if: always()

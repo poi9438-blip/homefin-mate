@@ -101,7 +101,9 @@ docker compose up -d --build
 | http://localhost:8100/swagger-ui.html | 백엔드 API 문서 (`.env`에 `SWAGGER_ENABLED=true`일 때만) |
 | http://localhost:8200/docs            | Python 서비스 API 문서                                   |
 
-DB 테이블은 백엔드가 시작할 때 Flyway(`backend/src/main/resources/db/migration`)가 만들고 바꿉니다. 테이블을 바꿀 때는 기존 파일을 고치지 말고 다음 버전 파일(예: `V4__설명.sql`)을 추가합니다. Flyway 도입 전에 만든 DB는 V1을 건너뛰고 V2부터 실행합니다.
+화면(3100)만 다른 PC에서 접속할 수 있고, 백엔드(8100)·Python(8200)·MySQL(3310)은 이 PC(`127.0.0.1`)에서만 열립니다. 컨테이너는 모두 root가 아닌 사용자로 실행되고, 화면은 백엔드·Python이 준비(healthy)된 뒤 시작합니다.
+
+DB 테이블은 백엔드가 시작할 때 Flyway(`backend/src/main/resources/db/migration`)가 만들고 바꿉니다. 테이블을 바꿀 때는 기존 파일을 고치지 말고 다음 버전 파일(예: `V7__설명.sql`)을 추가합니다. Flyway 도입 전에 만든 DB는 V1을 건너뛰고 V2부터 실행합니다.
 
 ### 2. 로컬 개발 실행
 
@@ -116,11 +118,11 @@ docker compose stop backend python-service frontend
 docker compose up -d mysql
 ```
 
-**백엔드** (8100) — 저장소 루트의 `.env`를 자동으로 읽습니다. `mvnw`가 없어 Maven 설치가 필요합니다.
+**백엔드** (8100) — 저장소 루트의 `.env`를 자동으로 읽습니다. Maven Wrapper(`mvnw`)가 Maven 3.9.9를 받아 쓰므로 Maven 설치는 필요 없습니다 (Java 17은 필요).
 
 ```bash
 cd backend
-mvn spring-boot:run
+./mvnw spring-boot:run      # Windows PowerShell: .\mvnw.cmd spring-boot:run
 ```
 
 **Python 서비스** (8200) — 처음 한 번만 가상환경을 만들고 설치합니다.
@@ -129,7 +131,7 @@ mvn spring-boot:run
 cd python-service
 python -m venv .venv
 .venv\Scripts\Activate.ps1          # cmd: .venv\Scripts\activate.bat / Git Bash: source .venv/Scripts/activate / macOS·Linux: source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # 실행 + 테스트 도구 (Docker 이미지는 requirements.txt만)
 uvicorn main:app --port 8200
 ```
 
@@ -152,7 +154,7 @@ npm run dev
 ```bash
 # 백엔드 (H2 메모리 DB 사용, MySQL·RiskWatch·Python 서비스 불필요). 커버리지: backend/target/site/jacoco/index.html
 cd backend
-mvn test
+./mvnw test
 ```
 
 ```bash

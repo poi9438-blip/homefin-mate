@@ -20,7 +20,7 @@ Claude Code가 이 저장소에서 작업할 때 따르는 규칙입니다. 테�
    - Python: 함수 위에 `# [TC-…]` 주석
    - 프론트: `it("[TC-…] …")`
 5. **실행하고 결과를 확인합니다.**
-   - 백엔드는 `cd backend && rm -rf target && mvn test`처럼 이전 빌드 결과물을 지우고 실행합니다.
+   - 백엔드는 `cd backend && rm -rf target && ./mvnw test`처럼 이전 빌드 결과물을 지우고 실행합니다.
    - 세 모듈을 실행한 뒤 `python scripts/tc_status.py`로 명세와 결과를 대조합니다.
 6. **실패 원인을 구분합니다.** 제품 결함, 테스트 코드 문제, 환경 문제, 요구사항 불명확 중 무엇인지 적습니다 ([TESTING.md 7](docs/TESTING.md#7-실패-분석과-재검증)).
 7. **테스트를 약하게 만들지 않습니다.**

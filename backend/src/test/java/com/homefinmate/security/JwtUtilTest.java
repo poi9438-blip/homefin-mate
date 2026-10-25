@@ -26,14 +26,12 @@ class JwtUtilTest {
     private final JwtUtil jwtUtil = jwtUtil(SECRET, 3_600_000);
 
     @Test
-    @DisplayName("[TC-AUTH-009] 발급한 토큰에서 이메일과 role 다시 꺼내기")
+    @DisplayName("[TC-AUTH-009] 발급한 토큰에서 이메일 다시 꺼내기 (역할은 토큰이 아니라 DB에서 확인)")
     void generate_then_extract() {
         String token = jwtUtil.generateToken("demo@test.com", "USER");
 
         assertThat(token.split("\\.")).hasSize(3); // 헤더.페이로드.서명
-        assertThat(jwtUtil.validateToken(token)).isTrue();
-        assertThat(jwtUtil.extractEmail(token)).isEqualTo("demo@test.com");
-        assertThat(jwtUtil.extractRole(token)).isEqualTo("USER");
+        assertThat(jwtUtil.validEmail(token)).isEqualTo("demo@test.com");
     }
 
     @Test
@@ -55,7 +53,7 @@ class JwtUtilTest {
                         .replace("\"USER\"", "\"ADMIN\"").getBytes(StandardCharsets.UTF_8));
         String tampered = parts[0] + "." + adminPayload + "." + parts[2];
 
-        assertThat(jwtUtil.validateToken(tampered)).isFalse();
+        assertThat(jwtUtil.validEmail(tampered)).isNull();
     }
 
     @Test
@@ -64,7 +62,7 @@ class JwtUtilTest {
         String token = jwtUtil("Another-Secret-Key-That-Is-Also-Long-Enough-123456", 3_600_000)
                 .generateToken("demo@test.com", "ADMIN");
 
-        assertThat(jwtUtil.validateToken(token)).isFalse();
+        assertThat(jwtUtil.validEmail(token)).isNull();
     }
 
     @Test
@@ -72,7 +70,7 @@ class JwtUtilTest {
     void expiredToken_isInvalid() {
         String token = jwtUtil(SECRET, -1_000).generateToken("demo@test.com", "USER");
 
-        assertThat(jwtUtil.validateToken(token)).isFalse();
+        assertThat(jwtUtil.validEmail(token)).isNull();
     }
 
     @Test

@@ -14,5 +14,3 @@ class RegionAnalysisResponse(BaseModel):
     # 예시 데이터 여부 (True: 실제 시세 아님, 출처 없음)
     sample: bool = True
     trace_id: Optional[str] = None
-
-    model_config = {"populate_by_name": True}
