@@ -78,7 +78,7 @@ function RiskPanel({ risk }) {
       ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
       : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-xs">
       <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">리스크 평가</h3>
       <div className="flex flex-wrap gap-3 mb-3">
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${levelColor}`}>{risk.riskLevel}</span>
@@ -98,7 +98,7 @@ function RiskPanel({ risk }) {
 function RegionPanel({ region }) {
   if (!region) return null
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-xs">
       <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">지역 분석 — {region.region}</h3>
       <RegionSummary data={region} />
     </div>
@@ -239,7 +239,7 @@ export default function LoanPage() {
         <StepGuide steps={steps} currentStep={step} />
       </div>
 
-      <div className="max-w-lg bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="max-w-lg bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xs border border-gray-100 dark:border-gray-700">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {[
             { name: 'loanAmount',        label: '대출 금액 (원)',            placeholder: '예: 180000000', required: true  },
@@ -255,7 +255,7 @@ export default function LoanPage() {
               <input
                 type="number" name={name} value={form[name]} onChange={handleChange}
                 placeholder={placeholder}
-                className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${
                   fieldErrors[name] ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
                 }`}
               />
@@ -268,7 +268,7 @@ export default function LoanPage() {
               지역 <span className="text-gray-400 text-xs">(선택 — 리스크 및 정책 점수에 반영)</span>
             </label>
             <select name="region" value={form.region} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500">
               <option value="">— 지역 선택 —</option>
               {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
@@ -277,7 +277,7 @@ export default function LoanPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">주택 보유 현황</label>
             <select name="propertyType" value={form.propertyType} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500">
               {PROPERTY_TYPES.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
               ))}

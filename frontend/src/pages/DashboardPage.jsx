@@ -235,7 +235,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 지역 분석 */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-xs">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">지역 분석</h2>
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -243,7 +243,7 @@ export default function DashboardPage() {
             <select
               value={region}
               onChange={e => { setRegion(e.target.value); setRegionData(null); setRegionError('') }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-primary-500"
             >
               <option value="">— 선택하세요 —</option>
               {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
@@ -338,7 +338,7 @@ export default function DashboardPage() {
               </ChartCard>
 
               {/* 최근 시뮬레이션 테이블을 이 행에 같이 */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-xs">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">최근 시뮬레이션</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">

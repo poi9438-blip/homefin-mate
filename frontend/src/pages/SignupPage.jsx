@@ -68,14 +68,14 @@ export default function SignupPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">이메일</label>
             <input type="email" name="email" value={form.email} onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${fieldErrors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${fieldErrors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
               placeholder="you@example.com" />
             {fieldErrors.email && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.email}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">비밀번호</label>
             <input type="password" name="password" value={form.password} onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${fieldErrors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${fieldErrors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
               placeholder="최소 8자 이상" />
             {fieldErrors.password && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.password}</p>}
           </div>
@@ -84,7 +84,7 @@ export default function SignupPage() {
               월 소득 <span className="text-gray-400 text-xs">(선택)</span>
             </label>
             <input type="number" name="income" value={form.income} onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${fieldErrors.income ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${fieldErrors.income ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
               placeholder="예: 3000000" />
             {fieldErrors.income && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.income}</p>}
           </div>
