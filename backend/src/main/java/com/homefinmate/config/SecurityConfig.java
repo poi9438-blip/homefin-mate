@@ -5,6 +5,7 @@ import com.homefinmate.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -37,8 +38,8 @@ public class SecurityConfig {
                 // CSRF 보호 끄기
                 .csrf(AbstractHttpConfigurer::disable)
 
-                .cors(cors -> {
-                })
+                // CORS 켜기 (아래 corsConfigurationSource의 허용 목록 사용)
+                .cors(Customizer.withDefaults())
 
                 // JWT 기반 인증을 사용해서 서버 세션을 사용하지 않는 구조 (STATELESS)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

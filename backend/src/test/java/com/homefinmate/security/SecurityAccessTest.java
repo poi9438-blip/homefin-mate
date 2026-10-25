@@ -250,7 +250,7 @@ class SecurityAccessTest {
                 mockMvc.perform(get("/api/admin/audit-logs").header("Authorization", bearer(adminToken)))
                                 .andExpect(status().isOk());
 
-                User admin = userRepository.findByEmail(jwtUtil.extractEmail(adminToken)).orElseThrow();
+                User admin = userRepository.findByEmail(jwtUtil.validEmail(adminToken)).orElseThrow();
                 admin.setRole(Role.USER);
                 userRepository.save(admin);
 

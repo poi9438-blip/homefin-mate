@@ -36,20 +36,6 @@ public class JwtUtil {
                 .compact();
     }
 
-    // 토큰에서 이메일 꺼내기
-    public String extractEmail(String token) {
-        return parseClaims(token).getSubject();
-    }
-
-    // 토큰에서 role 꺼내기
-    public String extractRole(String token) {
-        Object roles = parseClaims(token).get("roles");
-        if (roles instanceof java.util.List<?> list && !list.isEmpty()) {
-            return String.valueOf(list.get(0));
-        }
-        return "";
-    }
-
     // 유효한 토큰이면 이메일, 아니면 null (서명·만료·형식을 한 번에 확인)
     public String validEmail(String token) {
         try {
@@ -59,17 +45,7 @@ public class JwtUtil {
         }
     }
 
-    // 토큰 유효성 검사 (서명, 만료, 형식)
-    public boolean validateToken(String token) {
-        try {
-            parseClaims(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
-        }
-    }
-
-    // TODO: 요청 한 번에 같은 토큰을 3번 검증하는 부분 수정할 것
+    // 서명을 확인하고 내용(claims) 꺼내기 (실패하면 예외)
     private Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())

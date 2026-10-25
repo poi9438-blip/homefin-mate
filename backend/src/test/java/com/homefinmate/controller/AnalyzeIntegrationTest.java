@@ -23,6 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.UUID;
 
 import static com.homefinmate.support.ApiTestSupport.bearer;
@@ -79,6 +80,14 @@ class AnalyzeIntegrationTest {
                                 + "\"traceId\":\"" + traceId + "\"}";
         }
 
+        // 이 사용자의 이용 기록 (저장 순서)
+        private List<UserActivityLog> activities(Long userId) {
+                return userActivityLogRepository.findAll().stream()
+                                .filter(a -> userId.equals(a.getUserId()))
+                                .sorted(java.util.Comparator.comparing(UserActivityLog::getId))
+                                .toList();
+        }
+
         private Long userId() {
                 return userRepository.findByEmail(email).orElseThrow().getId();
         }
@@ -99,7 +108,7 @@ class AnalyzeIntegrationTest {
                 assertThat(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(userId()))
                                 .singleElement()
                                 .satisfies(sim -> assertThat(sim.getTraceId()).isEqualTo(traceId));
-                assertThat(userActivityLogRepository.findByUserIdOrderByCreatedAtDesc(userId()))
+                assertThat(activities(userId()))
                                 .extracting(UserActivityLog::getAction)
                                 // 통합 분석 1번에 이용 기록 1줄 (#57)
                                 .containsExactly("UNIFIED_ANALYSIS");
@@ -134,7 +143,7 @@ class AnalyzeIntegrationTest {
                                 .andExpect(status().isInternalServerError());
 
                 assertThat(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(userId())).isEmpty();
-                assertThat(userActivityLogRepository.findByUserIdOrderByCreatedAtDesc(userId())).isEmpty();
+                assertThat(activities(userId())).isEmpty();
         }
 
         @Test
