@@ -47,4 +47,23 @@ describe("auth 저장소", () => {
     expect(localStorage.getItem("hfm_draft_loan")).toBeNull();
     expect(localStorage.getItem("hfm_theme")).toBe("dark");
   });
+
+  // exp(초)를 넣은 테스트용 JWT
+  const jwtWithExp = (exp) =>
+    `x.${btoa(JSON.stringify({ sub: "user@test.com", exp })).replace(/=+$/, "")}.sig`;
+
+  // 만료 토큰은 로그인 상태가 아니고 삭제됨, 남은 토큰·읽을 수 없는 토큰은 서버 판단에 맡김
+  it("[TC-WEB-216] 만료 시각이 지난 토큰은 로그인 상태가 아니고 삭제됨, 만료 전·읽을 수 없는 토큰은 로그인 상태 (#77)", () => {
+    const now = Math.floor(Date.now() / 1000);
+
+    setToken(jwtWithExp(now - 60));
+    expect(isAuthenticated()).toBe(false);
+    expect(getToken()).toBeNull();
+
+    setToken(jwtWithExp(now + 3600));
+    expect(isAuthenticated()).toBe(true);
+
+    setToken("not-a-jwt");
+    expect(isAuthenticated()).toBe(true);
+  });
 });

@@ -25,4 +25,7 @@ public interface LoginFailureLogRepository extends JpaRepository<LoginFailureLog
 
     // 최신 100건 (DB에서 100건만 조회)
     List<LoginFailureLog> findTop100ByOrderByCreatedAtDesc();
+
+    // 한 이메일(HMAC)의 최신 100건 (관리자 검색, #89)
+    List<LoginFailureLog> findTop100ByEmailHashOrderByCreatedAtDesc(String emailHash);
 }

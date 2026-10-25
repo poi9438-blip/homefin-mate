@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import {
   Chart as ChartJS, CategoryScale, LinearScale,
   BarElement, ArcElement, Title, Tooltip, Legend,
 } from 'chart.js'
 import { reportApi } from '../api/reportApi'
-import { isNewLoanOnly, NEW_LOAN_ONLY_NOTE } from '../utils/dti'
+import { isNewLoanOnly, NEW_LOAN_ONLY_NOTE, dtiStatusView } from '../utils/dti'
+import DtiBadge from '../components/DtiBadge'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import ChartCard from '../components/ChartCard'
@@ -36,19 +38,6 @@ function DataRow({ label, value, highlight }) {
   )
 }
 
-// DTI 판정 배지 (적정 / 초과)
-function DtiBadge({ status }) {
-  return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-      status === 'ACCEPTABLE'
-        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-    }`}>
-      {status === 'ACCEPTABLE' ? '적정' : '초과'}
-    </span>
-  )
-}
-
 // 재무 리포트 화면 (요약, 차트, DTI 추이)
 export default function ReportPage() {
   const [summary, setSummary] = useState(null)
@@ -76,7 +65,8 @@ export default function ReportPage() {
 
   const data      = summary?.reportData ?? {}
   const lastSim   = data.lastSimulation
-  const dtiTrend  = data.dtiTrend ?? []
+  // 최근 5건 DTI 추이 (과거 → 최근 순으로 뒤집음)
+  const dtiTrend  = [...(data.dtiTrend ?? [])].reverse()
   const totalSims = data.totalSimulations ?? 0
   const hint      = data.eligibilityHint
   const noData    = !lastSim && totalSims === 0
@@ -93,7 +83,7 @@ export default function ReportPage() {
     datasets: [{
       label: 'DTI (%)',
       data: dtiTrend.map(s => Number((Number(s.dti) * 100).toFixed(1))),
-      backgroundColor: dtiTrend.map(s => s.dtiStatus === 'ACCEPTABLE' ? '#22c55e' : '#ef4444'),
+      backgroundColor: dtiTrend.map(s => dtiStatusView(s.dtiStatus).chartColor),
       borderRadius: 4,
     }],
   } : null
@@ -155,9 +145,9 @@ export default function ReportPage() {
           <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
             시뮬레이션 데이터가 없습니다. 대출 시뮬레이터를 사용해 리포트를 생성해보세요.
           </p>
-          <a href="/loan" className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700">
+          <Link to="/loan" className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700">
             대출 시뮬레이터로 이동
-          </a>
+          </Link>
         </div>
       ) : (
         <>
@@ -229,7 +219,7 @@ export default function ReportPage() {
 
               {/* DTI 적정/초과 파이 */}
               {dtiStatusPieData && (
-                <ChartCard title="DTI 적정 / 초과 비율">
+                <ChartCard title="DTI 적정 / 초과 비율 (최근 5회)">
                   <div className="flex justify-center">
                     <div className="w-48 h-48">
                       <Doughnut data={dtiStatusPieData}
@@ -246,14 +236,14 @@ export default function ReportPage() {
 
           {/* DTI 추이 바차트 */}
           {dtiBarData && (
-            <ChartCard title="DTI 추이 (초록=적정 / 빨강=초과, 기준선 60%)">
+            <ChartCard title="DTI 추이 (최근 5회, 초록=적정 / 빨강=초과 / 회색=판단 불가, 기준 60%)">
               <Bar data={dtiBarData}
                 options={{
                   responsive: true,
                   plugins: { legend: { display: false } },
                   scales: {
                     y: {
-                      max: 100,
+                      suggestedMax: 100,
                       title: { display: true, text: 'DTI (%)' },
                     },
                   },
@@ -263,7 +253,7 @@ export default function ReportPage() {
 
           {/* DTI 추이 테이블 */}
           {dtiTrend.length > 0 && (
-            <Section title="DTI 추이 상세 (최근 5회 시뮬레이션)">
+            <Section title="DTI 추이 상세 (최근 5회 시뮬레이션, 과거 → 최근)">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead>
@@ -296,7 +286,7 @@ export default function ReportPage() {
           )}
 
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            생성 시각 {new Date().toLocaleString()} · 트레이스 ID: {summary?.traceId ?? '—'}
+            생성 시각 {summary?.generatedAt ? new Date(summary.generatedAt).toLocaleString() : '—'} · 트레이스 ID: {summary?.traceId ?? '—'}
           </p>
         </>
       )}
