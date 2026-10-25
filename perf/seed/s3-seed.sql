@@ -15,9 +15,10 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + 1 AS n FROM perf_seed_digits a, perf_s
 WHERE n <= 999;
 
 -- 계산 기록: 관리자를 뺀 seed 사용자 1,000명 × 100건, 최근 1년에 흩어지게
--- dsr 컬럼은 V2 마이그레이션(2026-10)에서 dti + dti_basis로 바뀜
-INSERT INTO loan_simulations (user_id, loan_amount, interest_rate, monthly_payment, total_interest, dti, dti_basis, term_months, region, trace_id, created_at)
-SELECT u.id, 300000000, 4.5000, 1520055.93, 247220134.80, 0.2000 + (s.n % 40) / 100, 'WITH_EXISTING_INTEREST', 360, NULL,
+-- dsr 컬럼은 V2(2026-10)에서 dti + dti_basis로, dti는 V5에서 암호문 컬럼(dti_encrypted)으로 바뀜
+-- 암호문은 SQL로 만들 수 없어서 seed 기록의 DTI는 비워 둠 (조회 성능 측정에는 영향 없음)
+INSERT INTO loan_simulations (user_id, loan_amount, interest_rate, monthly_payment, total_interest, dti_encrypted, dti_basis, term_months, region, trace_id, created_at)
+SELECT u.id, 300000000, 4.5000, 1520055.93, 247220134.80, NULL, 'WITH_EXISTING_INTEREST', 360, NULL,
        CONCAT('perf-seed-loan-', u.id, '-', s.n),
        NOW(6) - INTERVAL (s.n * 3 + u.id % 3) DAY
 FROM users u
@@ -27,7 +28,7 @@ WHERE u.email LIKE 'perf-s3-%@seed.test' AND u.email <> 'perf-s3-admin@seed.test
 -- 감사 기록 100만 건 (10만 건씩 10번), 1%는 RiskWatch 연동 실패, 최근 1년에 흩어지게
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
@@ -36,7 +37,7 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + d.d * 1000 + e.d * 10000 + 0 * 100000 
 
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
@@ -45,7 +46,7 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + d.d * 1000 + e.d * 10000 + 1 * 100000 
 
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
@@ -54,7 +55,7 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + d.d * 1000 + e.d * 10000 + 2 * 100000 
 
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
@@ -63,7 +64,7 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + d.d * 1000 + e.d * 10000 + 3 * 100000 
 
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
@@ -72,7 +73,7 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + d.d * 1000 + e.d * 10000 + 4 * 100000 
 
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
@@ -81,7 +82,7 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + d.d * 1000 + e.d * 10000 + 5 * 100000 
 
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
@@ -90,7 +91,7 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + d.d * 1000 + e.d * 10000 + 6 * 100000 
 
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
@@ -99,7 +100,7 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + d.d * 1000 + e.d * 10000 + 7 * 100000 
 
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
@@ -108,7 +109,7 @@ FROM (SELECT a.d + b.d * 10 + c.d * 100 + d.d * 1000 + e.d * 10000 + 8 * 100000 
 
 INSERT INTO audit_logs (actor_type, actor_id, action, trace_id, created_at)
 SELECT IF(n % 100 = 0, 'SYSTEM', 'USER'),
-       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('perf-s3-', n % 999 + 1, '@seed.test')),
+       IF(n % 100 = 0, 'HOMEFIT_MATE', CONCAT('user:perf-', n % 999 + 1)),
        IF(n % 100 = 0, 'RISKWATCH_INTEGRATION_FAILURE: I/O error on POST request: Connection refused', 'LOGIN_SUCCESS'),
        CONCAT('perf-seed-audit-', n),
        NOW(6) - INTERVAL (n % 525600) MINUTE
