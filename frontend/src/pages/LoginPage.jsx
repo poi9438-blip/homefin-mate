@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../api/authApi'
-import { setToken, setUser } from '../utils/auth'
+import { setToken } from '../utils/auth'
 import { errorMessage } from '../utils/errorMessage'
 
 // 로그인 화면
@@ -14,16 +14,14 @@ export default function LoginPage() {
   // 입력값 반영 (input name = form 키)
   const handleChange = e => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
 
-  // 로그인: API 호출 => 토큰/사용자 저장 => 대시보드로 이동
+  // 로그인: API 호출 => 토큰 저장 => 대시보드로 이동
   const handleSubmit = async e => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
       const res = await authApi.login(form)
-      const { token, email, role } = res.data.data
-      setToken(token)
-      setUser({ email, role })
+      setToken(res.data.data.token)
       navigate('/dashboard')
     } catch (err) {
       setError(errorMessage(err, '로그인에 실패했습니다.'))

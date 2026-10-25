@@ -1,7 +1,8 @@
-// 로그인 토큰과 사용자 정보를 localStorage에 저장/조회
+// 로그인 토큰을 localStorage에 저장/조회
 
 const TOKEN_KEY = "hfm_token";
-const USER_KEY = "hfm_user";
+// 예전 버전이 저장한 사용자 정보 키 (로그아웃 때 삭제만)
+const LEGACY_USER_KEY = "hfm_user";
 
 // 저장된 토큰 꺼내기 (없으면 null)
 export function getToken() {
@@ -13,28 +14,13 @@ export function setToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
-// 토큰·사용자 정보·입력 임시 저장 삭제 (로그아웃, 401 응답 시)
+// 토큰·예전 사용자 정보·입력 임시 저장 삭제 (로그아웃, 401 응답 시)
 export function removeToken() {
   localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(LEGACY_USER_KEY);
   Object.keys(localStorage)
     .filter((key) => key.startsWith("hfm_draft_"))
     .forEach((key) => localStorage.removeItem(key));
-}
-
-// 저장된 사용자 정보 꺼내기 (없거나 깨졌으면 null)
-export function getUser() {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-// 사용자 정보 저장 (객체 => JSON 문자열)
-export function setUser(user) {
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 // 토큰의 만료 시각(ms), 읽을 수 없으면 null
