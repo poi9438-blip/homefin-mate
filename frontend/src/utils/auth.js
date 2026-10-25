@@ -13,10 +13,13 @@ export function setToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
-// 토큰과 사용자 정보 삭제 (로그아웃, 401 응답 시)
+// 토큰·사용자 정보·입력 임시 저장 삭제 (로그아웃, 401 응답 시)
 export function removeToken() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith("hfm_draft_"))
+    .forEach((key) => localStorage.removeItem(key));
 }
 
 // 저장된 사용자 정보 꺼내기 (없거나 깨졌으면 null)

@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Table(name = "login_failure_logs", indexes = {
         @Index(name = "idx_login_failure_created", columnList = "created_at"),
         // 로그인 시도 제한용 (V4)
-        @Index(name = "idx_login_failure_email_created", columnList = "email, created_at") })
+        @Index(name = "idx_login_failure_email_created", columnList = "email_hash, created_at") })
 @Getter
 @Setter
 @NoArgsConstructor
@@ -24,9 +24,9 @@ public class LoginFailureLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 로그인 시도한 이메일
-    @Column(nullable = false)
-    private String email;
+    // 로그인 시도한 이메일의 HMAC (원래 이메일은 저장하지 않음, #33)
+    @Column(name = "email_hash", nullable = false)
+    private String emailHash;
 
     // 실패한 이유(서버 내부 기록용)
     @Column

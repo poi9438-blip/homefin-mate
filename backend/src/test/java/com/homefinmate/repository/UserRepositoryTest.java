@@ -1,5 +1,7 @@
 package com.homefinmate.repository;
 
+import com.homefinmate.support.PersonalDataJpaConfig;
+import org.springframework.context.annotation.Import;
 import com.homefinmate.entity.User;
 import com.homefinmate.security.Role;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // UserRepository 쿼리 메서드와 email unique 제약 검증
 @DataJpaTest
+@Import(PersonalDataJpaConfig.class)
 @ActiveProfiles("test")
 class UserRepositoryTest {
     @Autowired

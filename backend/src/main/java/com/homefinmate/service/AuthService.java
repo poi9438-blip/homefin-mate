@@ -1,5 +1,6 @@
 package com.homefinmate.service;
 
+import com.homefinmate.util.EmailHasher;
 import com.homefinmate.common.BusinessException;
 import org.springframework.http.HttpStatus;
 import com.homefinmate.dto.auth.LoginRequest;
@@ -33,6 +34,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final EncryptionUtil encryptionUtil;
     private final AuditService auditService;
+    private final EmailHasher emailHasher;
 
     // 로그인 시도 제한: 15분 안에 5번 실패하면 잠시 막음
     static final int MAX_LOGIN_FAILURES = 5;
@@ -80,11 +82,13 @@ public class AuthService {
     // 로그인: 사용자 확인 => 비밀번호 비교 => JWT 발급 (실패 시 실패 기록 저장)
     public LoginResponse login(LoginRequest request) {
         // 최근 실패가 많으면 비밀번호 확인 전에 막음 (거절된 시도도 기록, 횟수에는 안 셈)
-        long recentFailures = loginFailureLogRepository.countByEmailAndReasonInAndCreatedAtAfter(
-                request.getEmail(), COUNTED_FAILURE_REASONS, LocalDateTime.now().minus(LOGIN_FAILURE_WINDOW));
+        // 실패 기록에는 이메일 대신 HMAC만 저장하고, 시도 횟수도 HMAC으로 셈
+        String emailHash = emailHasher.hash(request.getEmail());
+        long recentFailures = loginFailureLogRepository.countByEmailHashAndReasonInAndCreatedAtAfter(
+                emailHash, COUNTED_FAILURE_REASONS, LocalDateTime.now().minus(LOGIN_FAILURE_WINDOW));
         if (recentFailures >= MAX_LOGIN_FAILURES) {
             loginFailureLogRepository.save(LoginFailureLog.builder()
-                    .email(request.getEmail())
+                    .emailHash(emailHash)
                     .reason(TOO_MANY_ATTEMPTS_REASON)
                     .traceId(request.getTraceId())
                     .build());
@@ -95,7 +99,7 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> {
                     loginFailureLogRepository.save(LoginFailureLog.builder()
-                            .email(request.getEmail())
+                            .emailHash(emailHash)
                             .reason("User not found")
                             .traceId(request.getTraceId())
                             .build());
@@ -105,7 +109,7 @@ public class AuthService {
         // 비밀번호 불일치: 실패 기록 후 예외
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             loginFailureLogRepository.save(LoginFailureLog.builder()
-                    .email(request.getEmail())
+                    .emailHash(emailHash)
                     .reason("Incorrect password")
                     .traceId(request.getTraceId())
                     .build());
@@ -118,7 +122,8 @@ public class AuthService {
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
 
         // 로그인 성공 감사 기록
-        auditService.logAudit("USER", user.getEmail(), "LOGIN_SUCCESS", request.getTraceId());
+        // 감사 기록의 행위자는 이메일 대신 사용자 id (#33)
+        auditService.logAudit("USER", "user:" + user.getId(), "LOGIN_SUCCESS", request.getTraceId());
 
         return LoginResponse.builder()
                 .token(token)

@@ -52,7 +52,8 @@ const AUDIT_COLS = [
 
 const FAILURE_COLS = [
   { key: 'id',        label: 'ID' },
-  { key: 'email',     label: '이메일' },
+  // 이메일 대신 HMAC 값 (#33)
+  { key: 'emailHash', label: '이메일 (해시)' },
   { key: 'reason',    label: '원인' },
   { key: 'ipAddress', label: 'IP' },
   { key: 'traceId',   label: '트레이스 ID' },

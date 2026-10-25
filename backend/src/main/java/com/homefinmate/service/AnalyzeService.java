@@ -30,11 +30,12 @@ public class AnalyzeService {
 
         public AnalyzeResponse analyze(AnalyzeRequest request, String email) {
                 String traceId = request.getTraceId();
-                log.info("[{}] Starting unified analysis for email={} region={} loanAmount={}",
-                                traceId, email, request.getRegion(), request.getLoanAmount());
-
                 // 토큰 이메일 => 사용자 id (위험 평가 요청과 저장에 사용)
                 Long userId = userRepository.findByEmail(email).map(u -> u.getId()).orElse(null);
+
+                // 개인정보 없이 시작 기록 (사용자 id, 지역)
+                log.info("[{}] Starting unified analysis for userId={} region={}", traceId, userId,
+                                request.getRegion());
 
                 // ① 대출 계산 (저장은 ⑤에서)
                 LoanCalculationRequest loanReq = new LoanCalculationRequest();
@@ -90,8 +91,9 @@ public class AnalyzeService {
 
                 // ⑤ 저장: 계산 기록 + 이용 기록을 한 트랜잭션으로 (외부 호출이 모두 끝난 뒤)
                 loanResult.setSimulationId(analyzeResultSaver.save(userId, loanReq, loanResult));
-                log.info("[{}] Analysis complete: dti={} riskLevel={} riskAvailable={}",
-                                traceId, loanResult.getDti(), riskResult.getRiskLevel(), riskResult.isAvailable());
+                log.info("[{}] Analysis complete: dtiStatus={} riskLevel={} riskAvailable={}",
+                                traceId, loanResult.getDtiStatus(), riskResult.getRiskLevel(),
+                                riskResult.isAvailable());
 
                 return AnalyzeResponse.builder()
                                 .loan(loanResult)

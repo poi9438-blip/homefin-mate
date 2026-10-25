@@ -1,5 +1,9 @@
 package com.homefinmate.repository;
 
+import com.homefinmate.migration.V5__ProtectPersonalData;
+import com.homefinmate.util.EmailHasher;
+import com.homefinmate.util.EncryptionUtil;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.junit.jupiter.api.DisplayName;
@@ -109,6 +113,51 @@ class FlywayMigrationTest {
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getBigDecimal("interest_rate")).isEqualByComparingTo("10.5");
                 assertThat(rs.getBigDecimal("dti")).isEqualByComparingTo("15.2006");
+            }
+        }
+    }
+
+    // 평문이 있는 DB에 V5 실행: DTI는 암호문(복호화하면 원래 값), 실패 기록 이메일은 HMAC, 감사 행위자는 user:{id}
+    @Test
+    @DisplayName("[TC-DATA-012] V5: 기존 DTI는 암호문으로, 로그인 실패 이메일은 HMAC으로, 감사 기록 이메일은 user:{id}·user:deleted로 바뀜 (#31, #33)")
+    void v5_protectsExistingPersonalData() throws Exception {
+        EncryptionUtil encryptionUtil = new EncryptionUtil();
+        ReflectionTestUtils.setField(encryptionUtil, "encryptionKeyConfig", "HomeFin-AES-256-Key-Test-Padded!");
+        EmailHasher emailHasher = new EmailHasher("HomeFin-AES-256-Key-Test-Padded!");
+        String url = newDbUrl();
+        try (Connection conn = DriverManager.getConnection(url, "sa", "");
+                Statement st = conn.createStatement()) {
+            flyway(url, "4").migrate();
+            st.execute("insert into users (id, email, password, role) values (42, 'kim@test.com', 'x', 'USER')");
+            st.execute("insert into loan_simulations (user_id, loan_amount, interest_rate, dti, dti_basis)"
+                    + " values (42, 300000000, 4.5, 0.3800, 'WITH_EXISTING_INTEREST')");
+            st.execute("insert into login_failure_logs (email, reason) values ('Kim@Test.com', 'Incorrect password')");
+            st.execute("insert into audit_logs (actor_type, actor_id, action) values"
+                    + " ('USER', 'kim@test.com', 'LOGIN_SUCCESS'), ('USER', 'gone@test.com', 'LOGIN_SUCCESS'),"
+                    + " ('SYSTEM', 'HOMEFIT_MATE', 'RISKWATCH_INTEGRATION_FAILURE: x')");
+
+            MigrateResult result = Flyway.configure().dataSource(url, "sa", "")
+                    .javaMigrations(new V5__ProtectPersonalData(encryptionUtil, emailHasher)).load().migrate();
+
+            assertThat(result.migrationsExecuted).isEqualTo(1);
+            assertThat(loanSimulationColumns(st)).contains("dti_encrypted").doesNotContain("dti");
+            try (ResultSet rs = st.executeQuery("select dti_encrypted from loan_simulations")) {
+                assertThat(rs.next()).isTrue();
+                String encrypted = rs.getString(1);
+                assertThat(encrypted).doesNotContain("0.38");
+                assertThat(encryptionUtil.decrypt(encrypted)).isEqualTo("0.3800");
+            }
+            try (ResultSet rs = st.executeQuery("select email_hash from login_failure_logs")) {
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString(1)).isEqualTo(emailHasher.hash("kim@test.com"));
+            }
+            try (ResultSet rs = st.executeQuery("select actor_id from audit_logs order by id")) {
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString(1)).isEqualTo("user:42");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString(1)).isEqualTo("user:deleted");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString(1)).isEqualTo("HOMEFIT_MATE");
             }
         }
     }
