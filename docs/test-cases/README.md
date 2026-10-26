@@ -3,17 +3,18 @@
 기능별로 "무엇을, 왜, 어떤 입력으로, 무엇을 기대하는지"를 적은 문서입니다.
 공통 기준은 [테스트 기준](../TESTING.md), 결함 목록은 [알려진 문제](../known-issues.md)에 있습니다.
 
-| 파일                             | 영역                            | ID 접두사                   |
-| -------------------------------- | ------------------------------- | --------------------------- |
-| [auth.md](auth.md)               | 회원가입, 로그인, JWT, 인가     | TC-AUTH                     |
-| [api-errors.md](api-errors.md)   | 공통 응답·오류 형식             | TC-ERR                      |
-| [data.md](data.md)               | 저장소, 사용자 간 데이터 분리   | TC-DATA                     |
-| [loan.md](loan.md)               | 대출 계산, DTI                  | TC-LOAN                     |
-| [encryption.md](encryption.md)   | 소득 암호화                     | TC-ENC                      |
-| [policy.md](policy.md)           | 정책 추천                       | TC-POL                      |
-| [integration.md](integration.md) | RiskWatch, 지역 분석, 통합 분석 | TC-RISK, TC-REGION, TC-ANLZ |
-| [report.md](report.md)           | 리포트                          | TC-RPT                      |
-| [frontend.md](frontend.md)       | 화면 공통(인증 저장, axios)     | TC-WEB                      |
+| 파일                                 | 영역                            | ID 접두사                   |
+| ------------------------------------ | ------------------------------- | --------------------------- |
+| [auth.md](auth.md)                   | 회원가입, 로그인, JWT, 인가     | TC-AUTH                     |
+| [api-errors.md](api-errors.md)       | 공통 응답·오류 형식             | TC-ERR                      |
+| [data.md](data.md)                   | 저장소, 사용자 간 데이터 분리   | TC-DATA                     |
+| [loan.md](loan.md)                   | 대출 계산, DTI                  | TC-LOAN                     |
+| [encryption.md](encryption.md)       | 소득 암호화                     | TC-ENC                      |
+| [policy.md](policy.md)               | 정책 추천                       | TC-POL                      |
+| [integration.md](integration.md)     | RiskWatch, 지역 분석, 통합 분석 | TC-RISK, TC-REGION, TC-ANLZ |
+| [report.md](report.md)               | 리포트                          | TC-RPT                      |
+| [frontend.md](frontend.md)           | 화면 공통(인증 저장, axios)     | TC-WEB                      |
+| [observability.md](observability.md) | 관측(OTel 추적·로그 연결)       | TC-OBS                      |
 
 ## ID 규칙
 

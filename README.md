@@ -67,7 +67,8 @@ homefin-mate/
 ```
 
 - 아직 **RiskWatch 서버가 없습니다.** 위험 평가는 항상 연결 실패 → fallback(`available=false`) 경로로 동작합니다.
-- 요청마다 `traceId`를 백엔드 로그(MDC), DB 기록, RiskWatch·Python 호출 헤더에 함께 넘겨서 한 번의 분석을 끝까지 추적할 수 있습니다.
+- 요청마다 `traceId`(`X-Trace-Id` 헤더 하나가 기준)를 백엔드 로그(MDC), 응답, DB 기록, RiskWatch·Python 호출 헤더에 함께 넘겨서 한 번의 분석을 끝까지 추적할 수 있습니다.
+- 관측 compose를 함께 띄우면 OpenTelemetry로 추적·로그·지표를 Grafana에서 봅니다. 요청 span에 `hfm.trace_id`가 붙어 화면에 보인 번호로 추적을 찾을 수 있습니다 ([관측 실행](#4-관측-실행-선택)).
 
 ---
 
@@ -177,6 +178,22 @@ python scripts/tc_status.py
 PR과 main push마다 GitHub Actions([`.github/workflows/ci.yml`](.github/workflows/ci.yml))가 위 네 단계를 실행합니다.
 main에서 CI가 성공하면 [`.github/workflows/release.yml`](.github/workflows/release.yml)이 backend·frontend·python-service 이미지를 만들어
 `ghcr.io/poi9438-blip/homefin-<서비스>:<커밋 번호>`와 `:latest`로 올립니다. 서버 배포는 아직 하지 않습니다.
+
+### 4. 관측 실행 (선택)
+
+기본 실행에는 관측 도구가 없습니다. 필요할 때만 관측 compose를 겹쳐 띄웁니다. 백엔드는 OTel Java 에이전트, Python은 `opentelemetry-instrument`가 든 이미지(`otel` 빌드 단계)로 바뀝니다.
+
+```bash
+docker compose -f docker-compose.yml -f observability/docker-compose.observability.yml up -d --build
+```
+
+| 주소                  | 내용                                                                  |
+| --------------------- | --------------------------------------------------------------------- |
+| http://localhost:3000 | Grafana (`grafana/otel-lgtm`: Tempo 추적, Loki 로그, Prometheus 지표) |
+
+- **hfm 번호로 추적 찾기:** Explore → Tempo → TraceQL `{span.hfm.trace_id="hfm-…"}`. 백엔드 요청, DB 쿼리, RiskWatch 재시도, Python 요청이 한 추적에 보입니다.
+- **hfm 번호로 로그 찾기:** Explore → Loki → `{service_name="homefin-backend"} | traceId="hfm-…"`. 로그 줄에서 OTel 추적으로 바로 이동할 수 있습니다.
+- 관측 없이 다시 실행할 때는 `docker compose up -d --build`로 기본 이미지로 돌아옵니다(관측 이미지는 `…-otel` 이름이라 섞이지 않음).
 
 ---
 
