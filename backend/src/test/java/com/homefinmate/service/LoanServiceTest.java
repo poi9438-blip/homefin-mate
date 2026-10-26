@@ -1,14 +1,11 @@
 package com.homefinmate.service;
 
-import com.homefinmate.common.BusinessException;
 import com.homefinmate.dto.loan.DtiRequest;
 import com.homefinmate.dto.loan.DtiResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.entity.LoanSimulation;
-import com.homefinmate.entity.User;
 import com.homefinmate.repository.LoanSimulationRepository;
-import com.homefinmate.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,12 +18,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,16 +38,12 @@ class LoanServiceTest {
     @Mock
     LoanSimulationRepository loanSimulationRepository;
     @Mock
-    UserRepository userRepository;
-    @Mock
     AuditService auditService;
     @InjectMocks
     LoanService loanService;
 
     @BeforeEach
     void setUp() {
-        User user = User.builder().id(7L).email("user@test.com").build();
-        when(userRepository.findByEmail("user@test.com")).thenReturn(Optional.of(user));
         when(loanSimulationRepository.save(any())).thenAnswer(inv -> {
             LoanSimulation sim = inv.getArgument(0);
             sim.setId(100L);
@@ -75,7 +66,7 @@ class LoanServiceTest {
     @DisplayName("[TC-LOAN-001] 원리금균등 월 상환액(원 단위), 총이자, 총상환액, DTI")
     void calculate_standardAmortization() {
         LoanCalculationResponse res = loanService.calculate(
-                request("300000000", "4.5", 360, "4000000"), "user@test.com");
+                request("300000000", "4.5", 360, "4000000"), 7L);
 
         assertThat(res.getMonthlyPayment()).isEqualByComparingTo("1520056");
         assertThat(res.getTotalInterest()).isEqualByComparingTo("247220160");
@@ -92,7 +83,7 @@ class LoanServiceTest {
     @DisplayName("[TC-LOAN-201] 기간 1개월이면 원금 + 한 달 이자")
     void calculate_singleMonth() {
         LoanCalculationResponse res = loanService.calculate(
-                request("1000000", "12", 1, "5000000"), "user@test.com");
+                request("1000000", "12", 1, "5000000"), 7L);
 
         assertThat(res.getMonthlyPayment()).isEqualByComparingTo("1010000");
         assertThat(res.getTotalInterest()).isEqualByComparingTo("10000");
@@ -110,7 +101,7 @@ class LoanServiceTest {
     @DisplayName("[TC-LOAN-202] 월 상환액이 원 단위이고 표준 공식과 0.5원 이내, 총상환액·총이자 관계 일치")
     void calculate_matchesIndependentFormula(String amount, String rate, int months) {
         LoanCalculationResponse res = loanService.calculate(request(amount, rate, months, "10000000"),
-                "user@test.com");
+                7L);
 
         double p = Double.parseDouble(amount);
         double r = Double.parseDouble(rate) / 1200;
@@ -141,7 +132,7 @@ class LoanServiceTest {
     @DisplayName("[TC-LOAN-002] DTI가 0.60을 넘으면 HIGH")
     void calculate_dtiAboveThreshold_isHigh() {
         LoanCalculationResponse res = loanService.calculate(
-                request("300000000", "4.5", 360, "2500000"), "user@test.com");
+                request("300000000", "4.5", 360, "2500000"), 7L);
 
         assertThat(res.getDti()).isEqualByComparingTo("0.6081");
         assertThat(res.getDtiStatus()).isEqualTo("HIGH");
@@ -166,7 +157,7 @@ class LoanServiceTest {
     @DisplayName("[TC-LOAN-003] 다른 조건(1.2억, 3%, 120개월)도 공식과 일치")
     void calculate_anotherCase() {
         LoanCalculationResponse res = loanService.calculate(
-                request("120000000", "3.0", 120, "5000000"), "user@test.com");
+                request("120000000", "3.0", 120, "5000000"), 7L);
 
         assertThat(res.getMonthlyPayment()).isEqualByComparingTo("1158729");
         assertThat(res.getDti()).isEqualByComparingTo("0.2318");
@@ -176,7 +167,7 @@ class LoanServiceTest {
     @Test
     @DisplayName("[TC-LOAN-004] 토큰 이메일의 사용자 id와 계산값으로 저장")
     void calculate_savesSimulation() {
-        loanService.calculate(request("300000000", "4.5", 360, "4000000"), "user@test.com");
+        loanService.calculate(request("300000000", "4.5", 360, "4000000"), 7L);
 
         ArgumentCaptor<LoanSimulation> captor = ArgumentCaptor.forClass(LoanSimulation.class);
         verify(loanSimulationRepository).save(captor.capture());
@@ -205,9 +196,10 @@ class LoanServiceTest {
                 .id(1L).userId(7L).loanAmount(new BigDecimal("120000000"))
                 .monthlyPayment(new BigDecimal("1158728.94")).totalInterest(new BigDecimal("19047472.80"))
                 .termMonths(120).dti(new BigDecimal("0.2317")).dtiBasis(DtiRule.NEW_LOAN_ONLY).build();
-        when(loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(high, ok));
+        when(loanSimulationRepository.findByUserIdOrderByCreatedAtDescIdDesc(7L, PageRequest.of(0, 20)))
+                .thenReturn(List.of(high, ok));
 
-        List<LoanCalculationResponse> history = loanService.getHistory("user@test.com");
+        List<LoanCalculationResponse> history = loanService.getHistory(7L, 0, 20);
 
         assertThat(history).extracting(LoanCalculationResponse::getSimulationId).containsExactly(2L, 1L);
         assertThat(history.get(0).getTotalPayment()).isEqualByComparingTo("547220160");
@@ -215,16 +207,6 @@ class LoanServiceTest {
         assertThat(history.get(0).getDtiStatus()).isEqualTo("HIGH");
         assertThat(history.get(1).getDtiStatus()).isEqualTo("ACCEPTABLE");
         assertThat(history.get(1).getDtiBasis()).isEqualTo(DtiRule.NEW_LOAN_ONLY);
-    }
-
-    // 없는 사용자: 빈 목록 (DB 조회 안 함)
-    @Test
-    @DisplayName("[TC-LOAN-006] 사용자를 못 찾으면 빈 목록")
-    void getHistory_unknownEmail_emptyList() {
-        when(userRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
-
-        assertThat(loanService.getHistory("ghost@test.com")).isEmpty();
-        verify(loanSimulationRepository, org.mockito.Mockito.never()).findByUserIdOrderByCreatedAtDesc(any());
     }
 
     private DtiRequest dtiRequest(String payment, String interest, String income) {
@@ -295,7 +277,7 @@ class LoanServiceTest {
     @DisplayName("[TC-LOAN-013] 연이율 0%면 월 상환액 = 원금 ÷ 개월 수(원 단위), 총이자 0, 총상환액 = 원금 (#34)")
     void calculate_zeroRate_isPrincipalDividedByMonths() {
         LoanCalculationResponse res = loanService.calculate(
-                request("300000000", "0", 360, "4000000"), "user@test.com");
+                request("300000000", "0", 360, "4000000"), 7L);
 
         assertThat(res.getMonthlyPayment()).isEqualByComparingTo("833333");
         assertThat(res.getTotalInterest()).isEqualByComparingTo("0");
@@ -313,18 +295,5 @@ class LoanServiceTest {
         assertThat(res.getDti()).isEqualByComparingTo("0.6001");
         assertThat(res.getDtiStatus()).isEqualTo("HIGH");
         assertThat(DtiRule.status(res.getDti())).isEqualTo("HIGH");
-    }
-
-    // 토큰의 사용자가 DB에 없으면 401, 저장·이용 기록 없음
-    @Test
-    @DisplayName("[TC-LOAN-015] 토큰의 사용자가 DB에 없으면 401 업무 오류, 계산 기록·이용 기록 저장 안 함 (#58)")
-    void calculate_unknownUser_unauthorizedWithoutSaving() {
-        when(userRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> loanService.calculate(request("300000000", "4.5", 360, "4000000"),
-                "ghost@test.com"))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(e -> assertThat(((BusinessException) e).getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED));
-        org.mockito.Mockito.verifyNoInteractions(loanSimulationRepository, auditService);
     }
 }

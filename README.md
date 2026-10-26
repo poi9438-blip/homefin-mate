@@ -208,7 +208,7 @@ docker compose -f docker-compose.yml -f observability/docker-compose.observabili
 | GET    | `/api/auth/me`                                                                 | 로그인 | 현재 사용자 이메일·역할 (DB 기준)                                                 |
 | POST   | `/api/auth/logout`                                                             | -      | 로그아웃 (로그인 쿠키 삭제)                                                       |
 | POST   | `/api/loan/calculate`                                                          | 로그인 | 대출 계산 + 저장                                                                  |
-| GET    | `/api/loan/history`                                                            | 로그인 | 내 계산 이력                                                                      |
+| GET    | `/api/loan/history?page=0&size=20`                                             | 로그인 | 내 계산 이력 (최신순 페이지, size 최대 100)                                       |
 | POST   | `/api/loan/dti`                                                                | -      | DTI 단독 계산 (저장 안 함)                                                        |
 | POST   | `/api/policy/recommend`                                                        | 로그인 | 정책대출 판정·추천 (조건별 판정, 기본금리 비교)                                   |
 | GET    | `/api/analysis/region`                                                         | -      | 지역 분석 (Python 서비스 호출)                                                    |
@@ -250,8 +250,8 @@ docker compose -f docker-compose.yml -f observability/docker-compose.observabili
 - **로그아웃 후 토큰 (#92):** 서명 기반 JWT라 로그아웃해도 토큰 자체는 만료(기본 24시간)까지 유효합니다. 쿠키는 지워집니다.
 - **서비스 간 인증 (#73):** RiskWatch 위험 평가와 Python 지역 분석은 인증 없이 호출합니다. compose 내부 네트워크에서만 쓰는 것을 전제로 합니다.
 - **지역 시세 (#39):** Python 서비스의 시세는 출처 없는 예시 데이터이며, 화면에 "예시 데이터 · 실제 시세 아님"으로 표시합니다.
-- **계산 이력 페이징 (#51 일부):** 리포트는 COUNT + 최근 5건으로 바꿨지만, 계산 이력 조회는 아직 전체를 돌려줍니다.
-- **중복 조회 (#14 일부):** 판정 기준은 `DtiRule` 한곳으로 모았지만, `findByEmail` 중복 호출은 남아 있습니다.
+- **지역 분석 실패 처리 (#56 일부):** 지역 분석이 실패하면 "분석 불가"로 표시하지만, RiskWatch와 달리 재시도·연동 실패 기록은 없습니다.
+- **AI 설명 (#55 일부):** 화면에 `aiExplanation`을 보여 주는 자리가 있지만 서버가 보내지 않아 표시되지 않습니다.
 - **정책 상품:** 디딤돌대출·보금자리론·신생아 특례만 비교하며, 금리·한도는 공식 페이지에서 확인한 날짜 기준 값입니다(바뀌면 `PolicyRates`를 고쳐야 함).
 
 ## 문제

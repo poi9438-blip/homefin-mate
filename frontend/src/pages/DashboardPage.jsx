@@ -83,13 +83,13 @@ function buildDtiTrendData(history) {
   }
 }
 
-// 판정별 계산 수 (전체 이력, 적정·초과·판단 불가)
+// 판정별 계산 수 (받은 이력, 적정·초과·판단 불가)
 function countByStatus(history) {
   const count = status => (history ?? []).filter(s => (s.dtiStatus ?? 'UNKNOWN') === status).length
   return { acceptable: count('ACCEPTABLE'), exceeded: count('HIGH'), unknown: count('UNKNOWN') }
 }
 
-// DTI 적정/초과/판단 불가 비율 (전체 이력)
+// DTI 적정/초과/판단 불가 비율 (받은 이력)
 function buildDtiStatusPieData(history) {
   if (!history?.length) return null
   const { acceptable, exceeded, unknown } = countByStatus(history)
@@ -121,6 +121,9 @@ function buildInterestPieData(history) {
 }
 
 
+// 대시보드가 받는 최근 계산 수 (이력 API 최대값)
+const HISTORY_SIZE = 100
+
 // 대시보드 (요약 카드, 지역 분석, 추이 차트, 최근 계산)
 export default function DashboardPage() {
   const [history, setHistory]           = useState(null)
@@ -138,7 +141,8 @@ export default function DashboardPage() {
     const loadData = async () => {
       setLoading(true)
       try {
-        const res = await loanApi.getHistory()
+        // 최근 계산 최대 100건 (차트·비율 계산용)
+        const res = await loanApi.getHistory({ size: HISTORY_SIZE })
         if (!cancelled) setHistory(res.data.data ?? [])
       } catch {
         if (!cancelled) setHistory([])
@@ -186,10 +190,14 @@ export default function DashboardPage() {
     : ''
   // 최근 월 상환금 (리포트 최근 계산, 없으면 이력 첫 건)
   const lastPayment = summary?.lastSimulation?.monthlyPayment ?? history?.[0]?.monthlyPayment
-  // DTI 적정 비율 (전체 이력 중 판단 가능한 기록 기준)
+  // DTI 적정 비율 (받은 이력 중 판단 가능한 기록 기준)
   const { acceptable, exceeded } = countByStatus(history)
   const judged = acceptable + exceeded
   const acceptableRatio = judged > 0 ? `${Math.round((acceptable / judged) * 100)}%` : '—'
+  // 받은 이력이 전체 계산 수보다 적으면 "최근 N회" 기준이라고 표시 (전체처럼 보이지 않게)
+  const totalSims = summary?.totalSimulations ?? history?.length ?? 0
+  const partial = (history?.length ?? 0) > 0 && totalSims > history.length
+  const scope = partial ? `최근 ${history.length}회` : '전체'
 
   if (loading) return <LoadingState message="대시보드 로딩 중..." />
 
@@ -212,7 +220,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           title="총 시뮬레이션"
-          value={String(summary?.totalSimulations ?? history?.length ?? 0)}
+          value={String(totalSims)}
           icon="🏦"
         />
         <SummaryCard
@@ -230,7 +238,9 @@ export default function DashboardPage() {
           title="DTI 적정 비율"
           value={acceptableRatio}
           icon="✅"
-          subtitle={judged > 0 ? `전체 ${judged}회 중 적정 ${acceptable}회` : ''}
+          subtitle={judged > 0
+            ? (partial ? `${scope} 기준, ${judged}회 중 적정 ${acceptable}회` : `전체 ${judged}회 중 적정 ${acceptable}회`)
+            : ''}
         />
       </div>
 
@@ -293,7 +303,7 @@ export default function DashboardPage() {
               </ChartCard>
             )}
             {dtiStatusPieData && (
-              <ChartCard title="DTI 적정 / 초과 비율 (전체)">
+              <ChartCard title={`DTI 적정 / 초과 비율 (${scope})`}>
                 <div className="flex justify-center">
                   <div className="w-56 h-56">
                     <Doughnut data={dtiStatusPieData}
@@ -303,7 +313,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <p className="text-xs text-center text-gray-400 mt-2">
-                  전체 {history.length}회 시뮬레이션 기준
+                  {partial ? `최근 ${history.length}회 시뮬레이션 기준 (전체 ${totalSims}회)` : `전체 ${history.length}회 시뮬레이션 기준`}
                 </p>
               </ChartCard>
             )}

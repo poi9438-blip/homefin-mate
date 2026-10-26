@@ -2,9 +2,7 @@ package com.homefinmate.service;
 
 import com.homefinmate.dto.report.ReportResponse;
 import com.homefinmate.entity.LoanSimulation;
-import com.homefinmate.entity.User;
 import com.homefinmate.repository.LoanSimulationRepository;
-import com.homefinmate.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,7 +13,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,8 +27,6 @@ class ReportServiceTest {
 
     @Mock
     LoanSimulationRepository loanSimulationRepository;
-    @Mock
-    UserRepository userRepository;
     @InjectMocks
     ReportService reportService;
 
@@ -45,8 +40,6 @@ class ReportServiceTest {
     }
 
     private void givenUserWith(List<LoanSimulation> sims) {
-        when(userRepository.findByEmail("user@test.com"))
-                .thenReturn(Optional.of(User.builder().id(7L).email("user@test.com").build()));
         when(loanSimulationRepository.countByUserId(7L)).thenReturn((long) sims.size());
         when(loanSimulationRepository.findTop5ByUserIdOrderByCreatedAtDesc(7L))
                 .thenReturn(sims.stream().limit(5).toList());
@@ -61,7 +54,7 @@ class ReportServiceTest {
                 .mapToObj(id -> sim(id, "0.3800")).toList(); // id 7,6,5,4,3,2,1 (최신순)
         givenUserWith(sims);
 
-        ReportResponse res = reportService.generateSummary("user@test.com", "hfm-report-1");
+        ReportResponse res = reportService.generateSummary(7L, "hfm-report-1");
         Map<String, Object> data = res.getReportData();
 
         assertThat(res.getReportType()).isEqualTo("SUMMARY");
@@ -81,7 +74,7 @@ class ReportServiceTest {
     void summary_highDsr_warns() {
         givenUserWith(List.of(sim(2, "0.6080"), sim(1, "0.2000")));
 
-        Map<String, Object> data = reportService.generateSummary("user@test.com", null).getReportData();
+        Map<String, Object> data = reportService.generateSummary(7L, null).getReportData();
 
         assertThat(((Map<String, Object>) data.get("lastSimulation")).get("dtiStatus")).isEqualTo("HIGH");
         assertThat((String) data.get("eligibilityHint")).startsWith("Your DTI is above");
@@ -93,7 +86,7 @@ class ReportServiceTest {
     void summary_noSimulations() {
         givenUserWith(List.of());
 
-        Map<String, Object> data = reportService.generateSummary("user@test.com", null).getReportData();
+        Map<String, Object> data = reportService.generateSummary(7L, null).getReportData();
 
         assertThat(data.get("totalSimulations")).isEqualTo(0);
         assertThat(data).containsKey("message").doesNotContainKeys("lastSimulation", "dtiTrend");
@@ -103,14 +96,12 @@ class ReportServiceTest {
     @Test
     @DisplayName("[TC-RPT-302] 계산 10만 건이어도 전체 목록을 조회하지 않고 COUNT·최근 5건만 사용")
     void summary_largeHistory_usesCountAndTop5Only() {
-        when(userRepository.findByEmail("user@test.com"))
-                .thenReturn(Optional.of(User.builder().id(7L).email("user@test.com").build()));
         when(loanSimulationRepository.countByUserId(7L)).thenReturn(100_000L);
         when(loanSimulationRepository.findTop5ByUserIdOrderByCreatedAtDesc(7L))
                 .thenReturn(List.of(sim(5, "0.3800"), sim(4, "0.3800"), sim(3, "0.3800"), sim(2, "0.3800"),
                         sim(1, "0.3800")));
 
-        Map<String, Object> data = reportService.generateSummary("user@test.com", null).getReportData();
+        Map<String, Object> data = reportService.generateSummary(7L, null).getReportData();
 
         assertThat(data.get("totalSimulations")).isEqualTo(100_000);
         verify(loanSimulationRepository, never()).findByUserIdOrderByCreatedAtDesc(any());

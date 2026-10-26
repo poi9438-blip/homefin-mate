@@ -7,6 +7,7 @@ import com.homefinmate.dto.loan.DtiResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.service.LoanService;
+import com.homefinmate.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,8 +28,8 @@ public class LoanController {
     @PostMapping("/calculate")
     public ResponseEntity<ApiResponse<LoanCalculationResponse>> calculate(
             @Valid @RequestBody LoanCalculationRequest request,
-            @AuthenticationPrincipal String email) {
-        LoanCalculationResponse response = loanService.calculate(request, email);
+            @AuthenticationPrincipal AuthUser user) {
+        LoanCalculationResponse response = loanService.calculate(request, user.id());
         return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 
@@ -40,11 +41,13 @@ public class LoanController {
         return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 
-    // 내 계산 이력 (최신순)
+    // 내 계산 이력 (최신순, ?page=0&size=20, size는 최대 100, #51)
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<List<LoanCalculationResponse>>> history(
-            @AuthenticationPrincipal String email) {
-        List<LoanCalculationResponse> history = loanService.getHistory(email);
+            @AuthenticationPrincipal AuthUser user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        List<LoanCalculationResponse> history = loanService.getHistory(user.id(), page, size);
         return ResponseEntity.ok(ApiResponse.success(history, TraceIds.current()));
     }
 }

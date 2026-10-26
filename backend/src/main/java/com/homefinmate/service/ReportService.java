@@ -3,7 +3,6 @@ package com.homefinmate.service;
 import com.homefinmate.dto.report.ReportResponse;
 import com.homefinmate.entity.LoanSimulation;
 import com.homefinmate.repository.LoanSimulationRepository;
-import com.homefinmate.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,20 +20,10 @@ import java.util.Map;
 public class ReportService {
 
     private final LoanSimulationRepository loanSimulationRepository;
-    private final UserRepository userRepository;
 
-    // 요약 리포트 만들기
-    public ReportResponse generateSummary(String email, String traceId) {
-        Long userId = userRepository.findByEmail(email).map(u -> u.getId()).orElse(null);
-
+    // 요약 리포트 만들기 (userId: 로그인 필터가 확인한 사용자 id, #14)
+    public ReportResponse generateSummary(Long userId, String traceId) {
         Map<String, Object> data = new LinkedHashMap<>();
-
-        // 사용자 없음: 0건 리포트
-        if (userId == null) {
-            data.put("totalSimulations", 0);
-            data.put("message", "No simulation data found for this account.");
-            return buildResponse(data, traceId);
-        }
 
         // 계산 수(COUNT)와 최근 5건(최신순)만 조회
         long total = loanSimulationRepository.countByUserId(userId);

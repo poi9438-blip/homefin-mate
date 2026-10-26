@@ -1,6 +1,5 @@
 package com.homefinmate.service;
 
-import com.homefinmate.common.BusinessException;
 import com.homefinmate.dto.analysis.RegionAnalysisResponse;
 import com.homefinmate.dto.analyze.AnalyzeRequest;
 import com.homefinmate.dto.analyze.AnalyzeResponse;
@@ -10,9 +9,7 @@ import com.homefinmate.dto.policy.PolicyRecommendationRequest;
 import com.homefinmate.dto.policy.PolicyRecommendationResponse;
 import com.homefinmate.dto.risk.RiskEvaluationRequest;
 import com.homefinmate.dto.risk.RiskEvaluationResponse;
-import com.homefinmate.entity.User;
 import com.homefinmate.integration.RiskWatchClient;
-import com.homefinmate.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,10 +21,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,16 +45,12 @@ class AnalyzeServiceTest {
     @Mock
     AnalysisService analysisService;
     @Mock
-    UserRepository userRepository;
-    @Mock
     AnalyzeResultSaver analyzeResultSaver;
     @InjectMocks
     AnalyzeService analyzeService;
 
     @BeforeEach
     void setUp() {
-        when(userRepository.findByEmail("user@test.com"))
-                .thenReturn(Optional.of(User.builder().id(7L).email("user@test.com").build()));
         when(loanService.compute(any())).thenReturn(LoanCalculationResponse.builder()
                 .monthlyPayment(new BigDecimal("1520000"))
                 .dti(new BigDecimal("0.3800")).dtiStatus("ACCEPTABLE").build());
@@ -89,7 +80,7 @@ class AnalyzeServiceTest {
     @Test
     @DisplayName("[TC-ANLZ-001] 대출 계산 → 정책 → 위험 → 지역 → 저장 순서로 호출하고 결과를 묶음")
     void analyze_callsInOrder_andCombines() {
-        AnalyzeResponse res = analyzeService.analyze(request("부산"), "user@test.com");
+        AnalyzeResponse res = analyzeService.analyze(request("부산"), 7L);
 
         InOrder order = inOrder(loanService, policyService, riskWatchClient, analysisService, analyzeResultSaver);
         order.verify(loanService).compute(any());
@@ -110,7 +101,7 @@ class AnalyzeServiceTest {
     @Test
     @DisplayName("[TC-ANLZ-002] 기존 대출 월 이자는 DTI 계산에, 대출 결과 DTI는 정책·위험 평가에 전달 (위험 평가 dsr은 예전 계산)")
     void analyze_passesDtiAndTraceId() {
-        analyzeService.analyze(request("부산"), "user@test.com");
+        analyzeService.analyze(request("부산"), 7L);
 
         ArgumentCaptor<LoanCalculationRequest> loanReq = ArgumentCaptor.forClass(LoanCalculationRequest.class);
         ArgumentCaptor<PolicyRecommendationRequest> policyReq = ArgumentCaptor
@@ -134,7 +125,7 @@ class AnalyzeServiceTest {
     @Test
     @DisplayName("[TC-ANLZ-003] 지역이 비어 있으면 지역 분석을 건너뜀")
     void analyze_blankRegion_skipsRegionAnalysis() {
-        AnalyzeResponse res = analyzeService.analyze(request("  "), "user@test.com");
+        AnalyzeResponse res = analyzeService.analyze(request("  "), 7L);
 
         verifyNoInteractions(analysisService);
         assertThat(res.getRegion()).isNull();
@@ -146,7 +137,7 @@ class AnalyzeServiceTest {
     void analyze_riskThrows_nothingSaved() {
         when(riskWatchClient.evaluateRisk(any())).thenThrow(new RuntimeException("audit save failed"));
 
-        assertThatThrownBy(() -> analyzeService.analyze(request("부산"), "user@test.com"))
+        assertThatThrownBy(() -> analyzeService.analyze(request("부산"), 7L))
                 .hasMessage("audit save failed");
 
         verifyNoInteractions(analysisService, analyzeResultSaver);
@@ -165,7 +156,7 @@ class AnalyzeServiceTest {
         req.setNewbornWithin2Years(true);
         req.setDualIncome(false);
 
-        analyzeService.analyze(req, "user@test.com");
+        analyzeService.analyze(req, 7L);
 
         ArgumentCaptor<PolicyRecommendationRequest> policyReq = ArgumentCaptor
                 .forClass(PolicyRecommendationRequest.class);
@@ -179,18 +170,5 @@ class AnalyzeServiceTest {
         assertThat(policyReq.getValue().getNewbornWithin2Years()).isTrue();
         assertThat(policyReq.getValue().getDualIncome()).isFalse();
         assertThat(policyReq.getValue().getTermMonths()).isEqualTo(360);
-    }
-
-    // 토큰의 사용자가 DB에 없으면 외부 호출 없이 401
-    @Test
-    @DisplayName("[TC-ANLZ-006] 토큰의 사용자가 DB에 없으면 401 업무 오류, 계산·정책·RiskWatch·지역 분석·저장 모두 호출 안 함 (#58)")
-    void analyze_unknownUser_unauthorizedBeforeExternalCalls() {
-        when(userRepository.findByEmail("ghost@test.com")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> analyzeService.analyze(request("부산"), "ghost@test.com"))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(e -> assertThat(((BusinessException) e).getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED));
-
-        verifyNoInteractions(loanService, policyService, riskWatchClient, analysisService, analyzeResultSaver);
     }
 }

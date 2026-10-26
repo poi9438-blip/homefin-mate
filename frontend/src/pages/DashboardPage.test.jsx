@@ -35,7 +35,7 @@ const card = title =>
 
 describe('대시보드 요약 카드', () => {
   // 카드 값은 리포트 reportData와 계산 이력에서 (판단 불가 기록은 비율에서 뺌)
-  it('[TC-WEB-213] 요약 카드는 리포트 reportData의 총 계산 수·최근 DTI·최근 월 상환금, 이력의 DTI 적정 비율을 보여 줌 (#49)', async () => {
+  it('[TC-WEB-213] 요약 카드는 리포트 reportData의 총 계산 수·최근 DTI·최근 월 상환금, 이력의 DTI 적정 비율을 보여 줌, 이력이 일부면 "최근 N회" 기준 표시 (#49, #51)', async () => {
     loanApi.getHistory.mockResolvedValue({ data: { data: [
       { loanAmount: 300000000, monthlyPayment: 1520056, totalInterest: 247220160, dti: 0.3801, dtiStatus: 'ACCEPTABLE' },
       { loanAmount: 300000000, monthlyPayment: 1520056, totalInterest: 247220160, dti: 0.6081, dtiStatus: 'HIGH' },
@@ -55,10 +55,31 @@ describe('대시보드 요약 카드', () => {
     expect(card('최근 DTI').textContent).toContain('38.0%')
     expect(card('최근 월 상환금').textContent).toContain('₩1,520,056')
     expect(card('DTI 적정 비율').textContent).toContain('67%')
-    expect(card('DTI 적정 비율').textContent).toContain('전체 3회 중 적정 2회')
+    expect(card('DTI 적정 비율').textContent).toContain('최근 4회 기준, 3회 중 적정 2회')
+    expect(container.textContent).toContain('DTI 적정 / 초과 비율 (최근 4회)')
+    expect(loanApi.getHistory).toHaveBeenCalledWith({ size: 100 })
     expect(container.textContent).not.toContain('적합 정책 수')
     expect(container.textContent).not.toContain('리스크 수준')
     const statuses = [...container.querySelectorAll('tbody tr')].map(r => r.lastElementChild.textContent)
     expect(statuses).toEqual(['적정', '초과', '적정', '판단 불가'])
+  })
+
+  // 받은 이력이 전체 계산 수와 같으면 "전체" 기준
+  it('[TC-WEB-226] 받은 이력 수가 전체 계산 수와 같으면 DTI 적정 비율·차트를 "전체" 기준으로 표시 (#51)', async () => {
+    loanApi.getHistory.mockResolvedValue({ data: { data: [
+      { loanAmount: 300000000, monthlyPayment: 1520056, totalInterest: 247220160, dti: 0.3801, dtiStatus: 'ACCEPTABLE' },
+      { loanAmount: 300000000, monthlyPayment: 1520056, totalInterest: 247220160, dti: 0.6081, dtiStatus: 'HIGH' },
+    ] } })
+    reportApi.getSummary.mockResolvedValue({ data: { data: { reportData: {
+      totalSimulations: 2, lastDti: 0.3801, lastSimulation: { monthlyPayment: 1520056 },
+    } } } })
+
+    await act(async () => { root.render(<DashboardPage />) })
+    await act(async () => { await Promise.resolve() })
+
+    expect(card('DTI 적정 비율').textContent).toContain('전체 2회 중 적정 1회')
+    expect(container.textContent).toContain('DTI 적정 / 초과 비율 (전체)')
+    expect(container.textContent).toContain('전체 2회 시뮬레이션 기준')
+    expect(container.textContent).not.toContain('최근 2회')
   })
 })

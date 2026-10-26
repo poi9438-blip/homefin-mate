@@ -1,7 +1,7 @@
 // S3. 데이터가 쌓였을 때 조회 속도 (perf/seed/s3-seed.sh로 데이터를 넣은 뒤 실행)
 // ENDPOINT: report | history | audit | integration
 //   report      GET /api/report/summary        (측정용 사용자, 계산 100건 / 전체 10만 건)
-//   history     GET /api/loan/history          (측정용 사용자)
+//   history     GET /api/loan/history          (측정용 사용자, #51 이후 기본 20건 페이지)
 //   audit       GET /api/admin/audit-logs      (관리자, 감사 기록 100만 건)
 //   integration GET /api/admin/integration-failures (관리자)
 // 동시 요청 없이 1명이 차례로 보내 순수한 처리 시간을 잰다.

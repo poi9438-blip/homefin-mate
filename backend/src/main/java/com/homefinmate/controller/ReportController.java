@@ -4,6 +4,7 @@ import com.homefinmate.common.ApiResponse;
 import com.homefinmate.common.TraceIds;
 import com.homefinmate.dto.report.ReportResponse;
 import com.homefinmate.service.ReportService;
+import com.homefinmate.security.AuthUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,8 +21,8 @@ public class ReportController {
     // 내 요약 리포트
     @GetMapping("/summary")
     public ResponseEntity<ApiResponse<ReportResponse>> getSummary(
-            @AuthenticationPrincipal String email) {
-        ReportResponse response = reportService.generateSummary(email, TraceIds.current());
+            @AuthenticationPrincipal AuthUser user) {
+        ReportResponse response = reportService.generateSummary(user.id(), TraceIds.current());
         return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 }

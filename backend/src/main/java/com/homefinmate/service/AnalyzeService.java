@@ -1,6 +1,5 @@
 package com.homefinmate.service;
 
-import com.homefinmate.common.BusinessException;
 import com.homefinmate.dto.analyze.AnalyzeRequest;
 import com.homefinmate.dto.analyze.AnalyzeResponse;
 import com.homefinmate.dto.analysis.RegionAnalysisResponse;
@@ -11,10 +10,8 @@ import com.homefinmate.dto.policy.PolicyRecommendationResponse;
 import com.homefinmate.dto.risk.RiskEvaluationRequest;
 import com.homefinmate.dto.risk.RiskEvaluationResponse;
 import com.homefinmate.integration.RiskWatchClient;
-import com.homefinmate.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 // 통합 분석: 대출 계산 => 정책 추천 => 위험 평가 => 지역 분석 => 결과 저장 (같은 traceId, 저장만 트랜잭션)
@@ -27,14 +24,11 @@ public class AnalyzeService {
         private final PolicyService policyService;
         private final RiskWatchClient riskWatchClient;
         private final AnalysisService analysisService;
-        private final UserRepository userRepository;
         private final AnalyzeResultSaver analyzeResultSaver;
 
-        public AnalyzeResponse analyze(AnalyzeRequest request, String email) {
+        // userId: 로그인 필터가 확인한 사용자 id (위험 평가 요청과 저장에 사용, #14)
+        public AnalyzeResponse analyze(AnalyzeRequest request, Long userId) {
                 String traceId = request.getTraceId();
-                // 토큰 이메일 => 사용자 id (위험 평가 요청과 저장에 사용, 못 찾으면 401)
-                Long userId = userRepository.findByEmail(email).map(u -> u.getId())
-                                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "User not found"));
 
                 // 개인정보 없이 시작 기록 (사용자 id, 지역)
                 log.info("[{}] Starting unified analysis for userId={} region={}", traceId, userId,
