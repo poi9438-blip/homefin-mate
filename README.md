@@ -87,9 +87,10 @@ cp .env.example .env
 | `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD` | MySQL 비밀번호                                                                                        |
 | `ENCRYPTION_KEY`                        | 암호화 키 (UTF-8 정확히 32바이트, 아니면 서버가 시작되지 않음. 바꾸면 기존 암호문을 복호화할 수 없음) |
 | `JWT_SECRET`                            | 토큰 서명 키 (32바이트 이상)                                                                          |
-| `JWT_EXPIRATION_MS`                     | 토큰 유효 기간 (선택, 기본 24시간)                                                                    |
+| `JWT_EXPIRATION_MS`                     | 토큰·로그인 쿠키 유효 기간 (선택, 기본 24시간)                                                        |
 | `RISKWATCH_BASE_URL`                    | RiskWatch 주소 (선택, 없으면 fallback)                                                                |
 | `ADMIN_EMAILS`                          | 관리자 이메일 (선택, 쉼표로 여러 개). 가입하면 ADMIN, 이미 가입했으면 서버 시작 시 ADMIN              |
+| `COOKIE_SECURE`                         | 로그인 쿠키 Secure 속성 (선택. 로컬 http compose는 기본 false, HTTPS로 운영하면 true)                 |
 
 ### 1. Docker Compose로 전체 실행
 
@@ -200,20 +201,20 @@ docker compose -f docker-compose.yml -f observability/docker-compose.observabili
 
 ## API
 
-| 메서드 | 주소                                                                           | 인증   | 설명                                              |
-| ------ | ------------------------------------------------------------------------------ | ------ | ------------------------------------------------- |
-| POST   | `/api/auth/signup`                                                             | -      | 회원가입                                          |
-| POST   | `/api/auth/login`                                                              | -      | 로그인, JWT 발급 (실패 기록·성공 감사 기록)       |
-| GET    | `/api/auth/me`                                                                 | 로그인 | 현재 사용자 이메일·역할 (DB 기준)                 |
-| POST   | `/api/auth/logout`                                                             | -      | 로그아웃 (서버 동작 없음, 토큰은 프론트에서 삭제) |
-| POST   | `/api/loan/calculate`                                                          | 로그인 | 대출 계산 + 저장                                  |
-| GET    | `/api/loan/history`                                                            | 로그인 | 내 계산 이력                                      |
-| POST   | `/api/loan/dti`                                                                | -      | DTI 단독 계산 (저장 안 함)                        |
-| POST   | `/api/policy/recommend`                                                        | 로그인 | 정책대출 판정·추천 (조건별 판정, 기본금리 비교)   |
-| GET    | `/api/analysis/region`                                                         | -      | 지역 분석 (Python 서비스 호출)                    |
-| POST   | `/api/analyze`                                                                 | 로그인 | 통합 분석 (대출 → 정책 → 위험 → 지역)             |
-| GET    | `/api/report/summary`                                                          | 로그인 | 내 계산 요약 리포트                               |
-| GET    | `/api/admin/{audit-logs, login-failures, user-activity, integration-failures}` | ADMIN  | 관리자 기록 조회 (각 최근 100건)                  |
+| 메서드 | 주소                                                                           | 인증   | 설명                                                                              |
+| ------ | ------------------------------------------------------------------------------ | ------ | --------------------------------------------------------------------------------- |
+| POST   | `/api/auth/signup`                                                             | -      | 회원가입                                                                          |
+| POST   | `/api/auth/login`                                                              | -      | 로그인 (토큰은 HttpOnly 쿠키로만, 실패 기록·성공 감사 기록, 15분 5번 실패 시 429) |
+| GET    | `/api/auth/me`                                                                 | 로그인 | 현재 사용자 이메일·역할 (DB 기준)                                                 |
+| POST   | `/api/auth/logout`                                                             | -      | 로그아웃 (로그인 쿠키 삭제)                                                       |
+| POST   | `/api/loan/calculate`                                                          | 로그인 | 대출 계산 + 저장                                                                  |
+| GET    | `/api/loan/history`                                                            | 로그인 | 내 계산 이력                                                                      |
+| POST   | `/api/loan/dti`                                                                | -      | DTI 단독 계산 (저장 안 함)                                                        |
+| POST   | `/api/policy/recommend`                                                        | 로그인 | 정책대출 판정·추천 (조건별 판정, 기본금리 비교)                                   |
+| GET    | `/api/analysis/region`                                                         | -      | 지역 분석 (Python 서비스 호출)                                                    |
+| POST   | `/api/analyze`                                                                 | 로그인 | 통합 분석 (대출 → 정책 → 위험 → 지역)                                             |
+| GET    | `/api/report/summary`                                                          | 로그인 | 내 계산 요약 리포트                                                               |
+| GET    | `/api/admin/{audit-logs, login-failures, user-activity, integration-failures}` | ADMIN  | 관리자 기록 조회 (각 최근 100건)                                                  |
 
 응답은 모두 `{ "status": "SUCCESS" | "ERROR", "message", "data", "traceId" }` 형식입니다.
 
@@ -221,8 +222,9 @@ docker compose -f docker-compose.yml -f observability/docker-compose.observabili
 
 ## 보안 관련 구현
 
-- 비밀번호 BCrypt 해시, 월 소득 AES-256-GCM 암호화 저장
+- 비밀번호 BCrypt 해시, 계산 기록의 DTI는 AES-256-GCM 암호문, 로그인 실패 이메일은 HMAC
 - JWT(HS256) 인증, 세션 미사용(STATELESS), 401/403 JSON 응답
+- 토큰은 HttpOnly·SameSite=Strict 쿠키로만 전달(화면 자바스크립트가 읽을 수 없음), 쿠키 인증 요청은 XSRF 토큰(이중 제출)으로 CSRF 방어
 - 관리자 API는 주소 규칙(`hasRole("ADMIN")`)과 메서드 권한(`@PreAuthorize`) 두 겹으로 검사
 - 비밀값(DB 비밀번호, 암호화 키, JWT 키)은 기본값 없이 `.env`에서만 주입
 - 로그인 실패 시 이메일·비밀번호 중 무엇이 틀렸는지 알려주지 않음 (계정 존재 여부 노출 방지)
