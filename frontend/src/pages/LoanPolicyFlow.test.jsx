@@ -59,6 +59,7 @@ describe('대출 화면 → 정책 화면 연결', () => {
       loanAmount: '200000000', annualInterestRate: '4.5', termMonths: '360', monthlyIncome: '4000000',
       existingMonthlyInterest: '300000', region: '부산', propertyType: 'NONE',
       housePrice: '400000000', householdAnnualIncome: '48000000', firstHome: 'true', newlywed: 'false', childCount: '0',
+      newbornWithin2Years: 'true', dualIncome: 'false',
     }))
     analyzeApi.analyze.mockResolvedValue({ data: { data: {
       loan: { monthlyPayment: 1013370.62, totalInterest: 164813423.2, totalPayment: 364813423.2, dti: 0.3283, dtiStatus: 'ACCEPTABLE', dtiBasis: 'WITH_EXISTING_INTEREST' },
@@ -81,6 +82,7 @@ describe('대출 화면 → 정책 화면 연결', () => {
     expect(analyzeApi.analyze.mock.calls[0][0]).toMatchObject({
       existingMonthlyInterest: 300000,
       housePrice: 400000000, householdAnnualIncome: 48000000, firstHome: true, newlywed: false, childCount: 0,
+      newbornWithin2Years: true, dualIncome: false,
     })
     expect(container.textContent).toContain('내집마련 디딤돌대출')
 
@@ -88,7 +90,8 @@ describe('대출 화면 → 정책 화면 연결', () => {
     await act(async () => { detail.click() })
 
     const state = JSON.parse(container.querySelector('[data-testid="state"]').textContent)
-    expect(state.prefill).toMatchObject({ dti: '0.3283', housePrice: '400000000', firstHome: 'true', income: '4000000' })
+    expect(state.prefill).toMatchObject({ dti: '0.3283', housePrice: '400000000', firstHome: 'true', income: '4000000',
+      newbornWithin2Years: 'true', dualIncome: 'false', termMonths: '360' })
   })
 
   // 정책 화면은 넘어온 값으로 바로 판정을 요청함 (다시 입력하지 않음)
@@ -97,6 +100,7 @@ describe('대출 화면 → 정책 화면 연결', () => {
     const prefill = {
       income: '4000000', loanAmount: '200000000', dti: '0.3283', propertyType: 'NONE', region: '부산',
       housePrice: '400000000', householdAnnualIncome: '48000000', firstHome: 'true', newlywed: 'false', childCount: '0',
+      newbornWithin2Years: 'true', dualIncome: 'false', termMonths: '360',
     }
 
     await act(async () => {
@@ -112,6 +116,7 @@ describe('대출 화면 → 정책 화면 연결', () => {
     expect(policyApi.recommend.mock.calls[0][0]).toMatchObject({
       income: 4000000, loanAmount: 200000000, dti: 0.3283, housePrice: 400000000,
       householdAnnualIncome: 48000000, firstHome: true, newlywed: false, childCount: 0, region: '부산',
+      newbornWithin2Years: true, dualIncome: false, termMonths: 360,
     })
     expect(container.textContent).toContain('두 상품 모두 조건을 충족합니다.')
   })
@@ -133,5 +138,25 @@ describe('대출 화면 → 정책 화면 연결', () => {
     expect(container.textContent).toContain('생애최초 여부를 선택해주세요.')
     expect(container.textContent).toContain('자녀 수를 입력해주세요.')
     expect(container.querySelector('select[name="firstHome"] option[value=""]').textContent).toBe('선택')
+  })
+
+  // 신생아 특례 판정 입력(2년 내 출산·맞벌이)도 필수: 비우면 요청을 보내지 않고 안내
+  it('[TC-POL-308] 2년 내 출산·맞벌이 입력을 비우면 분석 요청을 보내지 않고 입력 안내를 보여 줌', async () => {
+    localStorage.setItem('hfm_draft_loan', JSON.stringify({
+      loanAmount: '200000000', annualInterestRate: '4.5', termMonths: '360', monthlyIncome: '4000000',
+      existingMonthlyInterest: '', region: '부산', propertyType: 'NONE',
+      housePrice: '400000000', householdAnnualIncome: '48000000', firstHome: 'true', newlywed: 'false', childCount: '0',
+      newbornWithin2Years: '', dualIncome: '',
+    }))
+
+    await act(async () => {
+      root.render(<MemoryRouter initialEntries={['/loan']}><LoanPage /></MemoryRouter>)
+    })
+    await act(async () => { container.querySelector('form').requestSubmit() })
+    await flush()
+
+    expect(analyzeApi.analyze).not.toHaveBeenCalled()
+    expect(container.textContent).toContain('2년 안 출산·입양 여부를 선택해주세요.')
+    expect(container.textContent).toContain('맞벌이 여부를 선택해주세요.')
   })
 })

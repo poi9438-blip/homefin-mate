@@ -154,7 +154,7 @@ class AnalyzeServiceTest {
 
     // 대출 화면에서 받은 정책대출 판정용 입력이 정책 판정 요청에 그대로 전달되는지
     @Test
-    @DisplayName("[TC-ANLZ-005] 주택 가격·부부합산 연소득·생애최초·신혼·자녀 수를 정책 판정에 전달")
+    @DisplayName("[TC-ANLZ-005] 주택 가격·부부합산 연소득·생애최초·신혼·자녀 수·2년 내 출산·맞벌이·대출 기간을 정책 판정에 전달")
     void analyze_passesPolicyInputs() {
         AnalyzeRequest req = request("부산");
         req.setHousePrice(new BigDecimal("400000000"));
@@ -162,6 +162,8 @@ class AnalyzeServiceTest {
         req.setFirstHome(true);
         req.setNewlywed(false);
         req.setChildCount(1);
+        req.setNewbornWithin2Years(true);
+        req.setDualIncome(false);
 
         analyzeService.analyze(req, "user@test.com");
 
@@ -173,6 +175,10 @@ class AnalyzeServiceTest {
         assertThat(policyReq.getValue().getFirstHome()).isTrue();
         assertThat(policyReq.getValue().getNewlywed()).isFalse();
         assertThat(policyReq.getValue().getChildCount()).isEqualTo(1);
+        // 신생아 특례 판정 입력과 금리 비교용 대출 기간도 그대로 전달
+        assertThat(policyReq.getValue().getNewbornWithin2Years()).isTrue();
+        assertThat(policyReq.getValue().getDualIncome()).isFalse();
+        assertThat(policyReq.getValue().getTermMonths()).isEqualTo(360);
     }
 
     // 토큰의 사용자가 DB에 없으면 외부 호출 없이 401

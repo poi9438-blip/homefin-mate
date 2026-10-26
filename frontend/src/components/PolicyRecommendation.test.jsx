@@ -38,4 +38,22 @@ describe('추천 카드 피드백', () => {
     expect(container.textContent).toContain('주택 가격 5억 원 이하 주택이면 충족')
     expect(container.querySelectorAll('li li')).toHaveLength(1)
   })
+
+  // 추천 상품의 입력 기준 기본금리와 기준 설명 표시
+  it('[TC-POL-307] 추천 상품의 입력 기준 기본금리(연 2.65%)와 기준(소득·만기·우대 전)을 보여 줌', async () => {
+    const policy = {
+      recommendedProduct: '신생아 특례 디딤돌대출',
+      recommendationReason: '조건을 충족한 3개 상품 중 ... 신생아 특례 디딤돌대출(연 2.65%)를 추천합니다.',
+      recommendedPolicies: [
+        { name: '신생아 특례 디딤돌대출', eligibility: 'ELIGIBLE', maxLoanAmount: 280000000,
+          interestRate: '연 1.80~4.50%', baseRate: 2.65, baseRateBasis: '부부합산 연소득 4,800만 원 · 30년 만기 · 우대 전',
+          conditions: [] },
+      ],
+    }
+
+    await act(async () => { root.render(<RecommendationCard policy={policy} />) })
+
+    expect(container.textContent).toContain('입력 기준 기본금리 연 2.65%')
+    expect(container.textContent).toContain('부부합산 연소득 4,800만 원 · 30년 만기 · 우대 전')
+  })
 })

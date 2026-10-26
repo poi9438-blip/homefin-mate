@@ -16,32 +16,33 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
-// 한국 주택구입 정책대출(디딤돌대출, 보금자리론) 자격 조건 판정
+// 한국 주택구입 정책대출(디딤돌대출, 신생아 특례 디딤돌대출, 보금자리론) 자격 조건 판정과 추천
 @Service
 @RequiredArgsConstructor
 public class PolicyService {
 
-    // ── 공식 출처 (확인일 2026-10-16) ─────────────────────────────────────────
-    private static final String CHECKED_DATE = "2026-10-16";
+    // ── 공식 출처 (확인일 2026-10-26) ─────────────────────────────────────────
+    private static final String CHECKED_DATE = "2026-10-26";
     private static final String DIDIMDOL_URL = "https://nhuf.molit.go.kr/FP/FP05/FP0503/FP05030101.jsp";
+    private static final String NEWBORN_URL = "https://nhuf.molit.go.kr/FP/FP05/FP0503/FP05030801.jsp";
     private static final String BOGEUMJARI_URL = "https://www.hf.go.kr/ko/sub01/sub01_01_01.do";
 
     private static final String DIDIMDOL = "내집마련 디딤돌대출";
+    private static final String NEWBORN = "신생아 특례 디딤돌대출";
     private static final String BOGEUMJARI = "보금자리론";
     private static final BigDecimal DTI_LIMIT = new BigDecimal("0.60");
     private static final Set<String> CAPITAL_AREA = Set.of("서울", "인천", "경기");
 
     public PolicyRecommendationResponse recommend(PolicyRecommendationRequest request) {
-        List<PolicyProduct> products = new ArrayList<>(List.of(didimdol(request), bogeumjari(request)));
+        List<PolicyProduct> products = new ArrayList<>(
+                List.of(newborn(request), didimdol(request), bogeumjari(request)));
         // 충족 → 확인 필요 → 미충족 순 (enum 선언 순서)
         products.sort(Comparator.comparing(PolicyProduct::getEligibility));
 
         int eligible = (int) products.stream().filter(p -> p.getEligibility() == Eligibility.ELIGIBLE).count();
         int needsCheck = (int) products.stream().filter(p -> p.getEligibility() == Eligibility.NEEDS_CHECK).count();
 
-        PolicyProduct didimdol = find(products, DIDIMDOL);
-        PolicyProduct bogeumjari = find(products, BOGEUMJARI);
-        String[] recommendation = recommendation(didimdol, bogeumjari);
+        String[] recommendation = recommendation(products);
 
         return PolicyRecommendationResponse.builder()
                 .recommendedPolicies(products)
@@ -54,43 +55,112 @@ public class PolicyService {
                 .build();
     }
 
-    // 둘 중 추천: 조건을 모두 충족한 상품만 추천 (확인 필요는 추천하지 않음)
-    // 둘 다 충족이면 공식 금리 범위가 겹치지 않고 더 낮은 디딤돌대출. 반환값 {상품 이름 또는 null, 이유}
-    private String[] recommendation(PolicyProduct didimdol, PolicyProduct bogeumjari) {
-        boolean didimdolOk = didimdol.getEligibility() == Eligibility.ELIGIBLE;
-        boolean bogeumjariOk = bogeumjari.getEligibility() == Eligibility.ELIGIBLE;
+    // 추천: 조건을 모두 충족한 상품 중 공식 기본금리가 가장 낮은 상품. 반환값 {상품 이름 또는 null, 이유}
+    private String[] recommendation(List<PolicyProduct> products) {
+        List<PolicyProduct> eligible = products.stream().filter(p -> p.getEligibility() == Eligibility.ELIGIBLE)
+                .toList();
+        if (eligible.isEmpty()) {
+            if (products.stream().anyMatch(p -> p.getEligibility() == Eligibility.NEEDS_CHECK)) {
+                return new String[] { null, "확인이 필요한 조건이 있어 추천하지 않았습니다. 입력을 보완하면 다시 판정합니다." };
+            }
+            return new String[] { null, "입력한 조건으로는 모든 상품을 이용하기 어렵습니다." };
+        }
 
-        if (didimdolOk && bogeumjariOk) {
-            return new String[] { DIDIMDOL, "두 상품 모두 조건을 충족합니다. 디딤돌대출의 공식 금리 범위(연 2.85~4.15%)가 "
-                    + "보금자리론(연 4.90~5.30%)보다 낮아 디딤돌대출을 추천합니다." };
+        PolicyProduct best = eligible.stream()
+                .min(Comparator.comparing(PolicyProduct::getBaseRate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElseThrow();
+        StringBuilder reason = new StringBuilder();
+        if (eligible.size() == 1) {
+            reason.append(best.getName()).append("의 조건을 모두 충족합니다.");
+        } else {
+            reason.append(String.format("조건을 충족한 %d개 상품 중 %s 기준 공식 기본금리가 가장 낮은 %s(%s)%s 추천합니다 (",
+                    eligible.size(), best.getBaseRateBasis(), best.getName(), rate(best),
+                    particle(best.getName(), "을", "를")));
+            reason.append(String.join(", ", eligible.stream().filter(p -> p != best)
+                    .map(p -> p.getName() + " " + rate(p)).toList())).append(").");
         }
-        if (didimdolOk) {
-            return new String[] { DIDIMDOL, "디딤돌대출의 조건을 모두 충족합니다." };
+        for (PolicyProduct p : products) {
+            if (p.getEligibility() == Eligibility.NOT_ELIGIBLE) {
+                reason.append(" ").append(p.getName()).append(particle(p.getName(), "은", "는")).append(" ")
+                        .append(conditionNames(p, Result.NOT_MET)).append(" 조건이 맞지 않습니다.");
+            } else if (p.getEligibility() == Eligibility.NEEDS_CHECK && (p.getBaseRate() == null
+                    || best.getBaseRate() == null || p.getBaseRate().compareTo(best.getBaseRate()) < 0)) {
+                reason.append(" ").append(p.getName()).append(particle(p.getName(), "은", "는")).append(" ")
+                        .append(conditionNames(p, Result.UNKNOWN))
+                        .append(" 확인이 필요해 추천하지 않았습니다. 확인되면 더 낮은 금리로 이용할 수도 있습니다.");
+            }
         }
-        if (bogeumjariOk) {
-            String reason = didimdol.getEligibility() == Eligibility.NOT_ELIGIBLE
-                    ? "디딤돌대출은 " + conditionNames(didimdol, Result.NOT_MET) + " 조건이 맞지 않아, "
-                    : "디딤돌대출은 " + conditionNames(didimdol, Result.UNKNOWN) + " 확인이 필요해 추천하지 않았고, ";
-            String hint = didimdol.getEligibility() == Eligibility.NEEDS_CHECK
-                    ? " 디딤돌대출 조건이 확인되면 더 낮은 금리로 이용할 수도 있습니다."
-                    : "";
-            return new String[] { BOGEUMJARI, reason + "조건을 모두 충족한 보금자리론을 추천합니다." + hint };
-        }
-        if (didimdol.getEligibility() == Eligibility.NEEDS_CHECK
-                || bogeumjari.getEligibility() == Eligibility.NEEDS_CHECK) {
-            return new String[] { null, "확인이 필요한 조건이 있어 추천하지 않았습니다. 입력을 보완하면 다시 판정합니다." };
-        }
-        return new String[] { null, "입력한 조건으로는 두 상품 모두 이용하기 어렵습니다." };
+        return new String[] { best.getName(), reason.toString() };
     }
 
-    private PolicyProduct find(List<PolicyProduct> products, String name) {
-        return products.stream().filter(p -> p.getName().equals(name)).findFirst().orElseThrow();
+    // 이름 끝 글자 받침에 맞는 조사 (받침 있으면 withFinal, 없으면 withoutFinal)
+    private String particle(String name, String withFinal, String withoutFinal) {
+        char last = name.charAt(name.length() - 1);
+        boolean hangul = last >= 0xAC00 && last <= 0xD7A3;
+        return hangul && (last - 0xAC00) % 28 == 0 ? withoutFinal : withFinal;
+    }
+
+    // "연 3.80%" (기본금리를 모르면 "기본금리 모름")
+    private String rate(PolicyProduct p) {
+        return p.getBaseRate() == null ? "기본금리 모름" : "연 " + p.getBaseRate().setScale(2, RoundingMode.UNNECESSARY) + "%";
     }
 
     // 특정 결과인 조건 이름을 "주택 가격, 대출 금액" 형태로
     private String conditionNames(PolicyProduct product, Result result) {
         return String.join("·", product.getConditions().stream()
                 .filter(c -> c.getResult() == result).map(PolicyCondition::getName).toList());
+    }
+
+    // ── 신생아 특례 디딤돌대출 (주택도시기금) ──────────────────────────────────
+    // 대상: 대출접수일 기준 2년 내 출산(입양, 2023-01-01 이후 출생), 세대원 전원 무주택
+    // 소득: 부부합산 연 1.3억 원 (맞벌이 2억 원, 부부 각자 1.3억 원 이하), 순자산 5.11억 원
+    // 주택: 평가액 9억 원, 전용 85㎡ / 한도 4억 원 (2025-06-27 이후 계약분), LTV 70%(생애최초 80%, 수도권
+    // 70%), DTI 60%
+    private PolicyProduct newborn(PolicyRecommendationRequest r) {
+        List<PolicyCondition> conditions = new ArrayList<>();
+
+        Boolean born = r.getNewbornWithin2Years();
+        conditions.add(born == null
+                ? new PolicyCondition("2년 내 출산·입양", Result.UNKNOWN, "출산·입양 여부를 입력하지 않았습니다",
+                        "대출 신청일 기준 2년 안에 출산·입양했는지 선택하면 판정할 수 있습니다")
+                : born ? new PolicyCondition("2년 내 출산·입양", Result.MET, "대출 신청일 기준 2년 안에 출산·입양한 가구")
+                        : new PolicyCondition("2년 내 출산·입양", Result.NOT_MET, "2년 안에 출산·입양한 가구만 이용할 수 있습니다"));
+        BigDecimal incomeLow = Boolean.TRUE.equals(r.getDualIncome()) ? won(200_000_000) : won(130_000_000);
+        BigDecimal incomeHigh = Boolean.FALSE.equals(r.getDualIncome()) ? won(130_000_000) : won(200_000_000);
+        PolicyCondition income = withHint(incomeCheck(r, incomeLow, incomeHigh), "부부합산 연소득", incomeHigh,
+                "이하가 기준입니다 (맞벌이면 2억 원)");
+        if (income.getResult() == Result.UNKNOWN && income.getDetail() != null
+                && income.getDetail().contains("기준이 가구 조건")) {
+            income.setDetail(income.getDetail().replace("기준이 가구 조건(생애최초·신혼·자녀 수)에 따라", "맞벌이 여부에 따라 기준이"));
+            income.setHint("맞벌이(부부 각자 1.3억 원 이하)면 부부합산 2억 원까지 충족합니다");
+        }
+        conditions.add(income);
+        conditions.add(switch (r.getPropertyType() == null ? "" : r.getPropertyType().toUpperCase()) {
+            case "NONE", "RENT" -> new PolicyCondition("무주택", Result.MET, "세대원 전원이 무주택이어야 합니다");
+            case "OWN" -> new PolicyCondition("무주택", Result.NOT_MET, "주택 보유 시 구입자금은 이용할 수 없습니다",
+                    "1주택 세대주는 기존 대출을 갈아타는 대환만 가능합니다");
+            default -> new PolicyCondition("무주택", Result.UNKNOWN, "주택 보유 여부를 입력하지 않았습니다",
+                    "주택 보유 여부를 선택하면 판정할 수 있습니다");
+        });
+        conditions.add(withHint(rangeCheck("주택 가격", r.getHousePrice(), won(900_000_000), won(900_000_000),
+                "주택 가격을 입력하지 않았습니다"), "주택 가격", won(900_000_000), "이하 주택이면 충족"));
+
+        BigDecimal low = maxLoan(won(400_000_000), r.getHousePrice(), didimdolLtv(r, false));
+        BigDecimal high = maxLoan(won(400_000_000), r.getHousePrice(), didimdolLtv(r, true));
+        conditions.add(withHint(rangeCheck("대출 금액", r.getLoanAmount(), low, high, "대출 금액을 입력하지 않았습니다"),
+                "대출 금액", high, "이하로 줄이면 충족 (상품 한도 4억 원과 주택 가격 × LTV 중 작은 값)"));
+        conditions.add(dtiCheck(r));
+
+        return product(NEWBORN, "주택도시기금",
+                "2년 안에 출산·입양한 가구에 낮은 특례금리로 주택 구입 자금을 지원하는 정부 대출입니다.",
+                conditions,
+                checks(r, "2023년 1월 1일 이후 출생아 (임신 중 태아는 제외)",
+                        "맞벌이면 부부 각자 연소득 1.3억 원 이하",
+                        "전용면적 85㎡ 이하 (수도권 외 읍·면 100㎡ 이하)",
+                        "순자산 5.11억 원 이하 (2026년 기준)",
+                        "특례금리는 기본 5년 (2년 안 추가 출산 시 1명당 5년 연장, 최장 15년)"),
+                low, "연 1.80~4.50% (소득·기간별 특례금리, 지방 주택 0.2%p 인하, 우대 최대 0.5%p)", NEWBORN_URL,
+                PolicyRates.newborn(annualIncome(r), r.getTermMonths()), fundBasis(r));
     }
 
     // ── 내집마련 디딤돌대출 (주택도시기금) ─────────────────────────────────────
@@ -126,7 +196,8 @@ public class PolicyService {
                 checks(r, "전용면적 85㎡ 이하 (수도권 외 읍·면 100㎡ 이하)",
                         "순자산 5.11억 원 이하 (2026년 기준)",
                         "성년 세대주, 신용 기준, 다른 주택담보대출 미이용"),
-                low, "연 2.85~4.15% (소득·기간별, 우대금리 별도)", DIDIMDOL_URL);
+                low, "연 2.85~4.15% (소득·기간별, 우대금리 별도)", DIDIMDOL_URL,
+                PolicyRates.didimdol(annualIncome(r), r.getTermMonths()), fundBasis(r));
     }
 
     private BigDecimal didimdolIncomeLimit(PolicyRecommendationRequest r, boolean optimistic) {
@@ -188,7 +259,9 @@ public class PolicyService {
                 checks(r, "아파트가 아니면 LTV 65%",
                         "규제지역이면 LTV·DTI 10%p 차감 (생애최초·실수요자 예외)",
                         "신용점수 271점 이상"),
-                low, "연 4.90~5.30% 고정 (2026년 10월 공시, 우대금리 최대 1.0%p)", BOGEUMJARI_URL);
+                low, "연 4.90~5.30% 고정 (2026년 10월 공시, 우대금리 최대 1.0%p)", BOGEUMJARI_URL,
+                PolicyRates.bogeumjari(r.getTermMonths()),
+                termText(r.getTermMonths(), PolicyRates.bogeumjariTerm(r.getTermMonths())) + " · t-보금자리론 · 우대 전");
     }
 
     // 다자녀 = 자녀 2명 이상으로 처리
@@ -298,7 +371,8 @@ public class PolicyService {
     }
 
     private PolicyProduct product(String name, String provider, String description, List<PolicyCondition> conditions,
-            List<String> additionalChecks, BigDecimal maxLoan, String rate, String url) {
+            List<String> additionalChecks, BigDecimal maxLoan, String rate, String url, BigDecimal baseRate,
+            String baseRateBasis) {
         Eligibility eligibility = conditions.stream().anyMatch(c -> c.getResult() == Result.NOT_MET)
                 ? Eligibility.NOT_ELIGIBLE
                 : conditions.stream().anyMatch(c -> c.getResult() == Result.UNKNOWN)
@@ -309,7 +383,31 @@ public class PolicyService {
                 .eligibility(eligibility).conditions(conditions).additionalChecks(additionalChecks)
                 .maxLoanAmount(maxLoan).interestRate(rate)
                 .sourceUrl(url).checkedDate(CHECKED_DATE)
+                .baseRate(baseRate).baseRateBasis(baseRate == null ? null : baseRateBasis)
                 .build();
+    }
+
+    // 금리표 소득 구간에 쓸 연소득 (부부합산 연소득, 없으면 월 소득 × 12, 둘 다 없으면 null)
+    private BigDecimal annualIncome(PolicyRecommendationRequest r) {
+        if (r.getHouseholdAnnualIncome() != null)
+            return r.getHouseholdAnnualIncome();
+        return r.getIncome() == null ? null : r.getIncome().multiply(BigDecimal.valueOf(12));
+    }
+
+    // 기금 대출 기본금리 기준 설명 ("부부합산 연소득 4,800만 원 · 30년 만기 · 우대 전")
+    private String fundBasis(PolicyRecommendationRequest r) {
+        BigDecimal income = annualIncome(r);
+        String who = r.getHouseholdAnnualIncome() != null ? "부부합산 연소득 " : "연소득(월 소득 × 12) ";
+        return (income == null ? "" : who + format(income) + " · ")
+                + termText(r.getTermMonths(), PolicyRates.fundTerm(r.getTermMonths())) + " · 우대 전";
+    }
+
+    // "30년 만기" / "대출 기간 모름 → 30년 만기" / "25년 → 30년 만기 금리"
+    private String termText(Integer termMonths, int bucket) {
+        if (termMonths == null)
+            return "대출 기간 모름 → " + bucket + "년 만기";
+        int years = (termMonths + 11) / 12;
+        return years == bucket ? bucket + "년 만기" : years + "년 → " + bucket + "년 만기 금리";
     }
 
     private boolean flag(Boolean value, boolean optimistic) {
