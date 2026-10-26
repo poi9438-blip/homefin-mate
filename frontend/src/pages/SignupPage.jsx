@@ -5,21 +5,19 @@ import { errorMessage } from '../utils/errorMessage'
 
 // 회원가입 화면
 
-// 입력값 검증 (이메일 형식, 비밀번호 8자 이상, 소득 0 이상)
+// 입력값 검증 (이메일 형식, 비밀번호 8자 이상)
 function validate(form) {
   const errors = {}
   if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
     errors.email = '올바른 이메일 주소를 입력해주세요.'
   if (!form.password || form.password.length < 8)
     errors.password = '비밀번호는 8자 이상이어야 합니다.'
-  if (form.income && Number(form.income) < 0)
-    errors.income = '소득은 0 이상이어야 합니다.'
   return errors
 }
 
 export default function SignupPage() {
   const navigate = useNavigate()
-  const [form, setForm]               = useState({ email: '', password: '', income: '' })
+  const [form, setForm]               = useState({ email: '', password: '' })
   const [fieldErrors, setFieldErrors] = useState({})
   const [error, setError]             = useState('')
   const [loading, setLoading]         = useState(false)
@@ -78,15 +76,6 @@ export default function SignupPage() {
               className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${fieldErrors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
               placeholder="최소 8자 이상" />
             {fieldErrors.password && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.password}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              월 소득 <span className="text-gray-400 text-xs">(선택)</span>
-            </label>
-            <input type="number" name="income" value={form.income} onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${fieldErrors.income ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
-              placeholder="예: 3000000" />
-            {fieldErrors.income && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.income}</p>}
           </div>
           <button type="submit" disabled={loading}
             className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-60">
