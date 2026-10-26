@@ -22,11 +22,11 @@ export default function Header() {
   }
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-xs">
-      <div className="flex items-center gap-2">
-        <span className="text-xl font-bold text-primary-600 dark:text-primary-400">HomeFin Mate</span>
+    <header className="flex items-center justify-between gap-2 px-4 md:px-6 py-3 md:py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-xs">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-lg md:text-xl font-bold text-primary-600 dark:text-primary-400 whitespace-nowrap">HomeFin Mate</span>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4 shrink-0">
         {/* 큰 글씨, 테마 전환 버튼 */}
         <LargeTextToggle />
         <ThemeToggle />

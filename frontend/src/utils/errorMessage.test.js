@@ -30,4 +30,29 @@ describe("화면 오류 문구", () => {
       errorMessage({ response: { status: 400, data: {} } }, fallback),
     ).toBe(fallback);
   });
+
+  // 로그인 실패·시도 제한·중복 가입·401·403은 한국어, 그 밖의 4xx는 서버 메시지
+  it("[TC-WEB-222] 로그인 실패·시도 제한·중복 가입 메시지와 401·403은 한국어로, 모르는 4xx 메시지는 그대로", () => {
+    const err = (status, message) => ({
+      response: { status, data: { message } },
+    });
+    expect(errorMessage(err(401, "Invalid credentials"), "x")).toBe(
+      "이메일 또는 비밀번호가 올바르지 않습니다.",
+    );
+    expect(
+      errorMessage(err(429, "Too many login attempts. Try again later"), "x"),
+    ).toContain("15분 뒤");
+    expect(errorMessage(err(400, "Email already registered"), "x")).toBe(
+      "이미 가입된 이메일입니다.",
+    );
+    expect(errorMessage(err(403, "Access denied"), "x")).toBe(
+      "이 기능을 사용할 권한이 없습니다.",
+    );
+    expect(errorMessage(err(401, "Unauthorized"), "x")).toBe(
+      "로그인이 필요합니다.",
+    );
+    expect(errorMessage(err(400, "email: Email must be valid"), "x")).toBe(
+      "email: Email must be valid",
+    );
+  });
 });

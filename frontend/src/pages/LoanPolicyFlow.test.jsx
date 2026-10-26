@@ -159,4 +159,52 @@ describe('대출 화면 → 정책 화면 연결', () => {
     expect(container.textContent).toContain('2년 안 출산·입양 여부를 선택해주세요.')
     expect(container.textContent).toContain('맞벌이 여부를 선택해주세요.')
   })
+
+  // 리스크 평가 불가는 화면의 한국어 안내 (서버 영어 문구 없음)
+  it('[TC-WEB-224] 리스크 평가 불가(available=false)면 서버의 영어 문구 대신 한국어 안내를 보여 줌', async () => {
+    localStorage.setItem('hfm_draft_loan', JSON.stringify({
+      loanAmount: '200000000', annualInterestRate: '4.5', termMonths: '360', monthlyIncome: '4000000',
+      existingMonthlyInterest: '', region: '부산', propertyType: 'NONE',
+      housePrice: '400000000', householdAnnualIncome: '48000000', firstHome: 'true', newlywed: 'false', childCount: '0',
+      newbornWithin2Years: 'false', dualIncome: 'false',
+    }))
+    analyzeApi.analyze.mockResolvedValue({ data: { data: {
+      loan: { monthlyPayment: 1013371, totalInterest: 164813560, totalPayment: 364813560, dti: 0.2534, dtiStatus: 'ACCEPTABLE' },
+      policy: POLICY_RESULT, risk: { available: false, recommendation: 'Risk evaluation service temporarily unavailable.' },
+      region: null,
+    } } })
+
+    await act(async () => {
+      root.render(<MemoryRouter initialEntries={['/loan']}><LoanPage /></MemoryRouter>)
+    })
+    await act(async () => { container.querySelector('form').requestSubmit() })
+    await flush()
+
+    expect(container.textContent).toContain('RiskWatch 서비스가 일시적으로 이용 불가합니다.')
+    expect(container.textContent).not.toContain('temporarily unavailable')
+  })
+  
+  // 대출 화면에서 넘어온 DTI로 채운 정책 입력은 브라우저 입력 검사를 통과
+  it('[TC-WEB-225] 대출 화면에서 넘어온 소수 넷째 자리 DTI(0.3041)로 채운 정책 입력은 브라우저 입력 검사(step)를 통과', async () => {
+    policyApi.recommend.mockResolvedValue({ data: { data: POLICY_RESULT } })
+    const prefill = {
+      income: '5000000', loanAmount: '300000000', dti: '0.3041', propertyType: 'NONE', region: '부산',
+      housePrice: '500000000', householdAnnualIncome: '60000000', firstHome: 'true', newlywed: 'false', childCount: '1',
+      newbornWithin2Years: 'true', dualIncome: 'false', termMonths: '360',
+    }
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={[{ pathname: '/policy', state: { prefill } }]}>
+          <Routes><Route path="/policy" element={<PolicyPage />} /></Routes>
+        </MemoryRouter>,
+      )
+    })
+    await flush()
+
+    const dti = container.querySelector('input[name="dti"]')
+    expect(dti.value).toBe('0.3041')
+    expect(dti.validity.stepMismatch).toBe(false)
+    expect(container.querySelector('form').checkValidity()).toBe(true)
+  })
 })

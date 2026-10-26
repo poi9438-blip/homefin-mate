@@ -24,13 +24,14 @@ export default function Sidebar() {
   }, [])
 
   return (
-    <aside className="w-56 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col py-6 px-3 gap-1">
+    // 작은 화면: 헤더 아래 가로 스크롤 메뉴 / md 이상: 왼쪽 세로 메뉴
+    <aside className="shrink-0 flex md:flex-col md:w-56 gap-1 px-3 py-2 md:py-6 overflow-x-auto bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700">
       {navItems.filter(item => !item.adminOnly || isAdmin).map(({ to, label }) => (
         <NavLink
           key={to}
           to={to}
           className={({ isActive }) =>
-            `rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            `whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               isActive
                 ? 'bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-300'
                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
