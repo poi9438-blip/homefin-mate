@@ -52,6 +52,8 @@ services:
       # 화면 주소 (CORS 허용 출처), API 문서 공개 여부 (기본 꺼짐)
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3100}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      # 관리자로 지정할 이메일 (쉼표로 여러 개, 기본은 관리자 없음)
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       # 기록 보관 기간 (일)
       RETENTION_LOGIN_FAILURE_DAYS: ${RETENTION_LOGIN_FAILURE_DAYS:-90}
       RETENTION_AUDIT_DAYS: ${RETENTION_AUDIT_DAYS:-365}

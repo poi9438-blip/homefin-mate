@@ -82,13 +82,14 @@ cp .env.example .env
 
 `.env`의 비밀값을 직접 정한 값으로 채웁니다. **비밀값에는 기본값이 없어서, 비어 있으면 서버와 compose가 시작되지 않습니다.**
 
-| 변수                                    | 설명                                                         |
-| --------------------------------------- | ------------------------------------------------------------ |
-| `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD` | MySQL 비밀번호                                               |
-| `ENCRYPTION_KEY`                        | 소득 암호화 키 (32자, 바꾸면 기존 암호문을 복호화할 수 없음) |
-| `JWT_SECRET`                            | 토큰 서명 키 (32바이트 이상)                                 |
-| `JWT_EXPIRATION_MS`                     | 토큰 유효 기간 (선택, 기본 24시간)                           |
-| `RISKWATCH_BASE_URL`                    | RiskWatch 주소 (선택, 없으면 fallback)                       |
+| 변수                                    | 설명                                                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD` | MySQL 비밀번호                                                                                        |
+| `ENCRYPTION_KEY`                        | 암호화 키 (UTF-8 정확히 32바이트, 아니면 서버가 시작되지 않음. 바꾸면 기존 암호문을 복호화할 수 없음) |
+| `JWT_SECRET`                            | 토큰 서명 키 (32바이트 이상)                                                                          |
+| `JWT_EXPIRATION_MS`                     | 토큰 유효 기간 (선택, 기본 24시간)                                                                    |
+| `RISKWATCH_BASE_URL`                    | RiskWatch 주소 (선택, 없으면 fallback)                                                                |
+| `ADMIN_EMAILS`                          | 관리자 이메일 (선택, 쉼표로 여러 개). 가입하면 ADMIN, 이미 가입했으면 서버 시작 시 ADMIN              |
 
 ### 1. Docker Compose로 전체 실행
 
@@ -201,13 +202,14 @@ docker compose -f docker-compose.yml -f observability/docker-compose.observabili
 
 | 메서드 | 주소                                                                           | 인증   | 설명                                              |
 | ------ | ------------------------------------------------------------------------------ | ------ | ------------------------------------------------- |
-| POST   | `/api/auth/signup`                                                             | -      | 회원가입 (소득 암호화 저장)                       |
+| POST   | `/api/auth/signup`                                                             | -      | 회원가입                                          |
 | POST   | `/api/auth/login`                                                              | -      | 로그인, JWT 발급 (실패 기록·성공 감사 기록)       |
+| GET    | `/api/auth/me`                                                                 | 로그인 | 현재 사용자 이메일·역할 (DB 기준)                 |
 | POST   | `/api/auth/logout`                                                             | -      | 로그아웃 (서버 동작 없음, 토큰은 프론트에서 삭제) |
 | POST   | `/api/loan/calculate`                                                          | 로그인 | 대출 계산 + 저장                                  |
 | GET    | `/api/loan/history`                                                            | 로그인 | 내 계산 이력                                      |
 | POST   | `/api/loan/dti`                                                                | -      | DTI 단독 계산 (저장 안 함)                        |
-| POST   | `/api/policy/recommend`                                                        | -      | 정책대출 판정·추천 (조건별 판정, 기본금리 비교)   |
+| POST   | `/api/policy/recommend`                                                        | 로그인 | 정책대출 판정·추천 (조건별 판정, 기본금리 비교)   |
 | GET    | `/api/analysis/region`                                                         | -      | 지역 분석 (Python 서비스 호출)                    |
 | POST   | `/api/analyze`                                                                 | 로그인 | 통합 분석 (대출 → 정책 → 위험 → 지역)             |
 | GET    | `/api/report/summary`                                                          | 로그인 | 내 계산 요약 리포트                               |
