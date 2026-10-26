@@ -33,7 +33,7 @@
 | Backend  | Java 17, Spring Boot 3.2, Spring Data JPA, Spring Security, JWT(jjwt 0.12), Resilience4j         |
 | Frontend | React 18, Vite 8, Tailwind CSS 4, React Router 7, axios, Chart.js (Node 22.12 이상)              |
 | Python   | FastAPI, Pydantic, Uvicorn                                                                       |
-| Database | MySQL 8 (테스트는 H2 메모리 DB)                                                                  |
+| Database | MySQL 8 (테스트는 H2 메모리 DB + Testcontainers MySQL 8.0)                                       |
 | Test     | JUnit 5, Mockito, AssertJ, MockRestServiceServer, JaCoCo, pytest, Vitest                         |
 | CI/CD    | GitHub Actions: PR·main마다 테스트, main CI 성공 시 Docker 이미지 → GHCR (서버 배포는 아직 없음) |
 | Infra    | Docker, Docker Compose, nginx                                                                    |
@@ -153,7 +153,7 @@ npm run dev
 외부 서버 없이 실행됩니다. 각각 저장소 루트 기준입니다. 기준과 절차는 [테스트 기준](docs/TESTING.md)에 있습니다.
 
 ```bash
-# 백엔드 (H2 메모리 DB 사용, MySQL·RiskWatch·Python 서비스 불필요). 커버리지: backend/target/site/jacoco/index.html
+# 백엔드 (대부분 H2 메모리 DB, MySqlSchemaTest만 Docker로 MySQL 컨테이너 사용 — Docker가 꺼져 있으면 건너뜀). 커버리지: backend/target/site/jacoco/index.html
 cd backend
 ./mvnw test
 ```

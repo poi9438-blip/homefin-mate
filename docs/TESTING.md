@@ -18,14 +18,15 @@ HomeFin Mate의 모든 모듈에 공통으로 적용하는 테스트 기준입�
 
 ## 2. 테스트 종류
 
-| 종류       | 도구                                             | 범위                                       | 예                                               |
-| ---------- | ------------------------------------------------ | ------------------------------------------ | ------------------------------------------------ |
-| 단위       | JUnit 5 + Mockito                                | 클래스 하나. 의존성은 Mock                 | `LoanServiceTest`, `JwtUtilTest`                 |
-| 저장소     | `@DataJpaTest` + H2                              | Repository, DB 제약                        | `UserRepositoryTest`, `RiskWatchClientAuditTest` |
-| 외부 연동  | MockRestServiceServer                            | HTTP 클라이언트의 재시도·타임아웃·fallback | `RiskWatchClientTest`                            |
-| HTTP 통합  | `@SpringBootTest` + `@AutoConfigureMockMvc` + H2 | 보안 필터 → 컨트롤러 → 서비스 → DB 전체    | `SecurityAccessTest`, `AnalyzeIntegrationTest`   |
-| Python API | pytest + FastAPI TestClient                      | 지역 분석 API                              | `tests/test_analysis.py`                         |
-| 프론트     | Vitest + jsdom                                   | 토큰 저장, axios 인터셉터                  | `src/**/*.test.js`                               |
+| 종류       | 도구                                             | 범위                                                     | 예                                               |
+| ---------- | ------------------------------------------------ | -------------------------------------------------------- | ------------------------------------------------ |
+| 단위       | JUnit 5 + Mockito                                | 클래스 하나. 의존성은 Mock                               | `LoanServiceTest`, `JwtUtilTest`                 |
+| 저장소     | `@DataJpaTest` + H2                              | Repository, DB 제약                                      | `UserRepositoryTest`, `RiskWatchClientAuditTest` |
+| 외부 연동  | MockRestServiceServer                            | HTTP 클라이언트의 재시도·타임아웃·fallback               | `RiskWatchClientTest`                            |
+| HTTP 통합  | `@SpringBootTest` + `@AutoConfigureMockMvc` + H2 | 보안 필터 → 컨트롤러 → 서비스 → DB 전체                  | `SecurityAccessTest`, `AnalyzeIntegrationTest`   |
+| 실제 MySQL | `@SpringBootTest` + Testcontainers(`mysql:8.0`)  | Flyway V1~끝 + `validate`, InnoDB 외래키, MySQL 전용 SQL | `MySqlSchemaTest`                                |
+| Python API | pytest + FastAPI TestClient                      | 지역 분석 API                                            | `tests/test_analysis.py`                         |
+| 프론트     | Vitest + jsdom                                   | 토큰 저장, axios 인터셉터                                | `src/**/*.test.js`                               |
 
 - 인증·인가, 입력 검증, 오류 응답처럼 **필터나 컨트롤러를 거쳐야 의미가 있는 동작**은 HTTP 통합 테스트로 확인합니다. 서비스 단위 테스트만으로는 주소 규칙이 바뀌어도 알 수 없습니다.
 - 성능은 테스트가 아니라 별도 측정으로 다룹니다 ([performance.md](performance.md), k6).
@@ -57,12 +58,12 @@ HomeFin Mate의 모든 모듈에 공통으로 적용하는 테스트 기준입�
 
 ## 5. 외부 API와 DB
 
-| 의존성           | 테스트에서의 처리                                                                                       |
-| ---------------- | ------------------------------------------------------------------------------------------------------- |
-| MySQL            | H2 메모리 DB (`application-test.yml`). MySQL에서만 다른 동작(오류 메시지 문구 등)은 명세에 적습니다     |
-| RiskWatch        | 단위: MockRestServiceServer. 통합: 닫힌 포트 `127.0.0.1:9`로 보내 항상 연결 실패 → fallback             |
-| Python 지역 분석 | Python 쪽은 TestClient로 직접 테스트. 백엔드 통합 테스트에서는 닫힌 포트 → 분석 불가(`available=false`) |
-| 시간·난수        | 결과가 시간·난수에 따라 바뀌는 값은 직접 비교하지 않고 형식·관계만 확인 (예: IV는 "매번 다름"만 확인)   |
+| 의존성           | 테스트에서의 처리                                                                                                                                                                                                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MySQL            | 대부분 H2 메모리 DB (`application-test.yml`, 빠름). H2로 확인할 수 없는 것(엔티티 validate, InnoDB 외래키, MySQL 전용 SQL)은 `MySqlSchemaTest`가 Testcontainers로 운영과 같은 `mysql:8.0`을 띄워 확인합니다. **Docker가 필요하고**, 없으면 건너뛰며(skipped) `tc_status.py`는 통과로 세지 않습니다 |
+| RiskWatch        | 단위: MockRestServiceServer. 통합: 닫힌 포트 `127.0.0.1:9`로 보내 항상 연결 실패 → fallback                                                                                                                                                                                                        |
+| Python 지역 분석 | Python 쪽은 TestClient로 직접 테스트. 백엔드 통합 테스트에서는 닫힌 포트 → 분석 불가(`available=false`)                                                                                                                                                                                            |
+| 시간·난수        | 결과가 시간·난수에 따라 바뀌는 값은 직접 비교하지 않고 형식·관계만 확인 (예: IV는 "매번 다름"만 확인)                                                                                                                                                                                              |
 
 외부 주소를 닫힌 포트로 고정하는 이유는, PC에 Docker 서비스(8200, 8120)가 떠 있으면 결과가 달라지기 때문입니다. 테스트는 언제 어디서 돌려도 결과가 같아야 합니다.
 
