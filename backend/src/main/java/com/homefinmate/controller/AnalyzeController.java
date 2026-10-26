@@ -1,6 +1,7 @@
 package com.homefinmate.controller;
 
 import com.homefinmate.common.ApiResponse;
+import com.homefinmate.common.TraceIds;
 import com.homefinmate.dto.analyze.AnalyzeRequest;
 import com.homefinmate.dto.analyze.AnalyzeResponse;
 import com.homefinmate.service.AnalyzeService;
@@ -25,6 +26,6 @@ public class AnalyzeController {
             @AuthenticationPrincipal String email) {
 
         AnalyzeResponse result = analyzeService.analyze(request, email);
-        return ResponseEntity.ok(ApiResponse.success(result, request.getTraceId()));
+        return ResponseEntity.ok(ApiResponse.success(result, TraceIds.current()));
     }
 }

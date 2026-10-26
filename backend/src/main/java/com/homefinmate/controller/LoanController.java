@@ -1,6 +1,7 @@
 package com.homefinmate.controller;
 
 import com.homefinmate.common.ApiResponse;
+import com.homefinmate.common.TraceIds;
 import com.homefinmate.dto.loan.DtiRequest;
 import com.homefinmate.dto.loan.DtiResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
@@ -28,7 +29,7 @@ public class LoanController {
             @Valid @RequestBody LoanCalculationRequest request,
             @AuthenticationPrincipal String email) {
         LoanCalculationResponse response = loanService.calculate(request, email);
-        return ResponseEntity.ok(ApiResponse.success(response, request.getTraceId()));
+        return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 
     // DTI 단독 계산 (로그인 불필요, 저장 안 함)
@@ -36,15 +37,14 @@ public class LoanController {
     public ResponseEntity<ApiResponse<DtiResponse>> calculateDti(
             @Valid @RequestBody DtiRequest request) {
         DtiResponse response = loanService.calculateDti(request);
-        return ResponseEntity.ok(ApiResponse.success(response, request.getTraceId()));
+        return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 
     // 내 계산 이력 (최신순)
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<List<LoanCalculationResponse>>> history(
-            @AuthenticationPrincipal String email,
-            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+            @AuthenticationPrincipal String email) {
         List<LoanCalculationResponse> history = loanService.getHistory(email);
-        return ResponseEntity.ok(ApiResponse.success(history, traceId));
+        return ResponseEntity.ok(ApiResponse.success(history, TraceIds.current()));
     }
 }

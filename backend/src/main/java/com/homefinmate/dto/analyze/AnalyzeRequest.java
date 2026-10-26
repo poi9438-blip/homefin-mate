@@ -1,5 +1,6 @@
 package com.homefinmate.dto.analyze;
 
+import com.homefinmate.common.TraceIdCarrier;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -11,7 +12,7 @@ import java.math.BigDecimal;
 
 // 통합 분석 요청 (대출 + 정책 + 위험 평가 + 지역 분석 입력값)
 @Data
-public class AnalyzeRequest {
+public class AnalyzeRequest implements TraceIdCarrier {
 
     // 대출 원금 (필수, 0보다 커야 함)
     @NotNull(message = "Loan amount is required")
@@ -69,6 +70,7 @@ public class AnalyzeRequest {
     @PositiveOrZero(message = "Child count must be zero or more")
     private Integer childCount;
 
+    // 요청 traceId (보낸 값과 관계없이 서버가 X-Trace-Id 기준 값으로 덮어씀, #90)
     private String traceId;
     private String eventVersion = "v1";
 }

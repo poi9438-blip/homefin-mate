@@ -1,6 +1,7 @@
 package com.homefinmate.controller;
 
 import com.homefinmate.common.ApiResponse;
+import com.homefinmate.common.TraceIds;
 import com.homefinmate.dto.report.ReportResponse;
 import com.homefinmate.service.ReportService;
 import lombok.RequiredArgsConstructor;
@@ -19,18 +20,16 @@ public class ReportController {
     // 내 요약 리포트
     @GetMapping("/summary")
     public ResponseEntity<ApiResponse<ReportResponse>> getSummary(
-            @AuthenticationPrincipal String email,
-            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-        ReportResponse response = reportService.generateSummary(email, traceId);
-        return ResponseEntity.ok(ApiResponse.success(response, traceId));
+            @AuthenticationPrincipal String email) {
+        ReportResponse response = reportService.generateSummary(email, TraceIds.current());
+        return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 
     // 리포트 생성
     @PostMapping("/generate")
     public ResponseEntity<ApiResponse<ReportResponse>> generateReport(
             @AuthenticationPrincipal String email,
-            @RequestParam String reportType,
-            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-        return ResponseEntity.ok(ApiResponse.success(null, traceId));
+            @RequestParam String reportType) {
+        return ResponseEntity.ok(ApiResponse.success(null, TraceIds.current()));
     }
 }

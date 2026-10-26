@@ -1,6 +1,7 @@
 package com.homefinmate.controller;
 
 import com.homefinmate.common.ApiResponse;
+import com.homefinmate.common.TraceIds;
 import com.homefinmate.dto.policy.PolicyRecommendationRequest;
 import com.homefinmate.dto.policy.PolicyRecommendationResponse;
 import com.homefinmate.service.PolicyService;
@@ -21,12 +22,12 @@ public class PolicyController {
     public ResponseEntity<ApiResponse<PolicyRecommendationResponse>> recommend(
             @RequestBody PolicyRecommendationRequest request) {
         PolicyRecommendationResponse response = policyService.recommend(request);
-        return ResponseEntity.ok(ApiResponse.success(response, request.getTraceId()));
+        return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 
     // 정책 목록
     @GetMapping("/list")
     public ResponseEntity<ApiResponse<Object>> listPolicies() {
-        return ResponseEntity.ok(ApiResponse.success(null, null));
+        return ResponseEntity.ok(ApiResponse.success(null, TraceIds.current()));
     }
 }

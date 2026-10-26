@@ -1,5 +1,6 @@
 package com.homefinmate.dto.policy;
 
+import com.homefinmate.common.TraceIdCarrier;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 
@@ -7,7 +8,7 @@ import java.math.BigDecimal;
 
 // 정책 추천 요청 (소득, 대출 금액, DTI, 주택 보유, 지역, 주택 가격·가구 조건)
 @Data
-public class PolicyRecommendationRequest {
+public class PolicyRecommendationRequest implements TraceIdCarrier {
     // 월 소득 (income 또는 monthlyIncome)
     @JsonAlias("monthlyIncome")
     private BigDecimal income;
@@ -39,6 +40,7 @@ public class PolicyRecommendationRequest {
     // 부부합산 연소득 (원, 선택). 있으면 소득 판정에 이 값을 쓰고, 없으면 월 소득 × 12(본인 기준)
     private BigDecimal householdAnnualIncome;
 
+    // 요청 traceId (보낸 값과 관계없이 서버가 X-Trace-Id 기준 값으로 덮어씀, #90)
     private String traceId;
     private String eventVersion = "v1";
 }
