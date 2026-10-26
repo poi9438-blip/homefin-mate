@@ -19,7 +19,7 @@ import com.homefinmate.security.JwtUtil;
 import com.homefinmate.security.Role;
 import com.homefinmate.service.AuditService;
 import com.homefinmate.service.AuthService;
-import com.homefinmate.util.EncryptionUtil;
+import com.homefinmate.security.AdminEmails;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,8 +48,9 @@ class AuthServiceTest {
         PasswordEncoder passwordEncoder;
         @Mock
         JwtUtil jwtUtil;
-        @Mock
-        EncryptionUtil encryptionUtil;
+        // 관리자 이메일 목록은 실제 객체 (대소문자·공백 처리 확인)
+        @Spy
+        AdminEmails adminEmails = new AdminEmails(" Admin@Test.com , boss@test.com");
         // 감사 기록 서비스 (가짜)
         @Mock
         AuditService auditService;
@@ -60,17 +61,15 @@ class AuthServiceTest {
         AuthService authService;
 
         @Test
-        @DisplayName("[TC-AUTH-001] 회원가입: 이메일·USER 역할 반환, 소득은 암호화")
+        @DisplayName("[TC-AUTH-001] 회원가입: 이메일·USER 역할 반환 (가입 때 소득은 받지 않음, #30)")
         void signup_newUser_savesAndReturnsResponse() {
                 SignupRequest req = new SignupRequest();
                 req.setEmail("user@test.com");
                 req.setPassword("password123");
-                req.setIncome("5000");
                 req.setTraceId("trace-001");
 
                 when(userRepository.existsByEmail("user@test.com")).thenReturn(false);
                 when(passwordEncoder.encode(anyString())).thenReturn("hashed");
-                when(encryptionUtil.encrypt("5000")).thenReturn("encrypted-income");
 
                 User saved = User.builder()
                                 .id(1L).email("user@test.com").role(Role.USER).password("hashed").build();
@@ -80,7 +79,6 @@ class AuthServiceTest {
 
                 assertThat(response.getEmail()).isEqualTo("user@test.com");
                 assertThat(response.getRole()).isEqualTo("USER");
-                verify(encryptionUtil).encrypt("5000");
         }
 
         @Test
@@ -98,7 +96,7 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("[TC-AUTH-003] 비밀번호는 해시로 저장, 역할 USER, 소득 없으면 암호화 안 함")
+        @DisplayName("[TC-AUTH-003] 비밀번호는 해시로 저장, 역할 USER")
         void signup_savedUser_hasHashedPasswordAndUserRole() {
                 SignupRequest req = new SignupRequest();
                 req.setEmail("user@test.com");
@@ -116,8 +114,27 @@ class AuthServiceTest {
 
                 assertThat(toSave.getPassword()).isEqualTo("hashed-password123").isNotEqualTo("password123");
                 assertThat(toSave.getRole()).isEqualTo(Role.USER);
-                assertThat(toSave.getEncryptedIncome()).isNull();
-                verify(encryptionUtil, never()).encrypt(anyString());
+        }
+
+        // ADMIN_EMAILS에 있는 이메일(대소문자·공백 무시)로 가입하면 ADMIN, 아니면 USER
+        @Test
+        @DisplayName("[TC-AUTH-018] ADMIN_EMAILS에 있는 이메일(대소문자·공백 무시)로 가입하면 ADMIN, 없는 이메일은 USER (#10)")
+        void signup_adminEmail_getsAdminRole() {
+                when(userRepository.existsByEmail(anyString())).thenReturn(false);
+                when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+                when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+                for (String email : new String[] { "admin@test.com", "BOSS@test.com", "user@test.com" }) {
+                        SignupRequest req = new SignupRequest();
+                        req.setEmail(email);
+                        req.setPassword("password123");
+                        authService.signup(req);
+                }
+
+                ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+                verify(userRepository, times(3)).save(captor.capture());
+                assertThat(captor.getAllValues()).extracting(User::getRole)
+                                .containsExactly(Role.ADMIN, Role.ADMIN, Role.USER);
         }
 
         // 로그인 성공: 토큰/이메일/역할 반환, 감사 기록 저장, 실패 기록 없음

@@ -59,12 +59,12 @@ class MySqlSchemaTest {
         }
 
         @Test
-        @DisplayName("[TC-DATA-105] 실제 MySQL 8.0에서 Flyway V1~V6이 모두 성공하고 Hibernate validate가 통과 (users.role은 ENUM)")
+        @DisplayName("[TC-DATA-105] 실제 MySQL 8.0에서 Flyway V1~V7이 모두 성공하고 Hibernate validate가 통과 (users.role은 ENUM)")
         void flywayAndValidate_passOnMySql() {
                 List<String> versions = jdbc.queryForList(
                                 "select version from flyway_schema_history where success = 1 order by installed_rank",
                                 String.class);
-                assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6");
+                assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7");
                 assertThat(jdbc.queryForObject("select data_type from information_schema.columns"
                                 + " where table_schema = database() and table_name = 'users' and column_name = 'role'",
                                 String.class))

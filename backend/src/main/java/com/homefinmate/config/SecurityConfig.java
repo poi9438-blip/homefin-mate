@@ -46,9 +46,9 @@ public class SecurityConfig {
 
                 // 주소별 규칙 (순서대로 적용)
                 .authorizeHttpRequests(auth -> auth
+                        // 현재 사용자 조회는 로그인 필요, 나머지 인증 API(가입·로그인)는 공개
+                        .requestMatchers("/api/auth/me").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
-                        // 정책 API는 로그인 없이 허용
-                        .requestMatchers("/api/policy/**").permitAll()
                         // 지역 분석 API는 로그인 없이 허용
                         .requestMatchers("/api/analysis/**").permitAll()
                         // DTI 단독 계산은 로그인 없이 허용

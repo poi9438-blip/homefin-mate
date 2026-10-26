@@ -24,12 +24,4 @@ public class ReportController {
         ReportResponse response = reportService.generateSummary(email, TraceIds.current());
         return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
-
-    // 리포트 생성
-    @PostMapping("/generate")
-    public ResponseEntity<ApiResponse<ReportResponse>> generateReport(
-            @AuthenticationPrincipal String email,
-            @RequestParam String reportType) {
-        return ResponseEntity.ok(ApiResponse.success(null, TraceIds.current()));
-    }
 }

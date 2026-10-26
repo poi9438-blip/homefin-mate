@@ -82,4 +82,24 @@ class EncryptionUtilTest {
         assertThat(first).hasSize(12 + "2666667".length() + 16);
         assertThat(Arrays.copyOfRange(first, 0, 12)).isNotEqualTo(Arrays.copyOfRange(second, 0, 12));
     }
+
+    // 키가 UTF-8 32바이트가 아니면 시작 실패, 메시지에 키 값은 없음
+    @ParameterizedTest(name = "{0}바이트")
+    @ValueSource(ints = { 0, 8, 31, 33 })
+    @DisplayName("[TC-ENC-005] 암호화 키가 UTF-8 32바이트가 아니면(0·8·31·33바이트, 한글 11자=33바이트) 서버 시작 실패, 메시지에 키 값 없음 (#29)")
+    void keyLength_mustBe32Bytes(int bytes) {
+        String key = "k".repeat(bytes);
+        assertThatThrownBy(() -> utilWithKey(key).validateKeyLength())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("32 bytes")
+                .hasMessageContaining("current: " + bytes)
+                .satisfies(e -> {
+                    if (bytes > 0) {
+                        assertThat(e.getMessage()).doesNotContain(key);
+                    }
+                });
+        assertThatThrownBy(() -> utilWithKey("한".repeat(11)).validateKeyLength())
+                .hasMessageContaining("current: 33");
+        utilWithKey("k".repeat(32)).validateKeyLength();
+    }
 }

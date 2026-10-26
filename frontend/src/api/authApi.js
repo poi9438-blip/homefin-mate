@@ -19,6 +19,9 @@ export const authApi = {
       eventVersion: DEFAULT_EVENT_VERSION,
     }),
 
+  // 현재 로그인 사용자 이메일·역할 (관리자 메뉴 표시용, #10)
+  me: () => axiosInstance.get("/auth/me"),
+
   // 로그아웃 요청
   logout: () => axiosInstance.post("/auth/logout"),
 };

@@ -11,9 +11,9 @@ import com.homefinmate.entity.LoginFailureLog;
 import com.homefinmate.entity.User;
 import com.homefinmate.repository.LoginFailureLogRepository;
 import com.homefinmate.repository.UserRepository;
+import com.homefinmate.security.AdminEmails;
 import com.homefinmate.security.JwtUtil;
 import com.homefinmate.security.Role;
-import com.homefinmate.util.EncryptionUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,7 +32,7 @@ public class AuthService {
     private final LoginFailureLogRepository loginFailureLogRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-    private final EncryptionUtil encryptionUtil;
+    private final AdminEmails adminEmails;
     private final AuditService auditService;
     private final EmailHasher emailHasher;
 
@@ -49,18 +49,11 @@ public class AuthService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "Email already registered");
         }
 
-        // 소득(선택) 있으면 AES로 암호화
-        String encryptedIncome = null;
-        if (request.getIncome() != null) {
-            encryptedIncome = encryptionUtil.encrypt(request.getIncome());
-        }
-
-        // TODO: ADMIN 계정 생성 방법도 추가할 것
+        // 사용자 저장 (ADMIN_EMAILS에 있는 이메일이면 ADMIN)
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.USER)
-                .encryptedIncome(encryptedIncome)
+                .role(adminEmails.isAdmin(request.getEmail()) ? Role.ADMIN : Role.USER)
                 .build();
 
         // 동시 가입으로 unique 제약에 걸리면 이메일 중복과 같은 응답

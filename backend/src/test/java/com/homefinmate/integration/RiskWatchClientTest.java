@@ -61,7 +61,7 @@ class RiskWatchClientTest {
                                 .dti(new BigDecimal("0.505"))
                                 .region("부산")
                                 .houseOwnership("NONE")
-                                .sourceSystem("HOMEFIT_MATE")
+                                .sourceSystem(RiskWatchClient.SOURCE_SYSTEM)
                                 .traceId("hfm-risk-1")
                                 .build();
         }
@@ -78,7 +78,7 @@ class RiskWatchClientTest {
                 server.expect(requestTo(URL))
                                 .andExpect(method(HttpMethod.POST))
                                 .andExpect(header("X-Trace-Id", "hfm-risk-1"))
-                                .andExpect(header("X-Source-System", "HOMEFIT_MATE"))
+                                .andExpect(header("X-Source-System", RiskWatchClient.SOURCE_SYSTEM))
                                 .andExpect(header("X-Event-Version", "v1"))
                                 .andExpect(jsonPath("$.userId").value("7"))
                                 .andExpect(jsonPath("$.monthlyIncome").value(4000000))
@@ -128,7 +128,7 @@ class RiskWatchClientTest {
                 assertThat(res.getRiskScore()).isZero();
                 assertThat(res.getTraceId()).isEqualTo("hfm-risk-1");
                 server.verify();
-                verify(auditService).logAudit(eq("SYSTEM"), eq("HOMEFIT_MATE"),
+                verify(auditService).logAudit(eq("SYSTEM"), eq(RiskWatchClient.SOURCE_SYSTEM),
                                 startsWith("RISKWATCH_INTEGRATION_FAILURE: "), eq("hfm-risk-1"));
         }
 
@@ -185,9 +185,25 @@ class RiskWatchClientTest {
 
                 assertThat(res.isAvailable()).isFalse();
                 server.verify();
-                verify(auditService).logAudit(eq("SYSTEM"), eq("HOMEFIT_MATE"),
+                verify(auditService).logAudit(eq("SYSTEM"), eq(RiskWatchClient.SOURCE_SYSTEM),
                                 startsWith("RISKWATCH_INTEGRATION_FAILURE: IllegalArgumentException"),
                                 eq("hfm-risk-1"));
         }
 
+        // RiskWatch 응답에 위험 등급이 없으면 "null"이 아니라 UNKNOWN
+        @Test
+        @DisplayName("[TC-RISK-010] RiskWatch 성공 응답에 위험 등급이 없으면 \"null\" 문자열이 아니라 UNKNOWN (#59)")
+        void missingRiskLevel_isUnknown() {
+                server.expect(requestTo(URL))
+                                .andRespond(withSuccess(
+                                                """
+                                                                {"status":"SUCCESS","data":{"riskScore":10,"reason":"","traceId":"hfm-risk-2"}}
+                                                                """,
+                                                MediaType.APPLICATION_JSON));
+
+                RiskEvaluationResponse result = client.evaluateRisk(request());
+
+                assertThat(result.isAvailable()).isTrue();
+                assertThat(result.getRiskLevel()).isEqualTo("UNKNOWN");
+        }
 }
