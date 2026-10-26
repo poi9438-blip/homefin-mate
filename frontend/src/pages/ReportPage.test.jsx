@@ -94,4 +94,34 @@ describe('리포트 DTI 추이', () => {
 
     expect(container.textContent).toContain('대출 화면')
   })
+
+  it('[TC-WEB-223] 리포트 안내는 최근 DTI 판정(적정/초과)에 따른 한국어 문구(판단 불가면 없음), 서버의 영어 안내는 보이지 않음', async () => {
+    await renderReport({
+      totalSimulations: 1,
+      eligibilityHint: 'Your DTI is above the recommended threshold.',
+      lastSimulation: { simulationId: 1, loanAmount: 1, monthlyPayment: 1, totalInterest: 0, dti: 0.7, dtiStatus: 'HIGH',
+        createdAt: '2026-10-24T10:00:00Z' },
+      dtiTrend: [],
+    })
+
+    expect(container.textContent).toContain('최근 DTI가 기준(60%)을 넘습니다.')
+    expect(container.textContent).not.toContain('Your DTI')
+
+    // 판단 불가(UNKNOWN)면 안내 없음 (서버 영어 문구로 채우지 않음)
+    act(() => root.unmount())
+    container.remove()
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await renderReport({
+      totalSimulations: 1,
+      eligibilityHint: 'Unable to determine DTI.',
+      lastSimulation: { simulationId: 2, loanAmount: 1, monthlyPayment: 1, totalInterest: 0, dti: null, dtiStatus: 'UNKNOWN',
+        createdAt: '2026-10-24T10:00:00Z' },
+      dtiTrend: [],
+    })
+
+    expect(container.textContent).not.toContain('Unable to determine')
+    expect(container.textContent).not.toContain('최근 DTI가 기준')
+  })
 })

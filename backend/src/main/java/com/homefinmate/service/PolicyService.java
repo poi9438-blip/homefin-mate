@@ -319,7 +319,7 @@ public class PolicyService {
         String pct = r.getDti().multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP) + "%";
         boolean ok = r.getDti().compareTo(DTI_LIMIT) <= 0;
         return new PolicyCondition("DTI 60% 이내", ok ? Result.MET : Result.NOT_MET,
-                "DTI " + pct + " ((신규 대출 월 상환액 + 기존 대출 월 이자) ÷ 월 소득)",
+                "DTI " + pct + " = (신규 대출 월 상환액 + 기존 대출 월 이자) ÷ 월 소득",
                 ok ? null : dtiHint(r));
     }
 

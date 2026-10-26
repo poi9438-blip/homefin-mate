@@ -68,7 +68,9 @@ export default function ReportPage() {
   // 최근 5건 DTI 추이 (과거 → 최근 순으로 뒤집음)
   const dtiTrend  = [...(data.dtiTrend ?? [])].reverse()
   const totalSims = data.totalSimulations ?? 0
-  const hint      = data.eligibilityHint
+  // 최근 DTI 판정에 따른 안내 (판단 불가면 없음)
+  const hint      = { ACCEPTABLE: '최근 DTI가 기준(60%) 이내입니다. 정책대출 조건을 함께 확인해 보세요.',
+                      HIGH: '최근 DTI가 기준(60%)을 넘습니다. 대출 금액·기간이나 기존 부채를 조정해 보세요.' }[lastSim?.dtiStatus]
   const noData    = !lastSim && totalSims === 0
   const lastRegion = lastSim?.region
 

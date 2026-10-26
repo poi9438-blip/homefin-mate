@@ -151,8 +151,9 @@ export default function PolicyPage() {
               {/* 기존 대출 이자는 DTI에 이미 들어 있어서 따로 받지 않음 */}
               <span className="block text-gray-400 text-xs">(신규 대출 월 상환액 + 기존 대출 월 이자) ÷ 월 소득, 대출 계산 결과에서 넘어옴</span>
             </label>
+            {/* 계산 결과와 같은 소수 넷째 자리까지 입력 가능 (DtiRule) */}
             <input type="number" name="dti" value={form.dti} onChange={handleChange}
-              placeholder="예: 0.35" step="0.01" min="0" max="1"
+              placeholder="예: 0.35" step="0.0001" min="0" max="1"
               className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${fieldErrors.dti ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`} />
             {fieldErrors.dti && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.dti}</p>}
           </div>

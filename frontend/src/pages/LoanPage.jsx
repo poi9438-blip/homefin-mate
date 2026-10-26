@@ -67,7 +67,7 @@ function RiskPanel({ risk }) {
       <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-5">
         <span className="text-yellow-600 dark:text-yellow-400 font-semibold text-sm">리스크 평가 불가</span>
         <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-          {risk.recommendation || 'RiskWatch 서비스가 일시적으로 이용 불가합니다. 대출 계산 결과는 유효합니다.'}
+          RiskWatch 서비스가 일시적으로 이용 불가합니다. 대출 계산 결과는 유효합니다.
         </p>
       </div>
     )
