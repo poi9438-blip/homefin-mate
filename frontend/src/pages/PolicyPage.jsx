@@ -102,6 +102,7 @@ export default function PolicyPage() {
         dti:          Number(form.dti),
         propertyType: form.propertyType,
         region:       form.region,
+        termMonths:   numOrUndefined(form.termMonths),
         ...policyInputPayload(form),
       })
       setResult(res.data.data)
@@ -228,6 +229,10 @@ export default function PolicyPage() {
                 <div className="text-xs text-gray-600 dark:text-gray-300 mb-2">
                   <div>입력 기준 최대 한도: <b>{formatWon(policy.maxLoanAmount)}</b></div>
                   <div>금리: {policy.interestRate}</div>
+                  {/* 추천 비교에 쓴 입력 기준 공식 기본금리 (소득을 모르면 없음) */}
+                  {policy.baseRate != null && (
+                    <div>입력 기준 기본금리: <b>연 {Number(policy.baseRate).toFixed(2)}%</b> ({policy.baseRateBasis})</div>
+                  )}
                 </div>
 
                 {policy.additionalChecks?.length > 0 && (

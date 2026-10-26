@@ -20,7 +20,7 @@ const hintsOf = product => [
 
 const formatWon = n => (n == null ? '-' : `${Math.floor(Number(n)).toLocaleString('ko-KR')}원`)
 
-// 둘 중 추천 카드 (추천 상품의 한도,금리,이유, 전체 상품 판정 배지, 상세 보기 버튼)
+// 추천 카드 (추천 상품의 한도·금리·기본금리·이유, 전체 상품 판정 배지, 상세 보기 버튼)
 export function RecommendationCard({ policy, onDetail }) {
   if (!policy) return null
   const recommended = policy.recommendedPolicies?.find(p => p.name === policy.recommendedProduct)
@@ -38,6 +38,12 @@ export function RecommendationCard({ policy, onDetail }) {
           <div className="text-xs text-blue-800 dark:text-blue-200">
             입력 기준 최대 한도 <b>{formatWon(recommended.maxLoanAmount)}</b> · {recommended.interestRate}
           </div>
+          {/* 추천에 쓴 입력 기준 공식 기본금리 */}
+          {recommended.baseRate != null && (
+            <div className="text-xs text-blue-800 dark:text-blue-200 mt-1">
+              입력 기준 기본금리 <b>연 {Number(recommended.baseRate).toFixed(2)}%</b> ({recommended.baseRateBasis})
+            </div>
+          )}
         </div>
       ) : (
         <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 p-4 mb-3 text-sm text-gray-700 dark:text-gray-200">

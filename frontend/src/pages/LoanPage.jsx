@@ -171,6 +171,10 @@ export default function LoanPage() {
         firstHome: form.firstHome,
         newlywed: form.newlywed,
         childCount: form.childCount,
+        newbornWithin2Years: form.newbornWithin2Years,
+        dualIncome: form.dualIncome,
+        // 상품 금리 비교용 대출 기간
+        termMonths: form.termMonths,
       },
     },
   })

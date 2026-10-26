@@ -5,6 +5,9 @@ export const POLICY_INPUT_DEFAULTS = {
   firstHome: "",
   newlywed: "",
   childCount: "",
+  // 신생아 특례 디딤돌대출 판정용 (2년 안 출산·입양, 맞벌이)
+  newbornWithin2Years: "",
+  dualIncome: "",
 };
 
 // '예/아니오' 선택값 → true / false (선택 전이면 undefined)
@@ -22,6 +25,8 @@ export const policyInputPayload = (form) => ({
   firstHome: triState(form.firstHome),
   newlywed: triState(form.newlywed),
   childCount: numOrUndefined(form.childCount),
+  newbornWithin2Years: triState(form.newbornWithin2Years),
+  dualIncome: triState(form.dualIncome),
 });
 
 // 정책대출 판정용 입력 검증 (모두 필수: 비우면 조건을 판정할 수 없어 추천이 나오지 않음)
@@ -42,5 +47,8 @@ export function validatePolicyInputs(form) {
     !Number.isInteger(Number(form.childCount))
   )
     errors.childCount = "자녀 수는 0 이상의 정수여야 합니다.";
+  if (form.newbornWithin2Years === "")
+    errors.newbornWithin2Years = "2년 안 출산·입양 여부를 선택해주세요.";
+  if (form.dualIncome === "") errors.dualIncome = "맞벌이 여부를 선택해주세요.";
   return errors;
 }

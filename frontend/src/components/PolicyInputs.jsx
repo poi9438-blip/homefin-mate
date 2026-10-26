@@ -1,6 +1,6 @@
 import React from 'react'
 
-// 정책대출(디딤돌대출·보금자리론) 판정용 입력칸 (모두 필수)
+// 정책대출(디딤돌대출·신생아 특례·보금자리론) 판정용 입력칸 (모두 필수)
 const inputClass = hasError =>
   `w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary-500 ${
     hasError ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
@@ -44,6 +44,11 @@ export default function PolicyInputs({ form, onChange, errors = {} }) {
 
       <YesNo name="firstHome" label="생애최초 주택 구입" value={form.firstHome} onChange={onChange} error={errors.firstHome} />
       <YesNo name="newlywed" label="신혼가구 (혼인 7년 이내)" value={form.newlywed} onChange={onChange} error={errors.newlywed} />
+
+      <YesNo name="newbornWithin2Years" label="2년 안에 출산·입양 (대출 신청일 기준)" value={form.newbornWithin2Years}
+        onChange={onChange} error={errors.newbornWithin2Years} />
+      <YesNo name="dualIncome" label="맞벌이 (부부 모두 소득 있음)" value={form.dualIncome}
+        onChange={onChange} error={errors.dualIncome} />
 
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">미성년 자녀 수<Required /></label>
