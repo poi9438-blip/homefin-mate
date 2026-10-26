@@ -27,6 +27,9 @@ import java.util.Map;
 @Slf4j
 public class RiskWatchClient {
 
+    // RiskWatch에 알리는 호출 시스템 이름, 연동 실패 감사 기록의 행위자
+    public static final String SOURCE_SYSTEM = "HOMEFIN_MATE";
+
     // 감사 기록 action 최대 길이
     private static final int AUDIT_ACTION_MAX = 255;
     private static final String FAILURE_PREFIX = "RISKWATCH_INTEGRATION_FAILURE: ";
@@ -65,7 +68,7 @@ public class RiskWatchClient {
         if (request.getTraceId() != null)
             headers.set("X-Trace-Id", request.getTraceId());
         headers.set("X-Event-Version", request.getEventVersion());
-        headers.set("X-Source-System", "HOMEFIT_MATE");
+        headers.set("X-Source-System", SOURCE_SYSTEM);
 
         HttpEntity<RiskEvaluationRequest> entity = new HttpEntity<>(request, headers);
         String reason = "unknown";
@@ -150,7 +153,7 @@ public class RiskWatchClient {
         }
         Object scoreObj = data.get("riskScore");
         return RiskEvaluationResponse.builder()
-                .riskLevel(String.valueOf(data.get("riskLevel")))
+                .riskLevel(data.get("riskLevel") == null ? "UNKNOWN" : String.valueOf(data.get("riskLevel")))
                 .riskScore(scoreObj instanceof Number n ? n.intValue() : null)
                 .recommendation(String.valueOf(data.getOrDefault("reason", "")))
                 .traceId(String.valueOf(data.getOrDefault("traceId", "")))
@@ -165,7 +168,7 @@ public class RiskWatchClient {
             action = action.substring(0, AUDIT_ACTION_MAX);
         }
         try {
-            auditService.logAudit("SYSTEM", "HOMEFIT_MATE", action, traceId);
+            auditService.logAudit("SYSTEM", SOURCE_SYSTEM, action, traceId);
         } catch (Exception e) {
             log.error("[{}] Failed to record RiskWatch failure audit: {}", traceId, e.getMessage());
         }
@@ -176,7 +179,7 @@ public class RiskWatchClient {
         String action = CIRCUIT_PREFIX + event.getStateTransition().name();
         log.warn("RiskWatch circuit breaker {}", event.getStateTransition().name());
         try {
-            auditService.logAudit("SYSTEM", "HOMEFIT_MATE", action, TraceIds.current());
+            auditService.logAudit("SYSTEM", SOURCE_SYSTEM, action, TraceIds.current());
         } catch (Exception e) {
             log.error("Failed to record circuit breaker transition: {}", e.getMessage());
         }

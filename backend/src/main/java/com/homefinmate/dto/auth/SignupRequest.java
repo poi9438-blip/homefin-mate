@@ -6,21 +6,18 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-// 회원가입 요청 (이메일, 비밀번호, 선택 입력 소득)
+// 회원가입 요청 (이메일, 비밀번호)
 @Data
 public class SignupRequest implements TraceIdCarrier {
     // 필수, 이메일 형식
-    @NotBlank
-    @Email
+    @NotBlank(message = "Email is required")
+    @Email(message = "Email must be valid")
     private String email;
 
     // 필수, 8자 이상
-    @NotBlank
-    @Size(min = 8)
+    @NotBlank(message = "Password is required")
+    @Size(min = 8, message = "Password must be at least 8 characters")
     private String password;
-
-    // 월 소득 (선택, 암호화해서 저장)
-    private String income;
 
     // 요청 traceId (보낸 값과 관계없이 서버가 X-Trace-Id 기준 값으로 덮어씀, #90)
     private String traceId;

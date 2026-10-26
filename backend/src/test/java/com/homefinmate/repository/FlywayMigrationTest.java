@@ -76,7 +76,7 @@ class FlywayMigrationTest {
 
     // 새로 띄운 DB: V1(테이블 생성) → V2(DTI 전환) 순서로 실행
     @Test
-    @DisplayName("[TC-DATA-008] 빈 DB는 V1~V6을 차례로 실행해 dti_encrypted·dti_basis 컬럼이 있고 dsr 컬럼은 없음")
+    @DisplayName("[TC-DATA-008] 빈 DB는 V1~V7을 차례로 실행해 dti_encrypted·dti_basis 컬럼이 있고 dsr 컬럼은 없음")
     void emptyDb_runsAllMigrations() throws Exception {
         String url = newDbUrl();
         try (Connection conn = DriverManager.getConnection(url, "sa", "");
@@ -84,7 +84,7 @@ class FlywayMigrationTest {
             MigrateResult result = Flyway.configure().dataSource(url, "sa", "")
                     .javaMigrations(v5()).load().migrate();
 
-            assertThat(result.migrationsExecuted).isEqualTo(6);
+            assertThat(result.migrationsExecuted).isEqualTo(7);
             assertThat(loanSimulationColumns(st)).contains("dti_encrypted", "dti_basis").doesNotContain("dsr", "dti");
         }
     }
@@ -243,6 +243,33 @@ class FlywayMigrationTest {
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getLong(1)).isEqualTo(2L);
                 assertThat(rs.next()).isFalse();
+            }
+        }
+    }
+
+    // V7: users.encrypted_income 컬럼 삭제, 사용자 행·이메일·역할은 그대로
+    @Test
+    @DisplayName("[TC-DATA-017] V7은 users.encrypted_income(쓰지 않는 가입 소득)을 지우고 사용자 행·이메일·역할은 그대로 둠 (#30)")
+    void v7_dropsSignupIncome_keepingUsers() throws Exception {
+        String url = newDbUrl();
+        try (Connection conn = DriverManager.getConnection(url, "sa", "");
+                Statement st = conn.createStatement()) {
+            flywayWithV5(url, "6").migrate();
+            st.execute("insert into users (id, email, password, role, encrypted_income) values"
+                    + " (1, 'a@test.com', 'x', 'ADMIN', 'cipher-text')");
+
+            MigrateResult result = flywayWithV5(url, "7").migrate();
+
+            assertThat(result.migrationsExecuted).isEqualTo(1);
+            try (ResultSet rs = st.executeQuery("select count(*) from information_schema.columns"
+                    + " where lower(table_name) = 'users' and lower(column_name) = 'encrypted_income'")) {
+                rs.next();
+                assertThat(rs.getInt(1)).isZero();
+            }
+            try (ResultSet rs = st.executeQuery("select email, role from users where id = 1")) {
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString(1)).isEqualTo("a@test.com");
+                assertThat(rs.getString(2)).isEqualTo("ADMIN");
             }
         }
     }

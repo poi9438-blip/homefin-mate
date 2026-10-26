@@ -33,7 +33,7 @@ public class ReportService {
         if (userId == null) {
             data.put("totalSimulations", 0);
             data.put("message", "No simulation data found for this account.");
-            return buildResponse(1L, email, data, traceId);
+            return buildResponse(data, traceId);
         }
 
         // 계산 수(COUNT)와 최근 5건(최신순)만 조회
@@ -89,7 +89,7 @@ public class ReportService {
         log.info("[{}] Report summary generated for userId={} simCount={}",
                 traceId, userId, total);
 
-        return buildResponse(userId, email, data, traceId);
+        return buildResponse(data, traceId);
     }
 
     // DTI 판정 (값 없으면 UNKNOWN)
@@ -100,9 +100,8 @@ public class ReportService {
     }
 
     // 응답 만들기 (종류 SUMMARY, 생성 시각 지금)
-    private ReportResponse buildResponse(Long reportId, String email, Map<String, Object> data, String traceId) {
+    private ReportResponse buildResponse(Map<String, Object> data, String traceId) {
         return ReportResponse.builder()
-                .reportId(reportId)
                 .reportType("SUMMARY")
                 .reportData(data)
                 .generatedAt(LocalDateTime.now())

@@ -33,10 +33,6 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
-    // AES 암호화된 소득 (선택 입력)
-    @Column(name = "encrypted_income")
-    private String encryptedIncome;
-
     // 가입 시각 (자동 기록, 수정 불가)
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

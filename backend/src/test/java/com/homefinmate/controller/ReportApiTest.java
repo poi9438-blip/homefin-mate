@@ -28,30 +28,62 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class ReportApiTest {
 
-    @Autowired
-    MockMvc mockMvc;
-    @Autowired
-    ObjectMapper objectMapper;
+        @Autowired
+        MockMvc mockMvc;
+        @Autowired
+        ObjectMapper objectMapper;
 
-    // 응답 시각(생성 시각·계산 시각)에 시간대가 붙고, 실제 시각과 맞음
-    @Test
-    @DisplayName("[TC-RPT-101] 리포트 생성 시각과 계산 시각에 시간대가 붙어 내려가고 실제 시각과 1분 이내 (#91)")
-    void reportTimes_includeOffset_andMatchNow() throws Exception {
-        ApiTestSupport api = new ApiTestSupport(mockMvc, objectMapper);
-        String token = api.signupAndLogin(ApiTestSupport.uniqueEmail("report-time"));
-        mockMvc.perform(post("/api/loan/calculate").header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                        "{\"loanAmount\":100000000,\"annualInterestRate\":4,\"termMonths\":120,\"monthlyIncome\":4000000}"))
-                .andExpect(status().isOk());
+        // 응답 시각(생성 시각·계산 시각)에 시간대가 붙고, 실제 시각과 맞음
+        @Test
+        @DisplayName("[TC-RPT-101] 리포트 생성 시각과 계산 시각에 시간대가 붙어 내려가고 실제 시각과 1분 이내 (#91)")
+        void reportTimes_includeOffset_andMatchNow() throws Exception {
+                ApiTestSupport api = new ApiTestSupport(mockMvc, objectMapper);
+                String token = api.signupAndLogin(ApiTestSupport.uniqueEmail("report-time"));
+                mockMvc.perform(post("/api/loan/calculate").header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                                "{\"loanAmount\":100000000,\"annualInterestRate\":4,\"termMonths\":120,\"monthlyIncome\":4000000}"))
+                                .andExpect(status().isOk());
 
-        JsonNode data = api.read(mockMvc.perform(get("/api/report/summary").header("Authorization", bearer(token)))
-                .andExpect(status().isOk()).andReturn()).path("data");
+                JsonNode data = api
+                                .read(mockMvc.perform(get("/api/report/summary").header("Authorization", bearer(token)))
+                                                .andExpect(status().isOk()).andReturn())
+                                .path("data");
 
-        for (String value : new String[] { data.path("generatedAt").asText(),
-                data.path("reportData").path("lastSimulation").path("createdAt").asText() }) {
-            Instant parsed = OffsetDateTime.parse(value).toInstant();
-            assertThat(Duration.between(parsed, Instant.now()).abs()).isLessThan(Duration.ofMinutes(1));
+                for (String value : new String[] { data.path("generatedAt").asText(),
+                                data.path("reportData").path("lastSimulation").path("createdAt").asText() }) {
+                        Instant parsed = OffsetDateTime.parse(value).toInstant();
+                        assertThat(Duration.between(parsed, Instant.now()).abs()).isLessThan(Duration.ofMinutes(1));
+                }
         }
-    }
+
+        // 리포트 응답에 reportId·userId 없음
+        @Test
+        @DisplayName("[TC-RPT-102] 리포트 응답에 reportId·userId(사용자 DB id)가 없음 (#50)")
+        void report_hasNoUserIds() throws Exception {
+                ApiTestSupport api = new ApiTestSupport(mockMvc, objectMapper);
+                String token = api.signupAndLogin(ApiTestSupport.uniqueEmail("report-id"));
+
+                JsonNode data = api
+                                .read(mockMvc.perform(get("/api/report/summary").header("Authorization", bearer(token)))
+                                                .andExpect(status().isOk()).andReturn())
+                                .path("data");
+
+                assertThat(data.has("reportId")).isFalse();
+                assertThat(data.has("userId")).isFalse();
+                assertThat(data.path("reportType").asText()).isEqualTo("SUMMARY");
+        }
+
+        // 지운 미완성 API(정책 목록, 리포트 생성)는 404
+        @Test
+        @DisplayName("[TC-ERR-016] 지운 미완성 API(GET /api/policy/list, POST /api/report/generate)는 로그인해도 404 (#13)")
+        void removedStubApis_return404() throws Exception {
+                String token = new ApiTestSupport(mockMvc, objectMapper)
+                                .signupAndLogin(ApiTestSupport.uniqueEmail("stub"));
+
+                mockMvc.perform(get("/api/policy/list").header("Authorization", bearer(token)))
+                                .andExpect(status().isNotFound());
+                mockMvc.perform(post("/api/report/generate?reportType=SUMMARY").header("Authorization", bearer(token)))
+                                .andExpect(status().isNotFound());
+        }
 }

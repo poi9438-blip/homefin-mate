@@ -84,7 +84,7 @@ public class AnalyzeService {
                                 .dti(loanResult.getDti())
                                 .region(request.getRegion())
                                 .houseOwnership(request.getPropertyType())
-                                .sourceSystem("HOMEFIT_MATE")
+                                .sourceSystem(RiskWatchClient.SOURCE_SYSTEM)
                                 .traceId(traceId)
                                 .eventVersion(request.getEventVersion() != null ? request.getEventVersion() : "v1")
                                 .build();

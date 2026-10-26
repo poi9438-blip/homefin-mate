@@ -76,10 +76,10 @@ class RiskWatchCircuitBreakerTest {
 
         assertThat(fifth.isAvailable()).isFalse();
         server.verify(); // RiskWatch에는 4번만 나감
-        verify(auditService, times(4)).logAudit(eq("SYSTEM"), eq("HOMEFIT_MATE"),
+        verify(auditService, times(4)).logAudit(eq("SYSTEM"), eq(RiskWatchClient.SOURCE_SYSTEM),
                 startsWith("RISKWATCH_INTEGRATION_FAILURE: ResourceAccessException"), eq("hfm-cb-1"));
         verify(auditService, never()).logAudit(any(), any(), contains("CallNotPermittedException"), any());
-        verify(auditService, times(1)).logAudit(eq("SYSTEM"), eq("HOMEFIT_MATE"),
+        verify(auditService, times(1)).logAudit(eq("SYSTEM"), eq(RiskWatchClient.SOURCE_SYSTEM),
                 eq("RISKWATCH_CIRCUIT_CLOSED_TO_OPEN"), any());
     }
 

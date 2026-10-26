@@ -9,12 +9,12 @@ import lombok.Data;
 @Data
 public class LoginRequest implements TraceIdCarrier {
     // 필수, 이메일 형식
-    @NotBlank
-    @Email
+    @NotBlank(message = "Email is required")
+    @Email(message = "Email must be valid")
     private String email;
 
     // 필수 (길이 검사는 가입 시에만)
-    @NotBlank
+    @NotBlank(message = "Password is required")
     private String password;
 
     // 요청 traceId (보낸 값과 관계없이 서버가 X-Trace-Id 기준 값으로 덮어씀, #90)

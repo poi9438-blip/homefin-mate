@@ -24,10 +24,4 @@ public class PolicyController {
         PolicyRecommendationResponse response = policyService.recommend(request);
         return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
-
-    // 정책 목록
-    @GetMapping("/list")
-    public ResponseEntity<ApiResponse<Object>> listPolicies() {
-        return ResponseEntity.ok(ApiResponse.success(null, TraceIds.current()));
-    }
 }

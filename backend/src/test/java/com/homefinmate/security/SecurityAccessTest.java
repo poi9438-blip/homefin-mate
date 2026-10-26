@@ -67,6 +67,8 @@ class SecurityAccessTest {
                         "POST, /api/loan/calculate",
                         "POST, /api/analyze",
                         "GET,  /api/report/summary",
+                        "POST, /api/policy/recommend",
+                        "GET,  /api/auth/me",
                         "GET,  /api/admin/audit-logs",
                         "GET,  /actuator/metrics"
         })
@@ -80,12 +82,10 @@ class SecurityAccessTest {
         }
 
         @Test
-        @DisplayName("[TC-AUTH-102] 공개 API(DTI, 정책 추천, health)는 토큰 없이 200")
+        @DisplayName("[TC-AUTH-102] 공개 API(DTI, health)는 토큰 없이 200")
         void publicApis_withoutToken_areAllowed() throws Exception {
                 mockMvc.perform(post("/api/loan/dti").contentType(MediaType.APPLICATION_JSON)
                                 .content(api.json(Map.of("monthlyPayment", 380000, "monthlyIncome", 1000000))))
-                                .andExpect(status().isOk());
-                mockMvc.perform(post("/api/policy/recommend").contentType(MediaType.APPLICATION_JSON).content("{}"))
                                 .andExpect(status().isOk());
                 mockMvc.perform(get("/actuator/health"))
                                 .andExpect(status().isOk());
