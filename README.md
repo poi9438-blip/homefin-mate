@@ -15,7 +15,7 @@
 
 - [x] 회원가입 / 로그인 (JWT 인증, 소득 AES-256-GCM 암호화 저장)
 - [x] 대출 계산 (원리금 균등상환, DTI = (월 상환액 + 기존 대출 월 이자) ÷ 월 소득)
-- [x] 정책 추천 (점수 기반 상위 3개)
+- [x] 정책대출 판정·추천 (디딤돌·신생아 특례 디딤돌·보금자리론 조건별 판정, 공식 기본금리로 비교)
 - [x] 외부 시스템 연동 (RiskWatch 위험 평가, 타임아웃·재시도 + 서킷 브레이커 + fallback)
 - [x] 지역 부동산 분석 (Python 서비스)
 - [x] 통합 분석 (대출 + 정책 + 리스크 + 지역을 한 번에)
@@ -207,7 +207,7 @@ docker compose -f docker-compose.yml -f observability/docker-compose.observabili
 | POST   | `/api/loan/calculate`                                                          | 로그인 | 대출 계산 + 저장                                  |
 | GET    | `/api/loan/history`                                                            | 로그인 | 내 계산 이력                                      |
 | POST   | `/api/loan/dti`                                                                | -      | DTI 단독 계산 (저장 안 함)                        |
-| POST   | `/api/policy/recommend`                                                        | -      | 정책 추천 (상위 3개)                              |
+| POST   | `/api/policy/recommend`                                                        | -      | 정책대출 판정·추천 (조건별 판정, 기본금리 비교)   |
 | GET    | `/api/analysis/region`                                                         | -      | 지역 분석 (Python 서비스 호출)                    |
 | POST   | `/api/analyze`                                                                 | 로그인 | 통합 분석 (대출 → 정책 → 위험 → 지역)             |
 | GET    | `/api/report/summary`                                                          | 로그인 | 내 계산 요약 리포트                               |
