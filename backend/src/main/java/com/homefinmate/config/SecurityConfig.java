@@ -9,7 +9,6 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +19,19 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import com.homefinmate.security.AuthCookies;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+import java.io.IOException;
+import java.util.Set;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import java.util.List;
 
 // 보안 설정: 공개 주소, 세션 미사용(JWT), 401/403 JSON 응답, 비밀번호 해시, CORS
@@ -35,8 +47,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                // CSRF 보호 끄기
-                .csrf(AbstractHttpConfigurer::disable)
+                // CSRF: 로그인 쿠키로 인증하는 상태 변경 요청(POST 등)만 XSRF 토큰 확인
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(csrfTokenRepository())
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        .requireCsrfProtectionMatcher(SecurityConfig::needsCsrfCheck)
+                        // 인증될 때 CSRF 토큰을 지우지 않음 (요청마다 JWT 인증이라)
+                        .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy()))
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
 
                 // CORS 켜기 (아래 corsConfigurationSource의 허용 목록 사용)
                 .cors(Customizer.withDefaults())
@@ -83,6 +101,32 @@ public class SecurityConfig {
                 .build();
     }
 
+    // XSRF-TOKEN 쿠키 (화면이 읽어야 해서 HttpOnly 아님, 모든 경로에서 읽도록 Path=/)
+    private static CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookieCustomizer(c -> c.path("/").sameSite("Strict"));
+        return repository;
+    }
+
+    // CSRF 확인 대상: 상태를 바꾸는 메서드이고, 로그인 쿠키가 있고, Authorization 헤더는 없는 요청
+    static boolean needsCsrfCheck(HttpServletRequest request) {
+        boolean unsafe = !Set.of("GET", "HEAD", "OPTIONS", "TRACE").contains(request.getMethod());
+        return unsafe && AuthCookies.read(request) != null && !StringUtils.hasText(request.getHeader("Authorization"));
+    }
+
+    // 모든 응답에 XSRF-TOKEN 쿠키가 있도록 토큰을 미리 꺼내는 필터
+    static final class CsrfCookieFilter extends OncePerRequestFilter {
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+                throws ServletException, IOException {
+            CsrfToken token = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+            if (token != null) {
+                token.getToken();
+            }
+            chain.doFilter(request, response);
+        }
+    }
+
     // 비밀번호 해시 (BCrypt)
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -96,7 +140,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Trace-Id"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Trace-Id", "X-XSRF-TOKEN"));
         config.setExposedHeaders(List.of("X-Trace-Id"));
         config.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

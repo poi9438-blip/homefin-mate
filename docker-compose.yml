@@ -54,6 +54,8 @@ services:
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       # 관리자로 지정할 이메일 (쉼표로 여러 개, 기본은 관리자 없음)
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # 로그인 쿠키 Secure 속성 (로컬 http라 기본 false, HTTPS 운영은 true)
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # 기록 보관 기간 (일)
       RETENTION_LOGIN_FAILURE_DAYS: ${RETENTION_LOGIN_FAILURE_DAYS:-90}
       RETENTION_AUDIT_DAYS: ${RETENTION_AUDIT_DAYS:-365}

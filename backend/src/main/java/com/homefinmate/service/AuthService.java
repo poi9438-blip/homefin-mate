@@ -120,6 +120,7 @@ public class AuthService {
 
         return LoginResponse.builder()
                 .token(token)
+                .expiresAt(jwtUtil.expiresAtMillis(token))
                 .email(user.getEmail())
                 .role(user.getRole().name())
                 .traceId(request.getTraceId())

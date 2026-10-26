@@ -46,6 +46,11 @@ public class JwtUtil {
     }
 
     // 서명을 확인하고 내용(claims) 꺼내기 (실패하면 예외)
+    // 토큰의 만료 시각 (epoch 밀리초)
+    public long expiresAtMillis(String token) {
+        return parseClaims(token).getExpiration().getTime();
+    }
+
     private Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())

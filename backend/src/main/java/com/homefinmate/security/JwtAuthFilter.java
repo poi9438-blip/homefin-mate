@@ -61,12 +61,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
     }
 
-    // Authorization 헤더에서 "Bearer " 뒤 토큰만 꺼내기
+    // 토큰 꺼내기: Authorization: Bearer 헤더, 없으면 hfm_session 쿠키
     private String extractToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
-        return null;
+        return AuthCookies.read(request);
     }
 }

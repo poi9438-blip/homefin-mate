@@ -2,6 +2,7 @@ package com.homefinmate.support;
 
 import com.homefinmate.entity.User;
 import com.homefinmate.repository.UserRepository;
+import com.homefinmate.security.AuthCookies;
 import com.homefinmate.security.JwtUtil;
 import com.homefinmate.security.Role;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -33,7 +34,7 @@ public final class ApiTestSupport {
         return prefix + "-" + UUID.randomUUID().toString().substring(0, 8) + "@test.com";
     }
 
-    // 가입 후 로그인해서 토큰 반환
+    // 가입 후 로그인해서 토큰(쿠키 값) 반환
     public String signupAndLogin(String email) throws Exception {
         mockMvc.perform(post("/api/auth/signup")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -42,7 +43,7 @@ public final class ApiTestSupport {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("email", email, "password", TEST_PASSWORD))))
                 .andReturn();
-        return read(login).path("data").path("token").asText();
+        return login.getResponse().getCookie(AuthCookies.SESSION).getValue();
     }
 
     // DB에 ADMIN 사용자를 저장하고 그 사용자의 토큰 반환

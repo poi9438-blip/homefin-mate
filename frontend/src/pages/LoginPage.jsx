@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../api/authApi'
-import { setToken } from '../utils/auth'
+import { setSession } from '../utils/auth'
 import { errorMessage } from '../utils/errorMessage'
 
 // 로그인 화면
@@ -21,7 +21,8 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const res = await authApi.login(form)
-      setToken(res.data.data.token)
+      // 토큰은 HttpOnly 쿠키로 왔으므로 만료 시각만 저장 (#78)
+      setSession(res.data.data.expiresAt)
       navigate('/dashboard')
     } catch (err) {
       setError(errorMessage(err, '로그인에 실패했습니다.'))

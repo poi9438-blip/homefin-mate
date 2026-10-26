@@ -1,16 +1,23 @@
 import React from 'react'
 import ThemeToggle from './ThemeToggle'
 import LargeTextToggle from './LargeTextToggle'
-import { removeToken } from '../utils/auth'
+import { clearSession } from '../utils/auth'
+import { authApi } from '../api/authApi'
 import { useNavigate } from 'react-router-dom'
 
 // 상단 헤더: 서비스 이름, 로그아웃 버튼
 export default function Header() {
   const navigate = useNavigate()
   
-  // 로그아웃: 토큰 삭제 후 로그인 화면으로
-  const handleLogout = () => {
-    removeToken()
+
+  // 로그아웃: 서버가 쿠키 삭제 → 화면 상태 정리 → 로그인 화면
+  const handleLogout = async () => {
+    try {
+      await authApi.logout()
+    } catch {
+      // 이미 만료됐거나 연결 실패여도 화면은 로그아웃 처리
+    }
+    clearSession()
     navigate('/login')
   }
 

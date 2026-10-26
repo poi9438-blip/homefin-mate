@@ -55,6 +55,9 @@ app:
   # 관리자 이메일 (쉼표로 여러 개, 비우면 관리자 없음, #10)
   admin:
     emails: ${ADMIN_EMAILS:}
+  # 로그인 쿠키 Secure 속성 (HTTPS에서만 전송, 기본 켜짐. http로 띄우는 로컬 compose만 끔, #78)
+  auth:
+    cookie-secure: ${COOKIE_SECURE:true}
   jwt:
     # 토큰 서명 비밀키
     secret: ${JWT_SECRET}
