@@ -45,11 +45,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             String token = extractToken(request);
             // 유효한 토큰의 이메일로 사용자를 찾아 DB의 역할로 인증 (사용자가 없으면 인증 안 함)
+            // 인증 정보에는 찾은 사용자의 id·이메일을 넣음 (서비스가 다시 조회하지 않게, #14)
             String email = StringUtils.hasText(token) ? jwtUtil.validEmail(token) : null;
             if (email != null) {
                 userRepository.findByEmail(email).ifPresent(user -> {
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            user.getEmail(), null,
+                            new AuthUser(user.getId(), user.getEmail()), null,
                             List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 });

@@ -9,6 +9,7 @@ import com.homefinmate.dto.auth.SignupRequest;
 import com.homefinmate.dto.auth.SignupResponse;
 import com.homefinmate.security.AuthCookies;
 import com.homefinmate.service.AuthService;
+import com.homefinmate.security.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -45,7 +46,7 @@ public class AuthController {
     // 현재 로그인 사용자 이메일·역할 (DB 기준, 로그인하지 않았으면 401)
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<MeResponse>> me(Authentication authentication) {
-        String email = (String) authentication.getPrincipal();
+        String email = ((AuthUser) authentication.getPrincipal()).email();
         String role = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority)
                 .filter(a -> a.startsWith("ROLE_")).map(a -> a.substring(5)).findFirst().orElse("USER");
         return ResponseEntity.ok(ApiResponse.success(new MeResponse(email, role), TraceIds.current()));

@@ -11,6 +11,6 @@ export const loanApi = {
       eventVersion: DEFAULT_EVENT_VERSION,
     }),
 
-  // 내 계산 이력 (최신순)
-  getHistory: () => axiosInstance.get("/loan/history"),
+  // 내 계산 이력 한 페이지 (최신순, params: { page, size }, size는 최대 100, #51)
+  getHistory: (params) => axiosInstance.get("/loan/history", { params }),
 };

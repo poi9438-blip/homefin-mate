@@ -50,11 +50,18 @@ const AUDIT_COLS = [
   { key: 'createdAt', label: '시간', render: v => v ? new Date(v).toLocaleString() : '—' },
 ]
 
+// 로그인 실패 원인 → 한국어 (모르는 값은 그대로)
+const FAILURE_REASONS = {
+  'User not found': '가입되지 않은 이메일',
+  'Incorrect password': '비밀번호 틀림',
+  'Too many attempts': '시도 횟수 초과로 차단',
+}
+
 const FAILURE_COLS = [
   { key: 'id',        label: 'ID' },
   // 이메일 대신 HMAC 값 (#33)
   { key: 'emailHash', label: '이메일 (해시)' },
-  { key: 'reason',    label: '원인' },
+  { key: 'reason',    label: '원인', render: v => FAILURE_REASONS[v] ?? v ?? '—' },
   { key: 'traceId',   label: '트레이스 ID' },
   { key: 'createdAt', label: '시간', render: v => v ? new Date(v).toLocaleString() : '—' },
 ]

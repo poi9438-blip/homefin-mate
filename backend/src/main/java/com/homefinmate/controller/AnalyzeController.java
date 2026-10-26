@@ -5,6 +5,7 @@ import com.homefinmate.common.TraceIds;
 import com.homefinmate.dto.analyze.AnalyzeRequest;
 import com.homefinmate.dto.analyze.AnalyzeResponse;
 import com.homefinmate.service.AnalyzeService;
+import com.homefinmate.security.AuthUser;
 import lombok.RequiredArgsConstructor;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -23,9 +24,9 @@ public class AnalyzeController {
     @PostMapping
     public ResponseEntity<ApiResponse<AnalyzeResponse>> analyze(
             @Valid @RequestBody AnalyzeRequest request,
-            @AuthenticationPrincipal String email) {
+            @AuthenticationPrincipal AuthUser user) {
 
-        AnalyzeResponse result = analyzeService.analyze(request, email);
+        AnalyzeResponse result = analyzeService.analyze(request, user.id());
         return ResponseEntity.ok(ApiResponse.success(result, TraceIds.current()));
     }
 }

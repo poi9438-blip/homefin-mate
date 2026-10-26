@@ -7,9 +7,9 @@ import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.entity.LoanSimulation;
 import com.homefinmate.repository.LoanSimulationRepository;
-import com.homefinmate.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,26 +25,18 @@ import java.util.List;
 public class LoanService {
 
         private final LoanSimulationRepository loanSimulationRepository;
-        private final UserRepository userRepository;
         private final AuditService auditService;
 
         // 대출 계산 API: 계산 => 저장(계산 기록 + 이용 기록을 한 트랜잭션으로) => 응답
         @Transactional
-        public LoanCalculationResponse calculate(LoanCalculationRequest request, String email) {
-                // 토큰 이메일 => 사용자 id (못 찾으면 401, #58)
-                Long userId = requireUserId(email);
+        // userId: 로그인 필터가 확인한 사용자 id
+        public LoanCalculationResponse calculate(LoanCalculationRequest request, Long userId) {
                 LoanCalculationResponse result = compute(request);
 
                 result.setSimulationId(saveSimulation(userId, request, result));
                 // 대출 계산 이용 기록
                 auditService.logActivity(userId, "LOAN_CALCULATION", request.getTraceId());
                 return result;
-        }
-
-        // 토큰 이메일의 사용자 id (토큰 발급 뒤 삭제된 사용자면 401)
-        private Long requireUserId(String email) {
-                return userRepository.findByEmail(email).map(u -> u.getId())
-                                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "User not found"));
         }
 
         // 계산만 (월 상환액/총이자/DTI, 저장 안 함, simulationId 없음)
@@ -113,12 +105,17 @@ public class LoanService {
                 return simulation.getId();
         }
 
-        // 내 계산 이력 (최신순, 사용자를 못 찾으면 빈 목록)
-        public List<LoanCalculationResponse> getHistory(String email) {
-                Long userId = userRepository.findByEmail(email).map(u -> u.getId()).orElse(null);
-                if (userId == null)
-                        return List.of();
-                return loanSimulationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+        // 이력 한 페이지의 최대 건수
+        public static final int MAX_HISTORY_SIZE = 100;
+
+        // 내 계산 이력 한 페이지 (최신순, page는 0부터, size는 1~100)
+        public List<LoanCalculationResponse> getHistory(Long userId, int page, int size) {
+                if (page < 0 || size < 1 || size > MAX_HISTORY_SIZE) {
+                        throw new BusinessException(HttpStatus.BAD_REQUEST,
+                                        "page must be 0 or more and size must be between 1 and " + MAX_HISTORY_SIZE);
+                }
+                return loanSimulationRepository
+                                .findByUserIdOrderByCreatedAtDescIdDesc(userId, PageRequest.of(page, size)).stream()
                                 .map(s -> LoanCalculationResponse.builder()
                                                 .simulationId(s.getId())
                                                 .loanAmount(s.getLoanAmount())

@@ -90,4 +90,23 @@ describe('관리자 화면', () => {
     expect(adminApi.getLoginFailures).toHaveBeenCalledTimes(2)
     expect(container.textContent).toContain('hmac:all')
   })
+
+  // 로그인 실패 원인은 한국어로, 모르는 값은 그대로
+  it('[TC-WEB-227] 로그인 실패 원인(가입 안 됨·비밀번호 틀림·시도 초과)은 한국어로, 모르는 값은 서버 값 그대로 표시', async () => {
+    adminApi.getAuditLogs.mockResolvedValue({ data: { data: [] } })
+    adminApi.getLoginFailures.mockResolvedValue({ data: { data: [
+      { id: 3, emailHash: 'hmac:a', reason: 'User not found' },
+      { id: 2, emailHash: 'hmac:b', reason: 'Incorrect password' },
+      { id: 1, emailHash: 'hmac:c', reason: 'Too many attempts' },
+      { id: 0, emailHash: 'hmac:d', reason: 'Some new reason' },
+    ] } })
+
+    await act(async () => { root.render(<AdminPage />) })
+    await flush()
+    await click(button('로그인 실패'))
+    await flush()
+
+    const reasons = [...container.querySelectorAll('tbody tr')].map(r => r.children[2].textContent)
+    expect(reasons).toEqual(['가입되지 않은 이메일', '비밀번호 틀림', '시도 횟수 초과로 차단', 'Some new reason'])
+  })
 })

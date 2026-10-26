@@ -73,9 +73,9 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  // 이 사용자로 서버에 저장된 계산 기록 수
-  const res = http.get(`${BASE}/api/loan/history`, { headers: auth(data) });
-  savedRows.add(res.json("data").length);
+  // 이 사용자로 서버에 저장된 계산 기록 수 (리포트의 COUNT, 이력 API는 페이지 단위라 전체 수를 모름 #51)
+  const res = http.get(`${BASE}/api/report/summary`, { headers: auth(data) });
+  savedRows.add(res.json("data.reportData.totalSimulations"));
 }
 
 export function handleSummary(data) {
