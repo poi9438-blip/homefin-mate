@@ -1,6 +1,7 @@
 package com.homefinmate.controller;
 
 import com.homefinmate.common.ApiResponse;
+import com.homefinmate.common.TraceIds;
 import com.homefinmate.dto.auth.LoginRequest;
 import com.homefinmate.dto.auth.LoginResponse;
 import com.homefinmate.dto.auth.SignupRequest;
@@ -23,19 +24,19 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
         SignupResponse response = authService.signup(request);
-        return ResponseEntity.ok(ApiResponse.success(response, request.getTraceId()));
+        return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 
     // 로그인 (성공 시 JWT 발급)
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
-        return ResponseEntity.ok(ApiResponse.success(response, request.getTraceId()));
+        return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 
     // 로그아웃
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader("Authorization") String token) {
-        return ResponseEntity.ok(ApiResponse.success(null, null));
+        return ResponseEntity.ok(ApiResponse.success(null, TraceIds.current()));
     }
 }

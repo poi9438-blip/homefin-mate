@@ -32,6 +32,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      # 기본 이미지 (OTel 에이전트 없음, 관측 compose는 target: otel)
+      target: runtime
     container_name: homefinmate-backend
     # 화면(nginx)을 거치지 않는 직접 호출은 이 PC에서만 (개발용 Vite 프록시·curl)
     ports:
@@ -69,6 +71,8 @@ services:
     build:
       context: ./python-service
       dockerfile: Dockerfile
+      # 기본 이미지 (OTel 패키지 없음)
+      target: runtime
     container_name: homefinmate-python
     ports:
       - "127.0.0.1:8200:8200"

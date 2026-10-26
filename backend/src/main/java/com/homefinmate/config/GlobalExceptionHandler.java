@@ -2,8 +2,8 @@ package com.homefinmate.config;
 
 import com.homefinmate.common.ApiResponse;
 import com.homefinmate.common.BusinessException;
+import com.homefinmate.common.TraceIds;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
     // 오류 응답 본문에도 traceId를 넣어 사용자가 받은 번호로 서버 로그를 찾을 수 있게 함
     private String traceId() {
-        return MDC.get("traceId");
+        return TraceIds.current();
     }
 
     // 업무 오류: 지정한 상태 코드 + 공개 메시지

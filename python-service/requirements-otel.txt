@@ -1,0 +1,5 @@
+# Keep this file ASCII-only (see requirements.txt).
+# Observability image only (Dockerfile target "otel"): OpenTelemetry auto-instrumentation for FastAPI.
+opentelemetry-distro==0.66b1
+opentelemetry-exporter-otlp==1.45.1
+opentelemetry-instrumentation-fastapi==0.66b1

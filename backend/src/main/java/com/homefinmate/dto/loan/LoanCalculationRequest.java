@@ -1,5 +1,6 @@
 package com.homefinmate.dto.loan;
 
+import com.homefinmate.common.TraceIdCarrier;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
@@ -11,7 +12,7 @@ import java.math.BigDecimal;
 
 // 대출 계산 요청 (원금, 연이율, 기간, 월 소득 필수 / 기존 대출 월 이자, 지역 선택)
 @Data
-public class LoanCalculationRequest {
+public class LoanCalculationRequest implements TraceIdCarrier {
     // 대출 원금 (원, 0보다 커야 함)
     @NotNull(message = "Loan amount is required")
     @Positive(message = "Loan amount must be greater than 0")
@@ -41,6 +42,7 @@ public class LoanCalculationRequest {
     // 지역 (선택)
     private String region;
 
+    // 요청 traceId (보낸 값과 관계없이 서버가 X-Trace-Id 기준 값으로 덮어씀, #90)
     private String traceId;
     private String eventVersion = "v1";
 }

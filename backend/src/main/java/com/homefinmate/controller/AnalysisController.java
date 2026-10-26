@@ -1,6 +1,7 @@
 package com.homefinmate.controller;
 
 import com.homefinmate.common.ApiResponse;
+import com.homefinmate.common.TraceIds;
 import com.homefinmate.dto.analysis.RegionAnalysisResponse;
 import com.homefinmate.service.AnalysisService;
 import lombok.RequiredArgsConstructor;
@@ -15,12 +16,11 @@ public class AnalysisController {
 
     private final AnalysisService analysisService;
 
-    // 지역 분석 조회 (region 필수, traceId 헤더 선택)
+    // 지역 분석 조회 (region 필수)
     @GetMapping("/region")
     public ResponseEntity<ApiResponse<RegionAnalysisResponse>> getRegionAnalysis(
-            @RequestParam String region,
-            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-        RegionAnalysisResponse response = analysisService.getRegionAnalysis(region, traceId);
-        return ResponseEntity.ok(ApiResponse.success(response, traceId));
+            @RequestParam String region) {
+        RegionAnalysisResponse response = analysisService.getRegionAnalysis(region, TraceIds.current());
+        return ResponseEntity.ok(ApiResponse.success(response, TraceIds.current()));
     }
 }

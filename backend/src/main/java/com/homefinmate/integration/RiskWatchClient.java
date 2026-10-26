@@ -7,7 +7,7 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.event.CircuitBreakerOnStateTransitionEvent;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
+import com.homefinmate.common.TraceIds;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -176,7 +176,7 @@ public class RiskWatchClient {
         String action = CIRCUIT_PREFIX + event.getStateTransition().name();
         log.warn("RiskWatch circuit breaker {}", event.getStateTransition().name());
         try {
-            auditService.logAudit("SYSTEM", "HOMEFIT_MATE", action, MDC.get("traceId"));
+            auditService.logAudit("SYSTEM", "HOMEFIT_MATE", action, TraceIds.current());
         } catch (Exception e) {
             log.error("Failed to record circuit breaker transition: {}", e.getMessage());
         }

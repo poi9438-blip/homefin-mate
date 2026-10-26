@@ -128,6 +128,12 @@
             <version>2.2.0</version>
         </dependency>
 
+        <!-- OpenTelemetry API (요청 span에 hfm.trace_id 속성) -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+
         <!--
         반복 코드 자동 생성
         -->
@@ -152,6 +158,13 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- 테스트용 OTel SDK (메모리에 span을 모아 속성 확인) -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-testing</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

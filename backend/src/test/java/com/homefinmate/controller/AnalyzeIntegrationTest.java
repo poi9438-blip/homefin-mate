@@ -8,6 +8,7 @@ import com.homefinmate.repository.UserActivityLogRepository;
 import com.homefinmate.repository.UserRepository;
 import com.homefinmate.service.AuditService;
 import com.homefinmate.service.PolicyService;
+import com.homefinmate.common.TraceIds;
 import com.homefinmate.support.ApiTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -96,6 +97,7 @@ class AnalyzeIntegrationTest {
         @DisplayName("[TC-ANLZ-101] 외부 서비스가 모두 죽어도 200, 위험 평가·지역 분석은 available=false(지역 값 없음), 계산 1건·이용 기록 1줄 저장, 연동 실패 감사 기록")
         void externalServicesDown_returns200WithFallback_andPersists() throws Exception {
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .header(TraceIds.HEADER, traceId)
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.data.loan.monthlyPayment").value(1520056))
@@ -126,6 +128,7 @@ class AnalyzeIntegrationTest {
 
                 // 서버 오류라 500 (예전에는 400)
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .header(TraceIds.HEADER, traceId)
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
                                 .andExpect(status().isInternalServerError());
 
@@ -139,6 +142,7 @@ class AnalyzeIntegrationTest {
                                 .when(auditService).logActivity(any(), eq("UNIFIED_ANALYSIS"), any());
 
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .header(TraceIds.HEADER, traceId)
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
                                 .andExpect(status().isInternalServerError());
 
@@ -151,6 +155,7 @@ class AnalyzeIntegrationTest {
         @DisplayName("[TC-ANLZ-103] 분석 로그에 이메일·대출 금액·월 상환액·DTI 값이 남지 않음 (사용자 id·판정만, #83 해결)")
         void analyzeLogs_excludePersonalAndFinancialData(CapturedOutput output) throws Exception {
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .header(TraceIds.HEADER, traceId)
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
                                 .andExpect(status().isOk());
 
@@ -174,6 +179,7 @@ class AnalyzeIntegrationTest {
                                 + "\"firstHome\":true,\"newlywed\":false,\"childCount\":0}";
 
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .header(TraceIds.HEADER, traceId)
                                 .contentType(MediaType.APPLICATION_JSON).content(full))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.data.policy.recommendedProduct").value("내집마련 디딤돌대출"))
@@ -190,12 +196,14 @@ class AnalyzeIntegrationTest {
                                 + "\"firstHome\":true,\"newlywed\":false,";
 
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .header(TraceIds.HEADER, traceId)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(base + "\"housePrice\":400000000,\"childCount\":-1}"))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.message")
                                                 .value(org.hamcrest.Matchers.containsString("childCount")));
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .header(TraceIds.HEADER, traceId)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(base + "\"housePrice\":0,\"childCount\":0}"))
                                 .andExpect(status().isBadRequest())
@@ -210,6 +218,7 @@ class AnalyzeIntegrationTest {
                 String loanOnly = "{\"loanAmount\":200000000,\"annualInterestRate\":4.5,\"termMonths\":360}";
 
                 mockMvc.perform(post("/api/analyze").header("Authorization", bearer(token))
+                                .header(TraceIds.HEADER, traceId)
                                 .contentType(MediaType.APPLICATION_JSON).content(loanOnly))
                                 .andExpect(status().isBadRequest())
                                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.allOf(

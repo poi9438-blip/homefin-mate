@@ -1,0 +1,47 @@
+# 관측(OpenTelemetry) compose 덮어쓰기 파일 — 필요할 때만 함께 띄움 (기본 실행에는 영향 없음)
+# 저장소 루트에서: docker compose -f docker-compose.yml -f observability/docker-compose.observability.yml up -d --build
+# - lgtm: Grafana + Tempo(추적) + Loki(로그) + Prometheus(지표) + OTel Collector를 컨테이너 하나로 (http://localhost:3000)
+# - backend: OTel Java 에이전트로 요청·DB·외부 호출 span, JVM·HTTP 지표, 로그(MDC traceId 포함)를 보냄
+# - python-service: opentelemetry-instrument로 FastAPI 요청 span (백엔드 span의 자식으로 이어짐)
+services:
+  lgtm:
+    image: grafana/otel-lgtm:0.38.0
+    container_name: homefinmate-lgtm
+    # Grafana 화면은 이 PC에서만 (OTLP 수신 4317·4318은 compose 네트워크 안에서만)
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  backend:
+    build:
+      target: otel
+    image: homefin-local-backend-otel
+    environment:
+      JAVA_TOOL_OPTIONS: -javaagent:/app/opentelemetry-javaagent.jar
+      OTEL_SERVICE_NAME: homefin-backend
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_CAPTURE_MDC_ATTRIBUTES: traceId
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local
+    depends_on:
+      lgtm:
+        condition: service_started
+
+  python-service:
+    build:
+      target: otel
+    image: homefin-local-python-service-otel
+    environment:
+      OTEL_SERVICE_NAME: homefin-python
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local
+    depends_on:
+      lgtm:
+        condition: service_started
