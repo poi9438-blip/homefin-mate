@@ -37,7 +37,11 @@ export function setup() {
     JSON.stringify({ email, password: "password123" }),
     { headers },
   );
-  return { token: res.json("data.token") };
+  return {
+    token:
+      res.cookies.hfm_session[0]
+        .value /* 토큰은 HttpOnly 쿠키로만 옴(#78), Bearer로 보냄 */,
+  };
 }
 
 export default function (data) {

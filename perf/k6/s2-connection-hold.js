@@ -79,7 +79,12 @@ export function setup() {
     JSON.stringify({ email, password: "password123" }),
     { headers: JSON_HEADERS },
   );
-  return { email, token: res.json("data.token") };
+  return {
+    email,
+    token:
+      res.cookies.hfm_session[0]
+        .value /* 토큰은 HttpOnly 쿠키로만 옴(#78), Bearer로 보냄 */,
+  };
 }
 
 // 로그인이 필요한 API용 헤더 (JWT)
