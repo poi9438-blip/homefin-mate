@@ -64,6 +64,10 @@ public class AnalyzeService {
                 policyReq.setFirstHome(request.getFirstHome());
                 policyReq.setNewlywed(request.getNewlywed());
                 policyReq.setChildCount(request.getChildCount());
+                // 금리 비교용 대출 기간, 신생아 특례 판정용 입력
+                policyReq.setTermMonths(request.getTermMonths());
+                policyReq.setNewbornWithin2Years(request.getNewbornWithin2Years());
+                policyReq.setDualIncome(request.getDualIncome());
                 policyReq.setTraceId(traceId);
                 policyReq.setEventVersion(request.getEventVersion());
                 PolicyRecommendationResponse policyResult = policyService.recommend(policyReq);

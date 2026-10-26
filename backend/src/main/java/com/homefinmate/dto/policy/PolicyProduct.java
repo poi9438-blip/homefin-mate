@@ -31,4 +31,8 @@ public class PolicyProduct {
     private String sourceUrl;
     // 공식 출처를 확인한 날짜 (yyyy-MM-dd)
     private String checkedDate;
+    // 입력 기준 공식 기본금리 (%, 우대 전, 모르면 null)
+    private BigDecimal baseRate;
+    // 기본금리 기준 설명 (예: "부부합산 연소득 4,800만 원 · 30년 만기 · 우대 전")
+    private String baseRateBasis;
 }

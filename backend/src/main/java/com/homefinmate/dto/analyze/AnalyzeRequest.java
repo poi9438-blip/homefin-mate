@@ -70,6 +70,12 @@ public class AnalyzeRequest implements TraceIdCarrier {
     @PositiveOrZero(message = "Child count must be zero or more")
     private Integer childCount;
 
+    // 대출 신청일 기준 2년 안에 출산·입양한 가구인지 (선택)
+    private Boolean newbornWithin2Years;
+
+    // 맞벌이 여부 (선택, 신생아 특례는 맞벌이면 부부합산 2억 원까지)
+    private Boolean dualIncome;
+
     // 요청 traceId (보낸 값과 관계없이 서버가 X-Trace-Id 기준 값으로 덮어씀, #90)
     private String traceId;
     private String eventVersion = "v1";
