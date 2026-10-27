@@ -30,5 +30,6 @@ app:
     base-url: http://127.0.0.1:9
     retry-count: 0
     backoff-ms: 0
+    token-secret: HomeFin-Test-RiskWatch-Token-Secret-32bytes
   python-service:
     base-url: http://127.0.0.1:9

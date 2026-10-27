@@ -15,6 +15,8 @@ public class PolicyProduct {
         ELIGIBLE, NEEDS_CHECK, NOT_ELIGIBLE
     }
 
+    // 상품 코드 (DIDIMDOL / NEWBORN_DIDIMDOL / BOGEUMJARI, FinFlow·RiskWatch와 같은 값)
+    private String code;
     private String name;
     // 운영 기관
     private String provider;

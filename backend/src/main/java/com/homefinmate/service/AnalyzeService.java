@@ -7,7 +7,6 @@ import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.dto.policy.PolicyRecommendationRequest;
 import com.homefinmate.dto.policy.PolicyRecommendationResponse;
-import com.homefinmate.dto.risk.RiskEvaluationRequest;
 import com.homefinmate.dto.risk.RiskEvaluationResponse;
 import com.homefinmate.integration.RiskWatchClient;
 import lombok.RequiredArgsConstructor;
@@ -66,23 +65,11 @@ public class AnalyzeService {
                 policyReq.setEventVersion(request.getEventVersion());
                 PolicyRecommendationResponse policyResult = policyService.recommend(policyReq);
 
-                // ③ RiskWatch 위험 평가 (실패해도 fallback으로 계속 진행)
-                String userIdStr = String.valueOf(userId);
-                RiskEvaluationRequest riskReq = RiskEvaluationRequest.builder()
-                                .userId(userIdStr)
-                                .loanAmount(request.getLoanAmount())
-                                .monthlyIncome(request.getMonthlyIncome())
-                                // RiskWatch 호환: dsr은 예전 계산(기존 대출 이자 미포함), dti는 새 계산
-                                .dsr(DtiRule.calculate(loanResult.getMonthlyPayment(), null,
-                                                request.getMonthlyIncome()))
-                                .dti(loanResult.getDti())
-                                .region(request.getRegion())
-                                .houseOwnership(request.getPropertyType())
-                                .sourceSystem(RiskWatchClient.SOURCE_SYSTEM)
-                                .traceId(traceId)
-                                .eventVersion(request.getEventVersion() != null ? request.getEventVersion() : "v1")
-                                .build();
-                RiskEvaluationResponse riskResult = riskWatchClient.evaluateRisk(riskReq);
+                // ③ RiskWatch 판정 (추천 상품 하나, 실패해도 fallback으로 계속, 입력이 모자라면 부르지 않음)
+                RiskWatchInput.Plan riskPlan = RiskWatchInput.plan(request, loanResult, policyResult, userId, traceId);
+                RiskEvaluationResponse riskResult = riskPlan.request() != null
+                                ? riskWatchClient.evaluateRisk(riskPlan.request())
+                                : RiskEvaluationResponse.notEvaluated(riskPlan.skipReason(), traceId);
 
                 // ④ 지역 분석 (지역이 있을 때만, 실패해도 fallback)
                 RegionAnalysisResponse regionResult = null;
@@ -92,9 +79,9 @@ public class AnalyzeService {
 
                 // ⑤ 저장: 계산 기록 + 이용 기록을 한 트랜잭션으로 (외부 호출이 모두 끝난 뒤)
                 loanResult.setSimulationId(analyzeResultSaver.save(userId, loanReq, loanResult));
-                log.info("[{}] Analysis complete: dtiStatus={} riskLevel={} riskAvailable={}",
-                                traceId, loanResult.getDtiStatus(), riskResult.getRiskLevel(),
-                                riskResult.isAvailable());
+                log.info("[{}] Analysis complete: dtiStatus={} riskStatus={} verdict={}",
+                                traceId, loanResult.getDtiStatus(), riskResult.getStatus(),
+                                riskResult.getVerdict());
 
                 return AnalyzeResponse.builder()
                                 .loan(loanResult)

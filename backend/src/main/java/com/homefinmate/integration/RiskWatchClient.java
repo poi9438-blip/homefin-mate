@@ -19,7 +19,9 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.net.SocketTimeoutException;
+import java.util.List;
 import java.util.Map;
 
 // RiskWatch 위험 평가 호출 (재시도, 실패 시 감사 기록 + fallback)
@@ -27,7 +29,7 @@ import java.util.Map;
 @Slf4j
 public class RiskWatchClient {
 
-    // RiskWatch에 알리는 호출 시스템 이름, 연동 실패 감사 기록의 행위자
+    // 연동 실패 감사 기록의 행위자 (RiskWatch에는 보내지 않음: 요청 서버는 토큰으로 정함)
     public static final String SOURCE_SYSTEM = "HOMEFIN_MATE";
 
     // 감사 기록 action 최대 길이
@@ -48,37 +50,35 @@ public class RiskWatchClient {
     private final RestTemplate restTemplate;
     private final AuditService auditService;
     private final CircuitBreaker circuitBreaker;
+    private final RiskWatchTokens tokens;
 
-    // RiskWatch 전용 RestTemplate, 서킷 브레이커 주입
+    // RiskWatch 전용 RestTemplate, 서킷 브레이커, 서비스 토큰 주입
     public RiskWatchClient(@Qualifier("riskWatchRestTemplate") RestTemplate restTemplate,
-            AuditService auditService, CircuitBreaker riskWatchCircuitBreaker) {
+            AuditService auditService, CircuitBreaker riskWatchCircuitBreaker, RiskWatchTokens tokens) {
         this.restTemplate = restTemplate;
         this.auditService = auditService;
         this.circuitBreaker = riskWatchCircuitBreaker;
+        this.tokens = tokens;
         // 서킷 상태 변경(CLOSED_TO_OPEN 등)을 감사 기록에 한 번씩 남김
         this.circuitBreaker.getEventPublisher().onStateTransition(this::recordStateTransition);
     }
 
     // 위험 평가 요청 (항상 결과를 돌려줌: 성공이면 available=true, 실패면 fallback)
     public RiskEvaluationResponse evaluateRisk(RiskEvaluationRequest request) {
-        String url = riskWatchBaseUrl + "/api/v1/risk/evaluate";
+        // RiskWatch 평가 API (서비스 토큰 + X-Trace-Id)
+        String url = riskWatchBaseUrl + "/api/evaluations";
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        if (request.getTraceId() != null)
-            headers.set("X-Trace-Id", request.getTraceId());
-        headers.set("X-Event-Version", request.getEventVersion());
-        headers.set("X-Source-System", SOURCE_SYSTEM);
-
-        HttpEntity<RiskEvaluationRequest> entity = new HttpEntity<>(request, headers);
         String reason = "unknown";
         boolean shortCircuited = false;
         int maxAttempts = riskWatchRetryCount + 1;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                log.info("[{}] RiskWatch evaluate attempt {}/{} userId={}",
-                        request.getTraceId(), attempt, maxAttempts, request.getUserId());
+                // 토큰은 시도마다 새로 만듦 (유효 기간 1분이라 재시도 대기 중 만료되지 않게)
+                HttpEntity<RiskEvaluationRequest> entity = new HttpEntity<>(request, headers(request.getTraceId()));
+                log.info("[{}] RiskWatch evaluate attempt {}/{} applicant={} product={}",
+                        request.getTraceId(), attempt, maxAttempts, request.getApplicantRef(),
+                        request.getProductCode());
 
                 // 서킷 브레이커를 거쳐 요청 전송 (차단 중이면 보내지 않음)
                 @SuppressWarnings("unchecked")
@@ -86,13 +86,14 @@ public class RiskWatchClient {
                         () -> restTemplate.postForEntity(url, entity,
                                 (Class<Map<String, Object>>) (Class<?>) Map.class));
 
-                RiskEvaluationResponse result = toResult(response.getBody());
+                RiskEvaluationResponse result = toResult(response.getBody(), request.getTraceId());
                 if (result != null) {
-                    log.info("[{}] RiskWatch response: level={} score={}",
-                            request.getTraceId(), result.getRiskLevel(), result.getRiskScore());
+                    log.info("[{}] RiskWatch response: evaluationId={} verdict={} criteria={}",
+                            request.getTraceId(), result.getEvaluationId(), result.getVerdict(),
+                            result.getCriteriaVersion());
                     return result;
                 }
-                // SUCCESS가 아닌 응답은 재시도하지 않음
+                // SUCCESS가 아니거나 판정 칸이 빠진 응답은 재시도하지 않음
                 reason = "Empty or non-SUCCESS response from RiskWatch";
                 break;
 
@@ -141,24 +142,70 @@ public class RiskWatchClient {
         }
     }
 
-    // RiskWatch 성공 응답을 결과로 변환 (SUCCESS가 아니거나 data가 없으면 null)
-    private RiskEvaluationResponse toResult(Map<String, Object> raw) {
-        if (raw == null || !"SUCCESS".equals(raw.get("status"))) {
+    // 요청 헤더: JSON, 서비스 토큰, traceId
+    private HttpHeaders headers(String traceId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(tokens.issue());
+        if (traceId != null)
+            headers.set("X-Trace-Id", traceId);
+        return headers;
+    }
+
+    // RiskWatch 성공 응답을 결과로 변환 (SUCCESS가 아니거나 판정 칸이 빠졌으면 null)
+    @SuppressWarnings("unchecked")
+    private RiskEvaluationResponse toResult(Map<String, Object> raw, String traceId) {
+        if (raw == null || !"SUCCESS".equals(raw.get("status")) || !(raw.get("data") instanceof Map<?, ?>)) {
             return null;
         }
-        @SuppressWarnings("unchecked")
         Map<String, Object> data = (Map<String, Object>) raw.get("data");
-        if (data == null) {
+        String evaluationId = text(data, "evaluationId");
+        String verdict = text(data, "verdict");
+        String criteriaVersion = text(data, "criteriaVersion");
+        String riskLevel = text(data, "riskLevel");
+        if (evaluationId == null || verdict == null || criteriaVersion == null || riskLevel == null
+                || !(data.get("riskScore") instanceof Number score)) {
             return null;
         }
-        Object scoreObj = data.get("riskScore");
         return RiskEvaluationResponse.builder()
-                .riskLevel(data.get("riskLevel") == null ? "UNKNOWN" : String.valueOf(data.get("riskLevel")))
-                .riskScore(scoreObj instanceof Number n ? n.intValue() : null)
-                .recommendation(String.valueOf(data.getOrDefault("reason", "")))
-                .traceId(String.valueOf(data.getOrDefault("traceId", "")))
+                .status(RiskEvaluationResponse.Status.EVALUATED)
+                .evaluationId(evaluationId)
+                .productCode(text(data, "productCode"))
+                .verdict(verdict)
+                .criteriaVersion(criteriaVersion)
+                .riskLevel(riskLevel)
+                .riskScore(score.intValue())
+                .recommendation(String.valueOf(data.getOrDefault("recommendation", "")))
+                .reasons(reasons(data.get("reasons")))
+                .notEvaluated(data.get("notEvaluated") instanceof List<?> list
+                        ? list.stream().map(String::valueOf).toList()
+                        : List.of())
+                .traceId(traceId)
                 .available(true)
                 .build();
+    }
+
+    private static String text(Map<String, Object> data, String field) {
+        return data.get(field) instanceof String s && !s.isBlank() ? s : null;
+    }
+
+    // 규칙별 근거 (모양이 다른 항목은 건너뜀)
+    @SuppressWarnings("unchecked")
+    private static List<RiskEvaluationResponse.Reason> reasons(Object raw) {
+        if (!(raw instanceof List<?> list)) {
+            return List.of();
+        }
+        return list.stream()
+                .filter(item -> item instanceof Map<?, ?>)
+                .map(item -> (Map<String, Object>) item)
+                .map(r -> new RiskEvaluationResponse.Reason(text(r, "code"), text(r, "name"),
+                        decimal(r.get("threshold")), decimal(r.get("actual")), text(r, "result"),
+                        text(r, "detail")))
+                .toList();
+    }
+
+    private static BigDecimal decimal(Object value) {
+        return value instanceof Number n ? new BigDecimal(n.toString()) : null;
     }
 
     // 연동 실패 감사 기록 (컬럼 길이에 맞게 자름, 기록 실패가 fallback을 막지 않음)
@@ -188,6 +235,7 @@ public class RiskWatchClient {
     // 대체 결과 (UNKNOWN, 점수 0, available=false)
     private RiskEvaluationResponse fallback(String traceId) {
         return RiskEvaluationResponse.builder()
+                .status(RiskEvaluationResponse.Status.UNAVAILABLE)
                 .riskLevel("UNKNOWN")
                 .riskScore(0)
                 .recommendation("Risk evaluation service temporarily unavailable.")

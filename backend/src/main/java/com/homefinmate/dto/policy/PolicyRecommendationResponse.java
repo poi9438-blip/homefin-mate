@@ -17,6 +17,8 @@ public class PolicyRecommendationResponse {
     private Integer eligibleCount;
     // 추천 상품 이름 (조건을 모두 충족한 상품만, 없으면 null)
     private String recommendedProduct;
+    // 추천 상품 코드 (RiskWatch 판정에 씀, 없으면 null)
+    private String recommendedProductCode;
     // 추천 이유 또는 추천하지 않은 이유
     private String recommendationReason;
     private String traceId;

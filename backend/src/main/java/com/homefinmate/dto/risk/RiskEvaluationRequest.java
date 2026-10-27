@@ -1,29 +1,37 @@
 package com.homefinmate.dto.risk;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
 
-// RiskWatch 위험 평가 요청 (RiskWatch 수신 형식에 맞춤)
+// RiskWatch 평가 요청 (RiskWatch 업무 명세 3장, 금액은 원 단위 정수)
 @Data
 @Builder
 public class RiskEvaluationRequest {
-    // 사용자 id (RiskWatch 형식에 맞춰 문자열)
-    private String userId;
-    private BigDecimal loanAmount;
-    // 월 소득 (RiskWatch 필드명 monthlyIncome)
-    private BigDecimal monthlyIncome;
-    // DSR (0~1, 신규 대출 월 상환액 ÷ 월 소득, RiskWatch 호환용으로 유지)
-    private BigDecimal dsr;
-    // DTI (0~1, (신규 대출 월 상환액 + 기존 대출 월 이자) ÷ 월 소득)
+    // DIDIMDOL / NEWBORN_DIDIMDOL / BOGEUMJARI (HomeFin 추천 상품)
+    private String productCode;
+    // homefin:{사용자 id}
+    private String applicantRef;
+    // HomeFin 쪽 참조 (지금은 없음: 계산 기록은 외부 호출이 끝난 뒤 저장)
+    private String sourceRef;
+    private long requestedAmount;
+    private int termMonths;
+    private long housePrice;
+    private long householdAnnualIncome;
+    // 대출 계산 결과 DTI (소수 넷째 자리)
     private BigDecimal dti;
-    private String region;
-    // 주택 보유 현황 (NONE, OWN, RENT)
+    // NONE / RENT / OWN
     private String houseOwnership;
-    // 보낸 시스템 이름
-    private String sourceSystem;
+    private boolean firstHome;
+    private boolean newlywed;
+    private boolean newbornWithin2Years;
+    private boolean dualIncome;
+    private int childCount;
+    private String region;
+
+    // 헤더(X-Trace-Id)로만 보냄
+    @JsonIgnore
     private String traceId;
-    @Builder.Default
-    private String eventVersion = "v1";
 }

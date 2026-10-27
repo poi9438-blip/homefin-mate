@@ -69,6 +69,8 @@ app:
   riskwatch:
     # RiskWatch 서버 주소 (없으면 fallback)
     base-url: ${RISKWATCH_BASE_URL:http://localhost:8120}
+    # RiskWatch 서비스 토큰 서명 키 (RiskWatch .env의 HOMEFIN_TOKEN_SECRET과 같은 값, JWT_SECRET과 다르게, 기본값 없음)
+    token-secret: ${RISKWATCH_TOKEN_SECRET}
     # 연결 타임아웃, 응답 타임아웃 (밀리초). RiskWatchClient 전용 RestTemplate이 실제로 읽음
     connect-timeout-ms: ${RISKWATCH_CONNECT_TIMEOUT_MS:1000}
     timeout-ms: ${RISKWATCH_TIMEOUT_MS:2000}

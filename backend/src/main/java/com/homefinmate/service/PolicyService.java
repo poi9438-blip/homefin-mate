@@ -14,6 +14,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 // 한국 주택구입 정책대출(디딤돌대출, 신생아 특례 디딤돌대출, 보금자리론) 자격 조건 판정과 추천
@@ -30,6 +31,9 @@ public class PolicyService {
     private static final String DIDIMDOL = "내집마련 디딤돌대출";
     private static final String NEWBORN = "신생아 특례 디딤돌대출";
     private static final String BOGEUMJARI = "보금자리론";
+    // 상품 이름 → 코드 (FinFlow·RiskWatch와 같은 값)
+    private static final Map<String, String> CODES = Map.of(
+            DIDIMDOL, "DIDIMDOL", NEWBORN, "NEWBORN_DIDIMDOL", BOGEUMJARI, "BOGEUMJARI");
     private static final BigDecimal DTI_LIMIT = new BigDecimal("0.60");
     private static final Set<String> CAPITAL_AREA = Set.of("서울", "인천", "경기");
 
@@ -50,6 +54,7 @@ public class PolicyService {
                         + "최종 자격과 한도는 각 기관 심사에서 결정됩니다.", products.size(), eligible, needsCheck))
                 .eligibleCount(eligible)
                 .recommendedProduct(recommendation[0])
+                .recommendedProductCode(recommendation[0] == null ? null : CODES.get(recommendation[0]))
                 .recommendationReason(recommendation[1])
                 .traceId(request.getTraceId())
                 .build();
@@ -379,7 +384,7 @@ public class PolicyService {
                         ? Eligibility.NEEDS_CHECK
                         : Eligibility.ELIGIBLE;
         return PolicyProduct.builder()
-                .name(name).provider(provider).description(description)
+                .code(CODES.get(name)).name(name).provider(provider).description(description)
                 .eligibility(eligibility).conditions(conditions).additionalChecks(additionalChecks)
                 .maxLoanAmount(maxLoan).interestRate(rate)
                 .sourceUrl(url).checkedDate(CHECKED_DATE)

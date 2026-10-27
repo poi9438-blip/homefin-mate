@@ -31,7 +31,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 @Import({ AuditService.class, PersonalDataJpaConfig.class })
 class RiskWatchClientAuditTest {
 
-    private static final String URL = "http://riskwatch.test/api/v1/risk/evaluate";
+    private static final String URL = "http://riskwatch.test/api/evaluations";
 
     @Autowired
     AuditService auditService;
@@ -41,15 +41,11 @@ class RiskWatchClientAuditTest {
     private RiskWatchClient clientWith(MockRestServiceServer[] holder) {
         RestTemplate restTemplate = new RestTemplate();
         holder[0] = MockRestServiceServer.bindTo(restTemplate).build();
-        RiskWatchClient client = new RiskWatchClient(restTemplate, auditService, CircuitBreaker.ofDefaults("test"));
-        ReflectionTestUtils.setField(client, "riskWatchBaseUrl", "http://riskwatch.test");
-        ReflectionTestUtils.setField(client, "riskWatchRetryCount", 2);
-        ReflectionTestUtils.setField(client, "backoffMs", 0L);
-        return client;
+        return RiskWatchClientTest.client(restTemplate, auditService, CircuitBreaker.ofDefaults("test"), 2);
     }
 
     private RiskEvaluationRequest request() {
-        return RiskEvaluationRequest.builder().userId("7").traceId("hfm-audit-risk").build();
+        return RiskWatchClientTest.request("hfm-audit-risk");
     }
 
     // 짧은 실패 사유(연결 거부): 감사 기록 저장, fallback 정상
