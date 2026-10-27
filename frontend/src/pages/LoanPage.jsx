@@ -14,6 +14,7 @@ import PolicyInputs from '../components/PolicyInputs'
 import { RecommendationCard } from '../components/PolicyRecommendation'
 import RegionSummary from '../components/RegionSummary'
 import RiskPanel from '../components/RiskPanel'
+import ApplyPanel from '../components/ApplyPanel'
 import { REGIONS } from '../utils/regions'
 import { POLICY_INPUT_DEFAULTS, policyInputPayload, validatePolicyInputs } from '../utils/policyInput'
 import { errorMessage } from '../utils/errorMessage'
@@ -80,6 +81,7 @@ export default function LoanPage() {
   const [step, setStep]               = useState(0)
   const [fieldErrors, setFieldErrors] = useState({})
   const [result, setResult]           = useState(null)
+  const [analysisInput, setAnalysisInput] = useState(null)
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState('')
 
@@ -97,19 +99,22 @@ export default function LoanPage() {
     setLoading(true)
     setStep(1)
     const traceId = generateTraceId()
+    const input = {
+      loanAmount:         Number(form.loanAmount),
+      annualInterestRate: Number(form.annualInterestRate),
+      termMonths:         Number(form.termMonths),
+      monthlyIncome:      form.monthlyIncome ? Number(form.monthlyIncome) : undefined,
+      // 기존 대출 월 이자 (비우면 0으로 계산)
+      existingMonthlyInterest: form.existingMonthlyInterest ? Number(form.existingMonthlyInterest) : undefined,
+      region:             form.region        || undefined,
+      propertyType:       form.propertyType  || 'NONE',
+      ...policyInputPayload(form),
+    }
     try {
-      const res = await analyzeApi.analyze({
-        loanAmount:         Number(form.loanAmount),
-        annualInterestRate: Number(form.annualInterestRate),
-        termMonths:         Number(form.termMonths),
-        monthlyIncome:      form.monthlyIncome ? Number(form.monthlyIncome) : undefined,
-        // 기존 대출 월 이자 (비우면 0으로 계산)
-        existingMonthlyInterest: form.existingMonthlyInterest ? Number(form.existingMonthlyInterest) : undefined,
-        region:             form.region        || undefined,
-        propertyType:       form.propertyType  || 'NONE',
-        ...policyInputPayload(form),
-      }, traceId)
+      const res = await analyzeApi.analyze(input, traceId)
       setResult(res.data.data)
+      // 신청할 때 같은 입력을 다시 보냄 (서버가 다시 계산·판정)
+      setAnalysisInput(input)
       setStep(2)
     } catch (err) {
       const msg = errorMessage(err, '분석에 실패했습니다. 다시 시도해주세요.')
@@ -342,6 +347,10 @@ export default function LoanPage() {
 
           {/* 둘 중 추천 카드 → 정책 화면으로 입력값과 계산된 DTI을 넘겨 조건별 근거 보기 */}
           <RecommendationCard policy={policyResult} onDetail={goPolicyDetail} />
+
+          {/* 추천 상품이 있으면 FinFlow에 신청 (결과가 바뀌면 key로 새 패널 = 새 Idempotency-Key) */}
+          <ApplyPanel key={result?.traceId} policy={policyResult} analysis={analysisInput}
+            simulationId={result?.loan?.simulationId} />
 
           <button onClick={handleNewAnalysis}
             className="w-fit px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
