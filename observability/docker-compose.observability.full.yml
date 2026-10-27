@@ -1,0 +1,41 @@
+# 세 서비스 관측 compose 덮어쓰기 파일 — 통합 compose(full/)와 관측 compose를 함께 띄울 때만 씀 (기본 실행에는 영향 없음)
+# 저장소 루트에서 (네 파일 순서 그대로):
+#   docker compose -f docker-compose.yml -f full/docker-compose.full.yml -f observability/docker-compose.observability.yml -f observability/docker-compose.observability.full.yml up -d --build
+# - riskwatch, finflow: 각 저장소 Dockerfile의 otel 단계(OTel Java 에이전트)로 같은 lgtm에 추적·지표·로그를 보냄
+# - 서비스끼리 부를 때 에이전트가 traceparent 헤더를 붙여서 HomeFin → FinFlow → RiskWatch가 한 추적으로 이어짐
+services:
+  riskwatch:
+    build:
+      target: otel
+    image: homefin-full-riskwatch-otel
+    environment:
+      JAVA_TOOL_OPTIONS: -javaagent:/app/opentelemetry-javaagent.jar
+      OTEL_SERVICE_NAME: riskwatch
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_CAPTURE_MDC_ATTRIBUTES: traceId
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local
+    depends_on:
+      lgtm:
+        condition: service_started
+
+  finflow:
+    build:
+      target: otel
+    image: homefin-full-finflow-otel
+    environment:
+      JAVA_TOOL_OPTIONS: -javaagent:/app/opentelemetry-javaagent.jar
+      OTEL_SERVICE_NAME: finflow
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_CAPTURE_MDC_ATTRIBUTES: traceId
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local
+    depends_on:
+      lgtm:
+        condition: service_started
