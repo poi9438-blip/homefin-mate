@@ -226,6 +226,16 @@ docker compose -f docker-compose.yml -f full/docker-compose.full.yml up -d --bui
 - FinFlow·RiskWatch를 각자 저장소에서 따로 띄운 상태면 포트(8110·8120)가 겹치므로 먼저 끕니다.
 - 세 저장소가 필요해서 CI에서는 돌리지 않습니다 ([integration.md](docs/test-cases/integration.md) TC-FULL).
 
+**세 서비스 + 관측:** 네 파일을 이 순서로 겹치면 FinFlow·RiskWatch도 OTel 에이전트 이미지(각 저장소 Dockerfile의 `otel` 단계)로 바뀌어 같은 Grafana에 보냅니다.
+
+```bash
+docker compose -f docker-compose.yml -f full/docker-compose.full.yml -f observability/docker-compose.observability.yml -f observability/docker-compose.observability.full.yml up -d --build
+```
+
+- 세 서비스 모두 요청 span에 같은 속성 `hfm.trace_id`를 붙입니다. Tempo에서 `{span.hfm.trace_id="hfm-…"}` 하나로 HomeFin → RiskWatch(통합 분석), HomeFin → FinFlow(신청)가 한 추적으로 보입니다.
+- 운영자가 FinFlow를 직접 부른 심사 시작은 FinFlow가 만든 `ff-…` 번호로 찾습니다(응답 헤더 `X-Trace-Id`). FinFlow → RiskWatch가 한 추적입니다.
+- Loki: `{service_name=~"homefin-backend|finflow|riskwatch"} | traceId="hfm-…"`로 세 서비스 로그를 함께 봅니다.
+
 ---
 
 ## API
