@@ -5,7 +5,6 @@ import com.homefinmate.dto.analyze.AnalyzeResponse;
 import com.homefinmate.dto.analysis.RegionAnalysisResponse;
 import com.homefinmate.dto.loan.LoanCalculationRequest;
 import com.homefinmate.dto.loan.LoanCalculationResponse;
-import com.homefinmate.dto.policy.PolicyRecommendationRequest;
 import com.homefinmate.dto.policy.PolicyRecommendationResponse;
 import com.homefinmate.dto.risk.RiskEvaluationResponse;
 import com.homefinmate.integration.RiskWatchClient;
@@ -34,36 +33,12 @@ public class AnalyzeService {
                                 request.getRegion());
 
                 // ① 대출 계산 (저장은 ⑤에서)
-                LoanCalculationRequest loanReq = new LoanCalculationRequest();
-                loanReq.setLoanAmount(request.getLoanAmount());
-                loanReq.setAnnualInterestRate(request.getAnnualInterestRate());
-                loanReq.setTermMonths(request.getTermMonths());
-                loanReq.setMonthlyIncome(request.getMonthlyIncome());
-                loanReq.setExistingMonthlyInterest(request.getExistingMonthlyInterest());
-                loanReq.setRegion(request.getRegion());
-                loanReq.setTraceId(traceId);
+                LoanCalculationRequest loanReq = PolicyLoanInputs.loanRequest(request);
                 LoanCalculationResponse loanResult = loanService.compute(loanReq);
 
-                // ② 정책 추천 (①의 DTI 사용)
-                PolicyRecommendationRequest policyReq = new PolicyRecommendationRequest();
-                policyReq.setIncome(request.getMonthlyIncome());
-                policyReq.setLoanAmount(request.getLoanAmount());
-                policyReq.setDti(loanResult.getDti());
-                policyReq.setPropertyType(request.getPropertyType());
-                policyReq.setRegion(request.getRegion());
-                // 정책대출 판정용 입력 전달 (주택 가격, 부부합산 연소득, 가구 조건)
-                policyReq.setHousePrice(request.getHousePrice());
-                policyReq.setHouseholdAnnualIncome(request.getHouseholdAnnualIncome());
-                policyReq.setFirstHome(request.getFirstHome());
-                policyReq.setNewlywed(request.getNewlywed());
-                policyReq.setChildCount(request.getChildCount());
-                // 금리 비교용 대출 기간, 신생아 특례 판정용 입력
-                policyReq.setTermMonths(request.getTermMonths());
-                policyReq.setNewbornWithin2Years(request.getNewbornWithin2Years());
-                policyReq.setDualIncome(request.getDualIncome());
-                policyReq.setTraceId(traceId);
-                policyReq.setEventVersion(request.getEventVersion());
-                PolicyRecommendationResponse policyResult = policyService.recommend(policyReq);
+                // ② 정책 추천 (①의 DTI 사용, 신청할 때도 같은 변환으로 다시 판정)
+                PolicyRecommendationResponse policyResult = policyService
+                                .recommend(PolicyLoanInputs.policyRequest(request, loanResult.getDti()));
 
                 // ③ RiskWatch 판정 (추천 상품 하나, 실패해도 fallback으로 계속, 입력이 모자라면 부르지 않음)
                 RiskWatchInput.Plan riskPlan = RiskWatchInput.plan(request, loanResult, policyResult, userId, traceId);

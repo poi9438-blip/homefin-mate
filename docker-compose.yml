@@ -49,6 +49,8 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY를 .env에 설정하세요}
       RISKWATCH_BASE_URL: ${RISKWATCH_BASE_URL:-http://host.docker.internal:8120}
       RISKWATCH_TOKEN_SECRET: ${RISKWATCH_TOKEN_SECRET:?RISKWATCH_TOKEN_SECRET을 .env에 설정하세요}
+      FINFLOW_BASE_URL: ${FINFLOW_BASE_URL:-http://host.docker.internal:8110}
+      FINFLOW_TOKEN_SECRET: ${FINFLOW_TOKEN_SECRET:?FINFLOW_TOKEN_SECRET을 .env에 설정하세요}
       PYTHON_SERVICE_URL: http://homefinmate-python:8200
       # 화면 주소 (CORS 허용 출처), API 문서 공개 여부 (기본 꺼짐)
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3100}

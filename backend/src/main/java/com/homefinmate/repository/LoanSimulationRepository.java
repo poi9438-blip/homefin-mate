@@ -17,6 +17,9 @@ public interface LoanSimulationRepository extends JpaRepository<LoanSimulation, 
     // 사용자의 계산 이력 한 페이지 (최신순, 같은 시각이면 id 역순, LIMIT·OFFSET)
     List<LoanSimulation> findByUserIdOrderByCreatedAtDescIdDesc(Long userId, Pageable pageable);
 
+    // 이 사용자의 계산 기록인지 (신청에 쓴 계산 기록 확인, 다른 사용자 것이면 false)
+    boolean existsByIdAndUserId(Long id, Long userId);
+
     // 사용자의 계산 수 (SELECT COUNT)
     long countByUserId(Long userId);
 
