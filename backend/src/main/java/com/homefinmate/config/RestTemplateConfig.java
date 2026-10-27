@@ -31,4 +31,15 @@ public class RestTemplateConfig {
         factory.setReadTimeout(readTimeoutMs);
         return new RestTemplate(factory);
     }
+
+    // FinFlow 호출용 (기본 연결 1초·응답 3초, 신청 접수는 같은 키로 재시도하므로 시간 초과 뒤에도 안전)
+    @Bean
+    public RestTemplate finFlowRestTemplate(
+            @Value("${app.finflow.connect-timeout-ms:1000}") int connectTimeoutMs,
+            @Value("${app.finflow.timeout-ms:3000}") int readTimeoutMs) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(connectTimeoutMs);
+        factory.setReadTimeout(readTimeoutMs);
+        return new RestTemplate(factory);
+    }
 }

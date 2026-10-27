@@ -8,6 +8,7 @@ const navItems = [
   { to: '/loan',      label: '대출 시뮬레이터' },
   { to: '/policy',    label: '정책 추천' },
   { to: '/report',    label: '재무 리포트' },
+  { to: '/applications', label: '내 신청' },
   { to: '/admin',     label: '관리자', adminOnly: true },
 ]
 

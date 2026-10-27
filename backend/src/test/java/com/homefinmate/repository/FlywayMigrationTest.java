@@ -76,7 +76,7 @@ class FlywayMigrationTest {
 
     // 새로 띄운 DB: V1(테이블 생성) → V2(DTI 전환) 순서로 실행
     @Test
-    @DisplayName("[TC-DATA-008] 빈 DB는 V1~V7을 차례로 실행해 dti_encrypted·dti_basis 컬럼이 있고 dsr 컬럼은 없음")
+    @DisplayName("[TC-DATA-008] 빈 DB는 V1~V8을 차례로 실행해 dti_encrypted·dti_basis 컬럼이 있고 dsr 컬럼은 없음")
     void emptyDb_runsAllMigrations() throws Exception {
         String url = newDbUrl();
         try (Connection conn = DriverManager.getConnection(url, "sa", "");
@@ -84,7 +84,7 @@ class FlywayMigrationTest {
             MigrateResult result = Flyway.configure().dataSource(url, "sa", "")
                     .javaMigrations(v5()).load().migrate();
 
-            assertThat(result.migrationsExecuted).isEqualTo(7);
+            assertThat(result.migrationsExecuted).isEqualTo(8);
             assertThat(loanSimulationColumns(st)).contains("dti_encrypted", "dti_basis").doesNotContain("dsr", "dti");
         }
     }
@@ -270,6 +270,34 @@ class FlywayMigrationTest {
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getString(1)).isEqualTo("a@test.com");
                 assertThat(rs.getString(2)).isEqualTo("ADMIN");
+            }
+        }
+    }
+
+    // V8: 신청 번호 표 (신청 번호 unique, 사용자 외래키 + 삭제 시 함께 삭제)
+    @Test
+    @DisplayName("[TC-DATA-018] V8 user_applications: 신청 번호 unique, 없는 사용자 id 거부, 사용자 삭제 시 함께 삭제")
+    void v8_userApplications() throws Exception {
+        String url = newDbUrl();
+        try (Connection conn = DriverManager.getConnection(url, "sa", "");
+                Statement st = conn.createStatement()) {
+            MigrateResult result = flywayWithV5(url, "8").migrate();
+            assertThat(result.migrationsExecuted).isEqualTo(8);
+
+            st.execute("insert into users (id, email, password, role) values (1, 'a@test.com', 'x', 'USER')");
+            String insert = "insert into user_applications (user_id, application_id, product_code, created_at)"
+                    + " values (%d, '%s', 'BOGEUMJARI', current_timestamp)";
+            st.execute(insert.formatted(1, "11111111-1111-1111-1111-111111111111"));
+            // 같은 신청 번호 두 번 / 없는 사용자 → 거부
+            assertThatThrownBy(() -> st.execute(insert.formatted(1, "11111111-1111-1111-1111-111111111111")))
+                    .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> st.execute(insert.formatted(99, "22222222-2222-2222-2222-222222222222")))
+                    .isInstanceOf(SQLException.class);
+
+            st.execute("delete from users where id = 1");
+            try (ResultSet rs = st.executeQuery("select count(*) from user_applications")) {
+                rs.next();
+                assertThat(rs.getInt(1)).isZero();
             }
         }
     }

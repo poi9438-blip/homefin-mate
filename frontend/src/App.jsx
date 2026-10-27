@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import LoanPage from './pages/LoanPage'
 import PolicyPage from './pages/PolicyPage'
 import ReportPage from './pages/ReportPage'
+import ApplicationsPage from './pages/ApplicationsPage'
 import AdminPage from './pages/AdminPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useTheme } from './hooks/useTheme'
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="loan" element={<LoanPage />} />
             <Route path="policy" element={<PolicyPage />} />
             <Route path="report" element={<ReportPage />} />
+            <Route path="applications" element={<ApplicationsPage />} />
             <Route path="admin" element={<AdminPage />} />
           </Route>
         </Routes>

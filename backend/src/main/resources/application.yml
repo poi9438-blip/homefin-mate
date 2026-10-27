@@ -85,6 +85,16 @@ app:
       minimum-calls: ${RISKWATCH_CB_MIN_CALLS:5}
       open-wait-ms: ${RISKWATCH_CB_OPEN_WAIT_MS:10000}
       half-open-calls: ${RISKWATCH_CB_HALF_OPEN_CALLS:2}
+  finflow:
+    # FinFlow 신청 처리 서버 주소
+    base-url: ${FINFLOW_BASE_URL:http://localhost:8110}
+    # FinFlow 서비스 토큰 서명 키 (FinFlow .env의 SERVICE_TOKEN_SECRET과 같은 값, JWT_SECRET·RISKWATCH_TOKEN_SECRET과 다르게, 기본값 없음)
+    token-secret: ${FINFLOW_TOKEN_SECRET}
+    # 연결 1초, 응답 3초. 신청 접수는 같은 Idempotency-Key로 재시도 (총 시도 = 값 + 1, 대기는 시도마다 2배)
+    connect-timeout-ms: ${FINFLOW_CONNECT_TIMEOUT_MS:1000}
+    timeout-ms: ${FINFLOW_TIMEOUT_MS:3000}
+    retry-count: ${FINFLOW_RETRY_COUNT:2}
+    backoff-ms: ${FINFLOW_BACKOFF_MS:200}
   python-service:
     # Python 지역 분석 서비스 주소
     base-url: ${PYTHON_SERVICE_URL:http://localhost:8200}

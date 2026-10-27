@@ -83,12 +83,15 @@ services:
       retries: 12
       start_period: 30s
 
-  # HomeFin 백엔드: RiskWatch를 서비스 이름으로 부름 (따로 띄울 때는 host.docker.internal)
+  # HomeFin 백엔드: RiskWatch·FinFlow를 서비스 이름으로 부름 (따로 띄울 때는 host.docker.internal)
   backend:
     environment:
       RISKWATCH_BASE_URL: http://riskwatch:8120
+      FINFLOW_BASE_URL: http://finflow:8110
     depends_on:
       riskwatch:
+        condition: service_healthy
+      finflow:
         condition: service_healthy
 
 volumes:

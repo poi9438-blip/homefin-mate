@@ -31,5 +31,10 @@ app:
     retry-count: 0
     backoff-ms: 0
     token-secret: HomeFin-Test-RiskWatch-Token-Secret-32bytes
+  finflow:
+    base-url: http://127.0.0.1:9
+    token-secret: HomeFin-Test-FinFlow-Token-Secret-32bytes!!
+    retry-count: 0
+    backoff-ms: 0
   python-service:
     base-url: http://127.0.0.1:9
