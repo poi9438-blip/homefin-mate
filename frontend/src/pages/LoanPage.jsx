@@ -13,6 +13,7 @@ import StepGuide from '../components/StepGuide'
 import PolicyInputs from '../components/PolicyInputs'
 import { RecommendationCard } from '../components/PolicyRecommendation'
 import RegionSummary from '../components/RegionSummary'
+import RiskPanel from '../components/RiskPanel'
 import { REGIONS } from '../utils/regions'
 import { POLICY_INPUT_DEFAULTS, policyInputPayload, validatePolicyInputs } from '../utils/policyInput'
 import { errorMessage } from '../utils/errorMessage'
@@ -57,41 +58,6 @@ function validate(form) {
   if (form.existingMonthlyInterest && Number(form.existingMonthlyInterest) < 0)
     errors.existingMonthlyInterest = '기존 대출 월 이자는 0 이상이어야 합니다.'
   return { ...errors, ...validatePolicyInputs(form) }
-}
-
-// 리스크 평가 패널 (fallback이면 이용 불가 안내, 등급별 색)
-function RiskPanel({ risk }) {
-  if (!risk) return null
-  if (!risk.available) {
-    return (
-      <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-5">
-        <span className="text-yellow-600 dark:text-yellow-400 font-semibold text-sm">리스크 평가 불가</span>
-        <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-          RiskWatch 서비스가 일시적으로 이용 불가합니다. 대출 계산 결과는 유효합니다.
-        </p>
-      </div>
-    )
-  }
-  const levelColor = risk.riskLevel === 'LOW'
-    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-    : risk.riskLevel === 'HIGH' || risk.riskLevel === 'CRITICAL'
-      ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 shadow-xs">
-      <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">리스크 평가</h3>
-      <div className="flex flex-wrap gap-3 mb-3">
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${levelColor}`}>{risk.riskLevel}</span>
-        {risk.riskScore > 0 && (
-          <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">
-            점수: {risk.riskScore}
-          </span>
-        )}
-      </div>
-      {risk.recommendation && <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{risk.recommendation}</p>}
-      {risk.aiExplanation && <p className="text-xs text-gray-500 dark:text-gray-400 italic">{risk.aiExplanation}</p>}
-    </div>
-  )
 }
 
 // 지역 분석 패널 (예시 평균 가격, 성장률, 시장 리스크 / 분석 불가면 이유)
