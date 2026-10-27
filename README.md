@@ -197,6 +197,32 @@ docker compose -f docker-compose.yml -f observability/docker-compose.observabili
 - **hfm 번호로 로그 찾기:** Explore → Loki → `{service_name="homefin-backend"} | traceId="hfm-…"`. 로그 줄에서 OTel 추적으로 바로 이동할 수 있습니다.
 - 관측 없이 다시 실행할 때는 `docker compose up -d --build`로 기본 이미지로 돌아옵니다(관측 이미지는 `…-otel` 이름이라 섞이지 않음).
 
+### 5. 세 서비스 함께 실행 (선택)
+
+HomeFin Mate에 FinFlow(신청 처리, :8110)와 RiskWatch(심사 규칙 엔진, :8120)를 함께 띄웁니다. 세 저장소를 **같은 폴더에 나란히** 받아 둔 것을 전제로 합니다.
+
+```
+finsight-study/
+├── homefin-mate/        ← 여기서 실행
+├── finflow-engine/
+└── riskwatch-system/
+```
+
+```bash
+docker compose -f docker-compose.yml -f full/docker-compose.full.yml up -d --build
+```
+
+- **비밀값은 각 저장소의 `.env`를 그대로 씁니다** (FinFlow·RiskWatch 컨테이너가 `../finflow-engine/.env`, `../riskwatch-system/.env`를 읽음). 서버 사이 키는 짝을 맞춥니다.
+
+| 연결                | 보내는 쪽 `.env`                        | 받는 쪽 `.env`                          |
+| ------------------- | --------------------------------------- | --------------------------------------- |
+| HomeFin → RiskWatch | homefin-mate `RISKWATCH_TOKEN_SECRET`   | riskwatch-system `HOMEFIN_TOKEN_SECRET` |
+| FinFlow → RiskWatch | finflow-engine `RISKWATCH_TOKEN_SECRET` | riskwatch-system `FINFLOW_TOKEN_SECRET` |
+
+- 세 서비스는 같은 compose 네트워크에서 서비스 이름(`riskwatch:8120`)으로 서로 부릅니다. 따로 띄울 때 쓰던 `host.docker.internal`은 쓰지 않습니다.
+- FinFlow·RiskWatch를 각자 저장소에서 따로 띄운 상태면 포트(8110·8120)가 겹치므로 먼저 끕니다.
+- 세 저장소가 필요해서 CI에서는 돌리지 않습니다 ([integration.md](docs/test-cases/integration.md) TC-FULL).
+
 ---
 
 ## API
