@@ -1,0 +1,96 @@
+# 세 서비스(HomeFin + FinFlow + RiskWatch) 함께 실행용 compose 덮어쓰기 파일 — 기본 실행에는 영향 없음
+# 저장소 루트에서: docker compose -f docker-compose.yml -f full/docker-compose.full.yml up -d --build
+#
+# 세 서비스 함께 실행 (각 저장소 .env 사용, 서로는 서비스 이름으로 호출)
+services:
+  # RiskWatch 심사 규칙 엔진 (8120) + 전용 MySQL
+  riskwatch-mysql:
+    image: mysql:8.0
+    container_name: homefinmate-riskwatch-mysql
+    # MYSQL_ROOT_PASSWORD, MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD
+    env_file: ../riskwatch-system/.env
+    volumes:
+      - riskwatch_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  riskwatch:
+    build:
+      context: ../riskwatch-system
+      dockerfile: Dockerfile
+      target: runtime
+    image: homefin-full-riskwatch
+    container_name: homefinmate-riskwatch
+    # 운영자 API(기준 변경)를 이 PC에서 직접 부를 수 있게
+    ports:
+      - "127.0.0.1:8120:8120"
+    env_file: ../riskwatch-system/.env
+    environment:
+      SERVER_PORT: 8120
+      # DB 이름은 RiskWatch .env의 MYSQL_DATABASE(기본 riskwatch)와 같아야 함
+      DB_URL: jdbc:mysql://riskwatch-mysql:3306/riskwatch?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    depends_on:
+      riskwatch-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8120/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # FinFlow 신청 처리 (8110) + 전용 MySQL
+  finflow-mysql:
+    image: mysql:8.0
+    container_name: homefinmate-finflow-mysql
+    env_file: ../finflow-engine/.env
+    volumes:
+      - finflow_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  finflow:
+    build:
+      context: ../finflow-engine
+      dockerfile: Dockerfile
+      target: runtime
+    image: homefin-full-finflow
+    container_name: homefinmate-finflow
+    # 운영자 API(심사 시작·승인·배치)를 이 PC에서 직접 부를 수 있게
+    ports:
+      - "127.0.0.1:8110:8110"
+    env_file: ../finflow-engine/.env
+    environment:
+      SERVER_PORT: 8110
+      DB_URL: jdbc:mysql://finflow-mysql:3306/finflow?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      # 심사 시작 때 RiskWatch 판정 (같은 네트워크의 서비스 이름)
+      RISKWATCH_BASE_URL: http://riskwatch:8120
+    depends_on:
+      finflow-mysql:
+        condition: service_healthy
+      riskwatch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8110/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # HomeFin 백엔드: RiskWatch를 서비스 이름으로 부름 (따로 띄울 때는 host.docker.internal)
+  backend:
+    environment:
+      RISKWATCH_BASE_URL: http://riskwatch:8120
+    depends_on:
+      riskwatch:
+        condition: service_healthy
+
+volumes:
+  riskwatch_mysql_data:
+  finflow_mysql_data:
