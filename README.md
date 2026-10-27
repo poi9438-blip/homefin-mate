@@ -66,7 +66,7 @@ homefin-mate/
                                           └──▶ RiskWatch(:8120)        위험 평가 (재시도 후 fallback)
 ```
 
-- 아직 **RiskWatch 서버가 없습니다.** 위험 평가는 항상 연결 실패 → fallback(`available=false`) 경로로 동작합니다.
+- **RiskWatch(심사 규칙 엔진)는 별도 저장소입니다.** 통합 분석은 정책 추천 상품 하나를 RiskWatch 평가 API(`POST /api/evaluations`)에 서비스 토큰으로 보내 판정(적격·검토 필요·부적격)과 규칙별 근거를 받습니다. 추천 상품이 없거나 판정 입력이 모자라면 부르지 않고 이유를 보여 주고, RiskWatch가 응답하지 않으면 재시도 후 fallback(`available=false`)입니다. `.env`에 `RISKWATCH_TOKEN_SECRET`(RiskWatch의 `HOMEFIN_TOKEN_SECRET`과 같은 값)이 필요합니다.
 - 요청마다 `traceId`(`X-Trace-Id` 헤더 하나가 기준)를 백엔드 로그(MDC), 응답, DB 기록, RiskWatch·Python 호출 헤더에 함께 넘겨서 한 번의 분석을 끝까지 추적할 수 있습니다.
 - 관측 compose를 함께 띄우면 OpenTelemetry로 추적·로그·지표를 Grafana에서 봅니다. 요청 span에 `hfm.trace_id`가 붙어 화면에 보인 번호로 추적을 찾을 수 있습니다 ([관측 실행](#4-관측-실행-선택)).
 
