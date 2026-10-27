@@ -54,11 +54,14 @@ export default function (data) {
       monthlyIncome: 4000000,
       propertyType: "NONE",
       // 정책 판정용 필수 입력 (없으면 400)
-      housePrice: 400000000,
+      // 추천 상품(보금자리론)이 나오고 판정 입력이 모두 있어야 RiskWatch를 부름 (RiskWatch 4단계)
+      housePrice: 600000000,
       householdAnnualIncome: 48000000,
       firstHome: true,
       newlywed: false,
       childCount: 0,
+      newbornWithin2Years: false,
+      dualIncome: false,
     }),
     {
       headers: {

@@ -56,7 +56,8 @@ class AnalyzeServiceTest {
                 .dti(new BigDecimal("0.3800")).dtiStatus("ACCEPTABLE").build());
         when(analyzeResultSaver.save(any(), any(), any())).thenReturn(100L);
         when(policyService.recommend(any()))
-                .thenReturn(PolicyRecommendationResponse.builder().eligibleCount(2).build());
+                .thenReturn(PolicyRecommendationResponse.builder().eligibleCount(2)
+                        .recommendedProduct("보금자리론").recommendedProductCode("BOGEUMJARI").build());
         when(riskWatchClient.evaluateRisk(any())).thenReturn(RiskEvaluationResponse.builder()
                 .riskLevel("UNKNOWN").riskScore(0).available(false).build());
         when(analysisService.getRegionAnalysis(anyString(), anyString()))
@@ -73,6 +74,13 @@ class AnalyzeServiceTest {
         r.setPropertyType("NONE");
         r.setRegion(region);
         r.setTraceId("hfm-analyze-1");
+        r.setHousePrice(new BigDecimal("600000000"));
+        r.setHouseholdAnnualIncome(new BigDecimal("48000000"));
+        r.setFirstHome(true);
+        r.setNewlywed(false);
+        r.setChildCount(0);
+        r.setNewbornWithin2Years(false);
+        r.setDualIncome(false);
         return r;
     }
 
@@ -96,11 +104,10 @@ class AnalyzeServiceTest {
         assertThat(res.getTraceId()).isEqualTo("hfm-analyze-1");
     }
 
-    // 기존 대출 월 이자는 대출 계산(DTI)에, ①의 DTI는 정책, 위험 평가에 전달
-    // 위험 평가의 dsr은 호환용 예전 계산(월 상환액 ÷ 월 소득)
+    // 추천 상품 하나로 RiskWatch 평가 요청 (금액은 원 단위 정수, DTI는 ①의 결과), 기존 대출 월 이자는 ①의 DTI 계산에
     @Test
-    @DisplayName("[TC-ANLZ-002] 기존 대출 월 이자는 DTI 계산에, 대출 결과 DTI는 정책·위험 평가에 전달 (위험 평가 dsr은 예전 계산)")
-    void analyze_passesDtiAndTraceId() {
+    @DisplayName("[TC-ANLZ-201] 추천 상품으로 위험 평가 요청: 상품 코드, homefin:{id}, 원 단위 금액, 대출 결과 DTI, 기간·주택 가격·연소득·주택 보유·가구 조건·지역·traceId")
+    void analyze_requestsRiskWatchWithRecommendedProduct() {
         analyzeService.analyze(request("부산"), 7L);
 
         ArgumentCaptor<LoanCalculationRequest> loanReq = ArgumentCaptor.forClass(LoanCalculationRequest.class);
@@ -114,11 +121,22 @@ class AnalyzeServiceTest {
         assertThat(loanReq.getValue().getTraceId()).isEqualTo("hfm-analyze-1");
         assertThat(loanReq.getValue().getExistingMonthlyInterest()).isEqualByComparingTo("500000");
         assertThat(policyReq.getValue().getDti()).isEqualByComparingTo("0.3800");
-        assertThat(riskReq.getValue().getDti()).isEqualByComparingTo("0.3800");
-        assertThat(riskReq.getValue().getDsr()).isEqualByComparingTo("0.3800");
-        assertThat(riskReq.getValue().getUserId()).isEqualTo("7");
-        assertThat(riskReq.getValue().getHouseOwnership()).isEqualTo("NONE");
-        assertThat(riskReq.getValue().getTraceId()).isEqualTo("hfm-analyze-1");
+        RiskEvaluationRequest risk = riskReq.getValue();
+        assertThat(risk.getProductCode()).isEqualTo("BOGEUMJARI");
+        assertThat(risk.getApplicantRef()).isEqualTo("homefin:7");
+        assertThat(risk.getRequestedAmount()).isEqualTo(300_000_000L);
+        assertThat(risk.getTermMonths()).isEqualTo(360);
+        assertThat(risk.getHousePrice()).isEqualTo(600_000_000L);
+        assertThat(risk.getHouseholdAnnualIncome()).isEqualTo(48_000_000L);
+        assertThat(risk.getDti()).isEqualByComparingTo("0.3800");
+        assertThat(risk.getHouseOwnership()).isEqualTo("NONE");
+        assertThat(risk.isFirstHome()).isTrue();
+        assertThat(risk.isNewlywed()).isFalse();
+        assertThat(risk.isNewbornWithin2Years()).isFalse();
+        assertThat(risk.isDualIncome()).isFalse();
+        assertThat(risk.getChildCount()).isZero();
+        assertThat(risk.getRegion()).isEqualTo("부산");
+        assertThat(risk.getTraceId()).isEqualTo("hfm-analyze-1");
     }
 
     // 지역이 비어 있으면 ④ 지역 분석을 부르지 않고 region은 null
@@ -170,5 +188,63 @@ class AnalyzeServiceTest {
         assertThat(policyReq.getValue().getNewbornWithin2Years()).isTrue();
         assertThat(policyReq.getValue().getDualIncome()).isFalse();
         assertThat(policyReq.getValue().getTermMonths()).isEqualTo(360);
+    }
+
+    private void assertNotEvaluated(AnalyzeResponse res, String... reasonParts) {
+        verify(riskWatchClient, never()).evaluateRisk(any());
+        assertThat(res.getRisk().getStatus()).isEqualTo(RiskEvaluationResponse.Status.NOT_EVALUATED);
+        assertThat(res.getRisk().isAvailable()).isFalse();
+        assertThat(res.getRisk().getTraceId()).isEqualTo("hfm-analyze-1");
+        assertThat(res.getRisk().getRecommendation()).contains(reasonParts);
+        // 판정을 하지 않아도 분석은 끝까지 (지역 분석·저장)
+        verify(analyzeResultSaver).save(eq(7L), any(), any());
+    }
+
+    @Test
+    @DisplayName("[TC-ANLZ-202] 추천 상품이 없으면 RiskWatch를 부르지 않고 risk NOT_EVALUATED + 한국어 이유, 분석은 계속")
+    void noRecommendedProduct_notEvaluated() {
+        when(policyService.recommend(any())).thenReturn(PolicyRecommendationResponse.builder().eligibleCount(0).build());
+
+        assertNotEvaluated(analyzeService.analyze(request("부산"), 7L), "추천 상품이 없어");
+    }
+
+    @Test
+    @DisplayName("[TC-ANLZ-203] 주택 보유·2년 내 출산·입양·맞벌이 중 빠진 입력이 있으면 부르지 않고 NOT_EVALUATED, 이유에 빠진 항목")
+    void missingRiskInputs_notEvaluated() {
+        AnalyzeRequest req = request("부산");
+        req.setPropertyType(null);
+        req.setDualIncome(null);
+
+        AnalyzeResponse res = analyzeService.analyze(req, 7L);
+        assertNotEvaluated(res, "주택 보유 여부", "맞벌이 여부", "보금자리론");
+        // 입력한 항목(2년 내 출산·입양)은 빠졌다고 하지 않음
+        assertThat(res.getRisk().getRecommendation()).doesNotContain("2년 내 출산");
+    }
+
+    @Test
+    @DisplayName("[TC-ANLZ-204] RiskWatch 입력 범위: 기간 12개월·자녀 20명은 부르고, 11개월·소수 금액·자녀 21명·없는 주택 보유 값은 부르지 않음")
+    void riskWatchInputRange() {
+        // 범위 안 (경계)
+        AnalyzeRequest inside = request("부산");
+        inside.setTermMonths(12);
+        inside.setChildCount(20);
+        analyzeService.analyze(inside, 7L);
+        verify(riskWatchClient).evaluateRisk(any());
+
+        // 범위 밖: 하나씩
+        java.util.Map<String, java.util.function.Consumer<AnalyzeRequest>> outside = new java.util.LinkedHashMap<>();
+        outside.put("대출 기간", r -> r.setTermMonths(11));
+        outside.put("대출 금액", r -> r.setLoanAmount(new BigDecimal("300000000.5")));
+        outside.put("자녀 수", r -> r.setChildCount(21));
+        outside.put("주택 보유 여부", r -> r.setPropertyType("TWO"));
+        for (var c : outside.entrySet()) {
+            clearInvocations(riskWatchClient, analyzeResultSaver);
+            AnalyzeRequest req = request("부산");
+            c.getValue().accept(req);
+            AnalyzeResponse res = analyzeService.analyze(req, 7L);
+            verify(riskWatchClient, never()).evaluateRisk(any());
+            assertThat(res.getRisk().getStatus()).as(c.getKey()).isEqualTo(RiskEvaluationResponse.Status.NOT_EVALUATED);
+            assertThat(res.getRisk().getRecommendation()).as(c.getKey()).contains("범위를 벗어나", c.getKey());
+        }
     }
 }

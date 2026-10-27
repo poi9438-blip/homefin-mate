@@ -73,11 +73,13 @@ class AnalyzeIntegrationTest {
                 traceId = "hfm-it-" + UUID.randomUUID();
         }
 
+        // 추천 상품(보금자리론)이 나오고 RiskWatch 판정 입력이 모두 있어 RiskWatch를 실제로 부르는 입력
         private String body() {
                 return "{\"loanAmount\":300000000,\"annualInterestRate\":4.5,\"termMonths\":360,"
                                 + "\"monthlyIncome\":4000000,\"propertyType\":\"NONE\",\"region\":\"부산\","
-                                + "\"housePrice\":400000000,\"householdAnnualIncome\":48000000,"
+                                + "\"housePrice\":600000000,\"householdAnnualIncome\":48000000,"
                                 + "\"firstHome\":true,\"newlywed\":false,\"childCount\":0,"
+                                + "\"newbornWithin2Years\":false,\"dualIncome\":false,"
                                 + "\"traceId\":\"" + traceId + "\"}";
         }
 
@@ -101,6 +103,9 @@ class AnalyzeIntegrationTest {
                                 .contentType(MediaType.APPLICATION_JSON).content(body()))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.data.loan.monthlyPayment").value(1520056))
+                                .andExpect(jsonPath("$.data.policy.recommendedProductCode").value("BOGEUMJARI"))
+                                // 부르지 않은 것(NOT_EVALUATED)이 아니라 불렀다가 실패한 것
+                                .andExpect(jsonPath("$.data.risk.status").value("UNAVAILABLE"))
                                 .andExpect(jsonPath("$.data.risk.available").value(false))
                                 .andExpect(jsonPath("$.data.region.region").value("부산"))
                                 .andExpect(jsonPath("$.data.region.available").value(false))

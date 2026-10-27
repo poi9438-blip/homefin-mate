@@ -69,11 +69,14 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(html)
             return
 
+        # RiskWatch 평가 API(POST /api/evaluations)와 같은 모양의 판정 응답 (토큰은 확인하지 않음)
         body = json.dumps({
             "status": "SUCCESS",
-            "data": {"riskLevel": "LOW", "riskScore": 10, "reason": "fake riskwatch", "traceId": ""},
+            "data": {"evaluationId": "00000000-0000-0000-0000-000000000000", "productCode": "BOGEUMJARI",
+                     "verdict": "ELIGIBLE", "riskLevel": "LOW", "riskScore": 0, "recommendation": "fake riskwatch",
+                     "criteriaVersion": "fake", "reasons": [], "notEvaluated": []},
         }).encode()
-        self.send_response(200)
+        self.send_response(201)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()

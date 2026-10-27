@@ -37,7 +37,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 @ExtendWith(MockitoExtension.class)
 class RiskWatchCircuitBreakerTest {
 
-    private static final String URL = "http://riskwatch.test/api/v1/risk/evaluate";
+    private static final String URL = "http://riskwatch.test/api/evaluations";
 
     @Mock
     AuditService auditService;
@@ -51,14 +51,11 @@ class RiskWatchCircuitBreakerTest {
         RestTemplate restTemplate = new RestTemplate();
         server = MockRestServiceServer.bindTo(restTemplate).build();
         circuitBreaker = new ResilienceConfig().riskWatchCircuitBreaker(50, 4, 4, 60_000, 1);
-        client = new RiskWatchClient(restTemplate, auditService, circuitBreaker);
-        ReflectionTestUtils.setField(client, "riskWatchBaseUrl", "http://riskwatch.test");
-        ReflectionTestUtils.setField(client, "riskWatchRetryCount", 0);
-        ReflectionTestUtils.setField(client, "backoffMs", 0L);
+        client = RiskWatchClientTest.client(restTemplate, auditService, circuitBreaker, 0);
     }
 
     private RiskEvaluationRequest request() {
-        return RiskEvaluationRequest.builder().userId("7").traceId("hfm-cb-1").build();
+        return RiskWatchClientTest.request("hfm-cb-1");
     }
 
     @Test
@@ -103,8 +100,7 @@ class RiskWatchCircuitBreakerTest {
     void halfOpen_successfulTrial_closesCircuit() {
         circuitBreaker.transitionToOpenState();
         circuitBreaker.transitionToHalfOpenState();
-        server.expect(requestTo(URL)).andRespond(withSuccess(
-                "{\"status\":\"SUCCESS\",\"data\":{\"riskLevel\":\"LOW\",\"riskScore\":10,\"reason\":\"ok\"}}",
+        server.expect(requestTo(URL)).andRespond(withSuccess(RiskWatchClientTest.SUCCESS_BODY,
                 MediaType.APPLICATION_JSON));
 
         RiskEvaluationResponse res = client.evaluateRisk(request());
