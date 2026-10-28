@@ -9,6 +9,16 @@
 > 기존 동작을 단계별로 다시 구현하면서 테스트와 실제 요청으로 문제를 확인했고, 찾은 문제는 [알려진 문제 목록](docs/known-issues.md)에 정리해 순서대로 고치고 있습니다.
 > 단계마다 PR을 나누어 merge 했고 PR 본문에 구현 내용, 확인 결과, 발견한 문제를 남겼습니다.
 
+## 함께 쓰는 저장소
+
+세 저장소를 같은 폴더에 나란히 받으면 HomeFin Mate에서 세 서비스를 함께 띄울 수 있습니다 ([HomeFin 실행 5번](https://github.com/poi9438-blip/homefin-mate#5-세-서비스-함께-실행-선택)).
+
+| 저장소                                                               | 역할                                                                  | 포트             |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------- |
+| [homefin-mate](https://github.com/poi9438-blip/homefin-mate)         | 사용자 화면·상담(대출 계산, 정책 추천, 통합 분석, 신청), 관측 compose | 8100 (화면 3100) |
+| [finflow-engine](https://github.com/poi9438-blip/finflow-engine)     | 대출 신청 접수·상태 관리·배치                                         | 8110             |
+| [riskwatch-system](https://github.com/poi9438-blip/riskwatch-system) | 심사 규칙 엔진 (판정·근거·기준 버전)                                  | 8120             |
+
 ---
 
 ## 주요 기능
@@ -19,10 +29,12 @@
 - [x] 외부 시스템 연동 (RiskWatch 위험 평가, 타임아웃·재시도 + 서킷 브레이커 + fallback)
 - [x] 지역 부동산 분석 (Python 서비스)
 - [x] 통합 분석 (대출 + 정책 + 리스크 + 지역을 한 번에)
+- [x] 대출 신청 (추천 상품을 FinFlow에 접수, 같은 Idempotency-Key로 안전한 재시도) / 내 신청 (상태 조회·취소)
 - [x] 대시보드 / 리포트
 - [x] 관리자 화면 (감사 기록, 로그인 실패, 이용 기록, 연동 실패)
 - [x] 다크 모드 / 큰 글씨 모드
-- [x] Docker Compose 실행
+- [x] Docker Compose 실행 (세 서비스 함께 실행 포함)
+- [x] 관측 (OpenTelemetry 추적·로그·지표, Grafana 대시보드·알림)
 
 ---
 
@@ -37,6 +49,7 @@
 | Test     | JUnit 5, Mockito, AssertJ, MockRestServiceServer, JaCoCo, pytest, Vitest                         |
 | CI/CD    | GitHub Actions: PR·main마다 테스트, main CI 성공 시 Docker 이미지 → GHCR (서버 배포는 아직 없음) |
 | Infra    | Docker, Docker Compose, nginx                                                                    |
+| 관측     | OpenTelemetry Java 에이전트·API, Grafana LGTM(Tempo·Loki·Prometheus), Grafana 대시보드·알림      |
 
 ---
 
@@ -48,11 +61,14 @@ homefin-mate/
 │   └── src/main/java/com/homefinmate/
 │       ├── controller/   API (auth, loan, policy, analyze, analysis, report, admin)
 │       ├── service/      비즈니스 로직
-│       ├── integration/  외부 시스템 호출 (RiskWatchClient)
+│       ├── integration/  외부 시스템 호출 (RiskWatchClient, FinFlowClient, 서비스 토큰)
 │       ├── security/     JWT 발급·검증, 인증 필터
+│       ├── metrics/      업무 지표 (OpenTelemetry)
 │       ├── entity/ repository/ dto/ config/ util/
 ├── frontend/           React + Vite (Docker에서는 nginx) :3100
 ├── python-service/     FastAPI 지역 분석 서비스   :8200
+├── full/               세 서비스 함께 실행 compose (FinFlow·RiskWatch)
+├── observability/      관측 compose (OTel → Grafana LGTM), grafana/ 대시보드·알림 규칙
 ├── docker-compose.yml  mysql + backend + python-service + frontend
 └── .env.example        환경변수 예시 (.env로 복사해서 사용)
 ```
@@ -63,10 +79,13 @@ homefin-mate/
 브라우저 ──▶ frontend(:3100) ──/api──▶ backend(:8100) ──▶ MySQL(:3310)
                                           │
                                           ├──▶ python-service(:8200)   지역 분석 (예시 데이터, 실패 시 분석 불가)
-                                          └──▶ RiskWatch(:8120)        위험 평가 (재시도 후 fallback)
+                                          ├──▶ RiskWatch(:8120)        위험 평가 (재시도 후 fallback)
+                                          └──▶ FinFlow(:8110)          대출 신청 접수·조회·취소 (같은 키로 재시도)
+                                                    └──▶ RiskWatch    운영자 심사 시작 때 판정
 ```
 
 - **RiskWatch(심사 규칙 엔진)는 별도 저장소입니다.** 통합 분석은 정책 추천 상품 하나를 RiskWatch 평가 API(`POST /api/evaluations`)에 서비스 토큰으로 보내 판정(적격·검토 필요·부적격)과 규칙별 근거를 받습니다. 추천 상품이 없거나 판정 입력이 모자라면 부르지 않고 이유를 보여 주고, RiskWatch가 응답하지 않으면 재시도 후 fallback(`available=false`)입니다. `.env`에 `RISKWATCH_TOKEN_SECRET`(RiskWatch의 `HOMEFIN_TOKEN_SECRET`과 같은 값)이 필요합니다.
+- **FinFlow(신청 처리)도 별도 저장소입니다.** 통합 분석 결과의 추천 상품으로 신청하면 서버가 DTI·상품 판정을 다시 하고, 충족일 때만 FinFlow에 서비스 토큰과 `Idempotency-Key`로 접수합니다. HomeFin은 신청 번호만 보관하고 상태는 FinFlow에서 가져옵니다.
 - 요청마다 `traceId`(`X-Trace-Id` 헤더 하나가 기준)를 백엔드 로그(MDC), 응답, DB 기록, RiskWatch·Python 호출 헤더에 함께 넘겨서 한 번의 분석을 끝까지 추적할 수 있습니다.
 - 관측 compose를 함께 띄우면 OpenTelemetry로 추적·로그·지표를 Grafana에서 봅니다. 요청 span에 `hfm.trace_id`가 붙어 화면에 보인 번호로 추적을 찾을 수 있습니다 ([관측 실행](#4-관측-실행-선택)).
 
@@ -88,6 +107,7 @@ cp .env.example .env
 | `ENCRYPTION_KEY`                        | 암호화 키 (UTF-8 정확히 32바이트, 아니면 서버가 시작되지 않음. 바꾸면 기존 암호문을 복호화할 수 없음)                        |
 | `JWT_SECRET`                            | 토큰 서명 키 (32바이트 이상)                                                                                                 |
 | `JWT_EXPIRATION_MS`                     | 토큰·로그인 쿠키 유효 기간 (선택, 기본 24시간)                                                                               |
+| `RISKWATCH_TOKEN_SECRET`                | RiskWatch 서비스 토큰 서명 키 (필수, RiskWatch `HOMEFIN_TOKEN_SECRET`과 같은 값, `JWT_SECRET`과 다르게)                      |
 | `RISKWATCH_BASE_URL`                    | RiskWatch 주소 (선택, 없으면 fallback)                                                                                       |
 | `FINFLOW_TOKEN_SECRET`                  | FinFlow 서비스 토큰 서명 키 (필수, FinFlow `SERVICE_TOKEN_SECRET`과 같은 값, `JWT_SECRET`·`RISKWATCH_TOKEN_SECRET`과 다르게) |
 | `FINFLOW_BASE_URL`                      | FinFlow 주소 (선택, 기본 http://localhost:8110, 없으면 신청이 503)                                                           |
@@ -108,7 +128,7 @@ docker compose up -d --build
 
 화면(3100)만 다른 PC에서 접속할 수 있고, 백엔드(8100)·Python(8200)·MySQL(3310)은 이 PC(`127.0.0.1`)에서만 열립니다. 컨테이너는 모두 root가 아닌 사용자로 실행되고, 화면은 백엔드·Python이 준비(healthy)된 뒤 시작합니다.
 
-DB 테이블은 백엔드가 시작할 때 Flyway(`backend/src/main/resources/db/migration`)가 만들고 바꿉니다. 테이블을 바꿀 때는 기존 파일을 고치지 말고 다음 버전 파일(예: `V7__설명.sql`)을 추가합니다. Flyway 도입 전에 만든 DB는 V1을 건너뛰고 V2부터 실행합니다.
+DB 테이블은 백엔드가 시작할 때 Flyway(`backend/src/main/resources/db/migration`)가 만들고 바꿉니다. 테이블을 바꿀 때는 기존 파일을 고치지 말고 다음 버전 파일(지금은 V8까지 있으므로 예: `V9__설명.sql`)을 추가합니다. Flyway 도입 전에 만든 DB는 V1을 건너뛰고 V2부터 실행합니다.
 
 ### 2. 로컬 개발 실행
 
@@ -281,7 +301,8 @@ docker compose -f docker-compose.yml -f full/docker-compose.full.yml -f observab
 - JWT(HS256) 인증, 세션 미사용(STATELESS), 401/403 JSON 응답
 - 토큰은 HttpOnly·SameSite=Strict 쿠키로만 전달(화면 자바스크립트가 읽을 수 없음), 쿠키 인증 요청은 XSRF 토큰(이중 제출)으로 CSRF 방어
 - 관리자 API는 주소 규칙(`hasRole("ADMIN")`)과 메서드 권한(`@PreAuthorize`) 두 겹으로 검사
-- 비밀값(DB 비밀번호, 암호화 키, JWT 키)은 기본값 없이 `.env`에서만 주입
+- RiskWatch·FinFlow 호출은 서비스 토큰(HS256, 발급자·대상 확인, 1분 유효). 부르는 곳마다 다른 비밀키를 쓰고, 같은 값이면 서버가 시작하지 않음
+- 비밀값(DB 비밀번호, 암호화 키, JWT 키, 서비스 토큰 키)은 기본값 없이 `.env`에서만 주입
 - 로그인 실패 시 이메일·비밀번호 중 무엇이 틀렸는지 알려주지 않음 (계정 존재 여부 노출 방지)
 
 ---
@@ -303,7 +324,7 @@ docker compose -f docker-compose.yml -f full/docker-compose.full.yml -f observab
 다시 구현하면서 고치지 않고 남겨 둔 것입니다. 자세한 내용은 [docs/known-issues.md](docs/known-issues.md)의 번호를 참고하세요.
 
 - **로그아웃 후 토큰 (#92):** 서명 기반 JWT라 로그아웃해도 토큰 자체는 만료(기본 24시간)까지 유효합니다. 쿠키는 지워집니다.
-- **서비스 간 인증 (#73):** RiskWatch 위험 평가와 Python 지역 분석은 인증 없이 호출합니다. compose 내부 네트워크에서만 쓰는 것을 전제로 합니다.
+- **서비스 간 인증 (#73 일부):** RiskWatch·FinFlow 호출은 서비스 토큰을 쓰지만, Python 지역 분석은 인증 없이 호출합니다. compose 내부 네트워크에서만 쓰는 것을 전제로 합니다.
 - **지역 시세 (#39):** Python 서비스의 시세는 출처 없는 예시 데이터이며, 화면에 "예시 데이터 · 실제 시세 아님"으로 표시합니다.
 - **지역 분석 실패 처리 (#56 일부):** 지역 분석이 실패하면 "분석 불가"로 표시하지만, RiskWatch와 달리 재시도·연동 실패 기록은 없습니다.
 - **AI 설명 (#55 일부):** 화면에 `aiExplanation`을 보여 주는 자리가 있지만 서버가 보내지 않아 표시되지 않습니다.
