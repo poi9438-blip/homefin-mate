@@ -32,7 +32,7 @@ class JwtAuthFilterSpanTest {
         } finally {
             span.end();
         }
-        // [추천 주석] 속성 이름은 상수가 아닌 글자로 확인 (FinFlow·RiskWatch와 같은 이름이어야 Tempo에서 함께 찾음)
+        // 속성 이름은 상수가 아닌 글자로 확인 (FinFlow·RiskWatch와 같은 이름이어야 Tempo에서 함께 찾음)
         return otel.getSpans().get(otel.getSpans().size() - 1).getAttributes()
                 .get(AttributeKey.stringKey("hfm.trace_id"));
     }
