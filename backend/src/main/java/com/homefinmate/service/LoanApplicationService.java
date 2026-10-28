@@ -13,6 +13,7 @@ import com.homefinmate.dto.policy.PolicyRecommendationResponse;
 import com.homefinmate.entity.UserApplication;
 import com.homefinmate.integration.FinFlowClient;
 import com.homefinmate.integration.FinFlowClient.FinFlowException;
+import com.homefinmate.metrics.BusinessMetrics;
 import com.homefinmate.repository.LoanSimulationRepository;
 import com.homefinmate.repository.UserApplicationRepository;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class LoanApplicationService {
     private final UserApplicationRepository applicationRepository;
     private final LoanSimulationRepository simulationRepository;
     private final AuditService auditService;
+    private final BusinessMetrics metrics;
 
     // 신청 접수 (같은 키로 다시 보내면 처음 신청을 그대로 돌려줌)
     public Receipt apply(ApplyRequest request, String idempotencyKey, Long userId) {
@@ -91,8 +93,12 @@ public class LoanApplicationService {
         try {
             received = finFlowClient.receive(body, idempotencyKey, traceId);
         } catch (FinFlowException e) {
+            // 업무 지표: FinFlow 실패 종류 (UNAVAILABLE / CONFLICT / NOT_FOUND / REJECTED)
+            metrics.application(request.productCode(), e.getFailure().name());
             throw toBusiness(e);
         }
+        metrics.application(request.productCode(),
+                received.replayed() ? BusinessMetrics.REPLAYED : BusinessMetrics.RECEIVED);
         saveOnce(userId, received.applicationId(), request.productCode(), request.simulationId(), traceId);
         if (!received.replayed()) {
             auditService.logActivity(userId, "LOAN_APPLICATION", traceId);

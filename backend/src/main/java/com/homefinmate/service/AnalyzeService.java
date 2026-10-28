@@ -8,6 +8,7 @@ import com.homefinmate.dto.loan.LoanCalculationResponse;
 import com.homefinmate.dto.policy.PolicyRecommendationResponse;
 import com.homefinmate.dto.risk.RiskEvaluationResponse;
 import com.homefinmate.integration.RiskWatchClient;
+import com.homefinmate.metrics.BusinessMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class AnalyzeService {
         private final RiskWatchClient riskWatchClient;
         private final AnalysisService analysisService;
         private final AnalyzeResultSaver analyzeResultSaver;
+        private final BusinessMetrics metrics;
 
         // userId: 로그인 필터가 확인한 사용자 id (위험 평가 요청과 저장에 사용, #14)
         public AnalyzeResponse analyze(AnalyzeRequest request, Long userId) {
@@ -45,6 +47,8 @@ public class AnalyzeService {
                 RiskEvaluationResponse riskResult = riskPlan.request() != null
                                 ? riskWatchClient.evaluateRisk(riskPlan.request())
                                 : RiskEvaluationResponse.notEvaluated(riskPlan.skipReason(), traceId);
+                // 업무 지표: RiskWatch 결과 (판정 / 응답 없음 / 입력 모자람)
+                metrics.riskEvaluation(riskResult.getStatus());
 
                 // ④ 지역 분석 (지역이 있을 때만, 실패해도 fallback)
                 RegionAnalysisResponse regionResult = null;
