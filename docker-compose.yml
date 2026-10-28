@@ -26,6 +26,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      # 처음 띄울 때 DB 초기화 시간 (이 동안 실패는 retries에 세지 않음, 여러 컨테이너를 함께 띄우면 50초를 넘김 #99)
+      start_period: 60s
        
   # Spring Boot 백엔드 (8100)
   backend:
