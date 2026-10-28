@@ -251,7 +251,7 @@ class AnalyzeServiceTest {
         }
     }
 
-    // [추천 주석] 업무 지표: RiskWatch 결과마다 한 번 기록 (판정 / 응답 없음 / 부르지 않음)
+    // 업무 지표: RiskWatch 결과마다 한 번 기록 (판정 / 응답 없음 / 부르지 않음)
     @Test
     @DisplayName("[TC-OBS-201] 통합 분석의 RiskWatch 결과: 판정 / 응답 없음 / 입력 모자람(부르지 않음) → 지표 EVALUATED / UNAVAILABLE / NOT_EVALUATED")
     void recordsRiskWatchResultMetric() {
