@@ -1,0 +1,11 @@
+# FinSight 대시보드 자동 등록 (lgtm 컨테이너의 Grafana가 시작할 때 읽음, 화면에서 고친 내용은 다시 시작하면 파일 내용으로 돌아감)
+apiVersion: 1
+
+providers:
+  - name: FinSight
+    folder: FinSight
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /otel-lgtm/finsight-dashboards

@@ -10,6 +10,7 @@ import com.homefinmate.dto.policy.PolicyRecommendationResponse;
 import com.homefinmate.dto.risk.RiskEvaluationRequest;
 import com.homefinmate.dto.risk.RiskEvaluationResponse;
 import com.homefinmate.integration.RiskWatchClient;
+import com.homefinmate.metrics.BusinessMetrics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,8 @@ class AnalyzeServiceTest {
     AnalysisService analysisService;
     @Mock
     AnalyzeResultSaver analyzeResultSaver;
+    @Mock
+    BusinessMetrics metrics;
     @InjectMocks
     AnalyzeService analyzeService;
 
@@ -246,5 +249,27 @@ class AnalyzeServiceTest {
             assertThat(res.getRisk().getStatus()).as(c.getKey()).isEqualTo(RiskEvaluationResponse.Status.NOT_EVALUATED);
             assertThat(res.getRisk().getRecommendation()).as(c.getKey()).contains("범위를 벗어나", c.getKey());
         }
+    }
+
+    // [추천 주석] 업무 지표: RiskWatch 결과마다 한 번 기록 (판정 / 응답 없음 / 부르지 않음)
+    @Test
+    @DisplayName("[TC-OBS-201] 통합 분석의 RiskWatch 결과: 판정 / 응답 없음 / 입력 모자람(부르지 않음) → 지표 EVALUATED / UNAVAILABLE / NOT_EVALUATED")
+    void recordsRiskWatchResultMetric() {
+        when(riskWatchClient.evaluateRisk(any())).thenReturn(RiskEvaluationResponse.builder()
+                .status(RiskEvaluationResponse.Status.EVALUATED).available(true).build());
+        analyzeService.analyze(request("부산"), 7L);
+        verify(metrics).riskEvaluation(RiskEvaluationResponse.Status.EVALUATED);
+
+        when(riskWatchClient.evaluateRisk(any())).thenReturn(RiskEvaluationResponse.builder()
+                .status(RiskEvaluationResponse.Status.UNAVAILABLE).available(false).build());
+        analyzeService.analyze(request("부산"), 7L);
+        verify(metrics).riskEvaluation(RiskEvaluationResponse.Status.UNAVAILABLE);
+
+        AnalyzeRequest missing = request("부산");
+        missing.setDualIncome(null);
+        analyzeService.analyze(missing, 7L);
+        verify(metrics).riskEvaluation(RiskEvaluationResponse.Status.NOT_EVALUATED);
+        verify(riskWatchClient, times(2)).evaluateRisk(any());
+        verifyNoMoreInteractions(metrics);
     }
 }

@@ -8,6 +8,8 @@ import com.homefinmate.dto.policy.PolicyProduct;
 import com.homefinmate.dto.policy.PolicyProduct.Eligibility;
 import com.homefinmate.dto.policy.PolicyRecommendationResponse;
 import com.homefinmate.integration.FinFlowClient;
+import com.homefinmate.integration.FinFlowClient.FinFlowException;
+import com.homefinmate.metrics.BusinessMetrics;
 import com.homefinmate.repository.LoanSimulationRepository;
 import com.homefinmate.repository.UserApplicationRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +29,10 @@ import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 // 신청 전 서버 확인: 상품 판정 다시 하기, 빠진 입력·범위 (FinFlow를 부르지 않는 경우)
@@ -49,6 +54,8 @@ class LoanApplicationServiceTest {
     LoanSimulationRepository simulationRepository;
     @Mock
     AuditService auditService;
+    @Mock
+    BusinessMetrics metrics;
     @InjectMocks
     LoanApplicationService service;
 
@@ -116,12 +123,48 @@ class LoanApplicationServiceTest {
                 "dualIncome");
 
         List<Consumer<AnalyzeRequest>> outside = List.of(
-                r -> r.setTermMonths(11), r -> r.setLoanAmount(new BigDecimal("300000000.5")), r -> r.setChildCount(21));
+                r -> r.setTermMonths(11), r -> r.setLoanAmount(new BigDecimal("300000000.5")),
+                r -> r.setChildCount(21));
         List<String> names = List.of("termMonths", "loanAmount", "childCount");
         for (int i = 0; i < outside.size(); i++) {
             AnalyzeRequest r = analysis();
             outside.get(i).accept(r);
             assertBadRequest(new ApplyRequest("BOGEUMJARI", null, r), "out of range", names.get(i));
         }
+    }
+
+    private static FinFlowException failure(FinFlowClient.Failure kind) {
+        FinFlowException e = mock(FinFlowException.class);
+        when(e.getFailure()).thenReturn(kind);
+        return e;
+    }
+
+    // 업무 지표: FinFlow를 부른 신청만 결과별로 기록 (서버 확인에서 막힌 400은 기록 없음)
+    @Test
+    @DisplayName("[TC-OBS-202] 신청의 FinFlow 결과: 접수 / 같은 키 재전송 / 진행 중(409) / 응답 없음 → 지표 RECEIVED / REPLAYED / CONFLICT / UNAVAILABLE, 400은 기록 없음")
+    void recordsApplicationResultMetric() {
+        ApplyRequest request = new ApplyRequest("BOGEUMJARI", null, analysis());
+        // 예외 mock은 아래 when(...) 사슬 밖에서 먼저 만듦 (사슬 안에서 다른 mock을 설정하면 Mockito 오류)
+        FinFlowException conflict = failure(FinFlowClient.Failure.CONFLICT);
+        FinFlowException unavailable = failure(FinFlowClient.Failure.UNAVAILABLE);
+        when(finFlowClient.receive(any(), any(), any()))
+                .thenReturn(new FinFlowClient.Received("app-1", "RECEIVED", null, false))
+                .thenReturn(new FinFlowClient.Received("app-1", "RECEIVED", null, true))
+                .thenThrow(conflict)
+                .thenThrow(unavailable);
+
+        service.apply(request, KEY, 7L);
+        service.apply(request, KEY, 7L);
+        assertThatThrownBy(() -> service.apply(request, KEY, 7L)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> service.apply(request, KEY, 7L)).isInstanceOf(BusinessException.class);
+        verify(metrics).application("BOGEUMJARI", BusinessMetrics.RECEIVED);
+        verify(metrics).application("BOGEUMJARI", BusinessMetrics.REPLAYED);
+        verify(metrics).application("BOGEUMJARI", "CONFLICT");
+        verify(metrics).application("BOGEUMJARI", "UNAVAILABLE");
+
+        // 서버 확인에서 막힘 (FinFlow를 부르지 않음)
+        policy(PolicyProduct.Eligibility.NOT_ELIGIBLE);
+        assertThatThrownBy(() -> service.apply(request, KEY, 7L)).isInstanceOf(BusinessException.class);
+        verifyNoMoreInteractions(metrics);
     }
 }

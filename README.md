@@ -197,6 +197,18 @@ docker compose -f docker-compose.yml -f observability/docker-compose.observabili
 
 - **hfm 번호로 추적 찾기:** Explore → Tempo → TraceQL `{span.hfm.trace_id="hfm-…"}`. 백엔드 요청, DB 쿼리, RiskWatch 재시도, Python 요청이 한 추적에 보입니다.
 - **hfm 번호로 로그 찾기:** Explore → Loki → `{service_name="homefin-backend"} | traceId="hfm-…"`. 로그 줄에서 OTel 추적으로 바로 이동할 수 있습니다.
+- **대시보드:** Dashboards → FinSight → "FinSight 서비스". 서비스별 요청 수·5xx 비율·응답 시간 p95·외부 호출 시간과 업무 지표(RiskWatch 결과, 신청 결과, FinFlow 상태 변화, RiskWatch 판정)를 봅니다. [`observability/grafana/`](observability/grafana/)에서 자동 등록되고, 화면에서 고친 내용은 다시 시작하면 파일 내용으로 돌아갑니다.
+- **알림:** Alerting → Alert rules → 폴더 FinSight. 밖으로 보내지 않고 Grafana 화면에서만 봅니다.
+
+| 알림                                    | 조건                                                         |
+| --------------------------------------- | ------------------------------------------------------------ |
+| 서비스 지표 끊김                        | 최근 30분 안에 보냈던 서비스의 지표가 3분 넘게 오지 않음     |
+| 5xx 비율 높음                           | 서비스별 5xx 비율 5% 초과가 5분 계속                         |
+| 응답 시간 p95 느림                      | 상태 확인 요청을 뺀 p95가 1초 초과로 5분 계속                |
+| RiskWatch 평가 불가 많음 (HomeFin)      | 통합 분석에서 부른 평가 중 평가 불가가 5분 창 20% 초과       |
+| RiskWatch 평가 불가 (FinFlow 심사 시작) | 10분 안에 심사 시작 때 평가 불가 1건 이상                    |
+| 신청 접수 실패 (FinFlow 응답 없음)      | 10분 안에 HomeFin 신청이 FinFlow 응답 없음으로 실패 1건 이상 |
+
 - 관측 없이 다시 실행할 때는 `docker compose up -d --build`로 기본 이미지로 돌아옵니다(관측 이미지는 `…-otel` 이름이라 섞이지 않음).
 
 ### 5. 세 서비스 함께 실행 (선택)
@@ -225,6 +237,7 @@ docker compose -f docker-compose.yml -f full/docker-compose.full.yml up -d --bui
 - 세 서비스는 같은 compose 네트워크에서 서비스 이름(`riskwatch:8120`)으로 서로 부릅니다. 따로 띄울 때 쓰던 `host.docker.internal`은 쓰지 않습니다.
 - FinFlow·RiskWatch를 각자 저장소에서 따로 띄운 상태면 포트(8110·8120)가 겹치므로 먼저 끕니다.
 - 세 저장소가 필요해서 CI에서는 돌리지 않습니다 ([integration.md](docs/test-cases/integration.md) TC-FULL).
+- 처음 띄울 때 컨테이너가 많아(관측까지 겹치면 9개) 느린 PC에서는 `dependency failed to start: … is unhealthy`로 멈출 수 있습니다. 같은 명령을 한 번 더 실행하면 이미 초기화된 컨테이너부터 이어서 뜹니다 (MySQL은 처음 60초 동안의 실패를 세지 않음, known-issues #99).
 
 **세 서비스 + 관측:** 네 파일을 이 순서로 겹치면 FinFlow·RiskWatch도 OTel 에이전트 이미지(각 저장소 Dockerfile의 `otel` 단계)로 바뀌어 같은 Grafana에 보냅니다.
 

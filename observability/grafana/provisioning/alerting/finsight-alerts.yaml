@@ -1,0 +1,184 @@
+# FinSight 알림 규칙 자동 등록 (Grafana 알림, 폴더 FinSight). 알림은 Grafana 알림 화면에서만 봄 (밖으로 보내지 않음)
+# - 1분마다 평가, "for" 동안 계속 조건이 맞으면 Firing
+# - 쿼리 결과가 없으면(서비스를 띄우지 않음, 해당 요청 없음) 정상으로 봄 (noDataState: OK)
+# - 지표는 관측 compose에서 15초마다 보냄 (OTEL_METRIC_EXPORT_INTERVAL)
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: finsight-services
+    folder: FinSight
+    interval: 1m
+    rules:
+      # 지표가 3분 넘게 오지 않음 (최근 30분 안에 보냈던 서비스만, 컨테이너 멈춤·에이전트 전송 실패)
+      - uid: finsight-service-silent
+        title: 서비스 지표 끊김
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: time() - max by (service_name) (max_over_time(timestamp(target_info{service_name=~"homefin-backend|homefin-python|finflow|riskwatch"})[30m:15s]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [180] }
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $$labels.service_name }} 지표가 3분 넘게 오지 않음"
+          description: 컨테이너가 멈췄거나 OTel 에이전트가 지표를 보내지 못함. docker compose ps와 서비스 로그를 확인
+
+      # 서버 오류(5xx) 비율 5% 초과 (5분 창)
+      - uid: finsight-http-5xx
+        title: 5xx 비율 높음
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum by (service_name) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])) / sum by (service_name) (rate(http_server_request_duration_seconds_count[5m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $$labels.service_name }} 5xx 비율 5% 초과"
+          description: Tempo에서 status=error인 요청 span, Loki에서 ERROR 로그를 확인
+
+      # 응답 시간 p95 1초 초과 (상태 확인 요청 제외, 5분 창)
+      - uid: finsight-http-p95
+        title: 응답 시간 p95 느림
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: histogram_quantile(0.95, sum by (service_name, le) (rate(http_server_request_duration_seconds_bucket{http_route!~"/actuator/health|/health"}[5m])))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [1] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $$labels.service_name }} 응답 시간 p95 1초 초과"
+          description: Tempo에서 오래 걸린 추적을 열어 어느 span(DB, 외부 호출)이 느린지 확인
+
+  - orgId: 1
+    name: finsight-business
+    folder: FinSight
+    interval: 1m
+    rules:
+      # HomeFin 통합 분석에서 RiskWatch 평가 불가가 20% 초과 (부른 평가 기준, 5분 창)
+      - uid: hfm-riskwatch-unavailable
+        title: RiskWatch 평가 불가 많음 (HomeFin)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(hfm_riskwatch_evaluations_total{status="UNAVAILABLE"}[5m])) / sum(increase(hfm_riskwatch_evaluations_total{status=~"EVALUATED|UNAVAILABLE"}[5m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.2] }
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: HomeFin 통합 분석의 RiskWatch 평가 불가 20% 초과
+          description: 사용자는 심사 판정 없이 결과를 받는 중. RiskWatch 상태와 HomeFin 로그 "RiskWatch attempt"를 확인
+
+      # FinFlow 심사 시작 때 RiskWatch 평가 불가 (10분 안 1건 이상)
+      - uid: finflow-riskwatch-unavailable
+        title: RiskWatch 평가 불가 (FinFlow 심사 시작)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(finflow_riskwatch_evaluations_total{status="UNAVAILABLE"}[10m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels: { severity: warning }
+        annotations:
+          summary: FinFlow 심사 시작 때 RiskWatch 평가 불가 발생
+          description: 해당 신청은 판정 없이 심사 중(risk UNAVAILABLE). 운영자 상세 화면에서 신청을 확인
+
+      # HomeFin 신청이 FinFlow 응답 없음으로 실패 (10분 안 1건 이상)
+      - uid: hfm-application-finflow-unavailable
+        title: 신청 접수 실패 (FinFlow 응답 없음)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: sum(increase(hfm_loan_applications_total{outcome="UNAVAILABLE"}[10m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels: { severity: critical }
+        annotations:
+          summary: HomeFin 신청이 FinFlow 응답 없음으로 실패
+          description: 사용자는 503을 받음. FinFlow 상태와 HomeFin 로그 "FinFlow receive attempt"를 확인
