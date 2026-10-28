@@ -1,6 +1,7 @@
 # 관측(OpenTelemetry) compose 덮어쓰기 파일 — 필요할 때만 함께 띄움 (기본 실행에는 영향 없음)
 # 저장소 루트에서: docker compose -f docker-compose.yml -f observability/docker-compose.observability.yml up -d --build
 # - lgtm: Grafana + Tempo(추적) + Loki(로그) + Prometheus(지표) + OTel Collector를 컨테이너 하나로 (http://localhost:3000)
+#   대시보드 "FinSight 서비스"와 알림 규칙(폴더 FinSight)을 grafana/에서 자동 등록
 # - backend: OTel Java 에이전트로 요청·DB·외부 호출 span, JVM·HTTP 지표, 로그(MDC traceId 포함)를 보냄
 # - python-service: opentelemetry-instrument로 FastAPI 요청 span (백엔드 span의 자식으로 이어짐)
 services:
@@ -10,6 +11,11 @@ services:
     # Grafana 화면은 이 PC에서만 (OTLP 수신 4317·4318은 compose 네트워크 안에서만)
     ports:
       - "127.0.0.1:3000:3000"
+    # FinSight 대시보드·알림 규칙 자동 등록 (observability/grafana/)
+    volumes:
+      - ./observability/grafana/dashboards:/otel-lgtm/finsight-dashboards:ro
+      - ./observability/grafana/provisioning/dashboards/finsight.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/finsight.yaml:ro
+      - ./observability/grafana/provisioning/alerting/finsight-alerts.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/finsight-alerts.yaml:ro
 
   backend:
     build:
@@ -22,6 +28,8 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: otlp
+      # 지표 전송 간격 15초 (기본 60초, 대시보드·알림이 빨리 반영되게)
+      OTEL_METRIC_EXPORT_INTERVAL: "15000"
       OTEL_LOGS_EXPORTER: otlp
       OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_CAPTURE_MDC_ATTRIBUTES: traceId
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local
@@ -39,6 +47,8 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: otlp
+      # 지표 전송 간격 15초 (기본 60초, 대시보드·알림이 빨리 반영되게)
+      OTEL_METRIC_EXPORT_INTERVAL: "15000"
       OTEL_LOGS_EXPORTER: otlp
       OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local
